@@ -14,6 +14,7 @@ final class NotchWindowController {
     private let panel: NotchWindow
     private let viewModel: NotchViewModel
     private var screenChangeObserver: NSObjectProtocol?
+    var notchExpansionEnabled: Bool = true
 
     init(viewModel: NotchViewModel) {
         self.viewModel = viewModel
@@ -99,7 +100,11 @@ final class NotchWindowController {
         case .hovering:
             return CGSize(width: notchWidth + 60, height: baseHeight + 60)
         case .reminding:
-            return CGSize(width: 380, height: 160)
+            if notchExpansionEnabled {
+                return CGSize(width: 380, height: 160)
+            } else {
+                return CGSize(width: notchWidth + 60, height: baseHeight + 60)
+            }
         }
     }
 

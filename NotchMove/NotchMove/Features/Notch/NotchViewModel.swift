@@ -19,8 +19,10 @@ final class NotchViewModel {
     private(set) var state: State = .dormant
     private(set) var reminderStartDate: Date = .distantPast
 
-    let reminderDuration: TimeInterval = 30
+    var reminderDuration: TimeInterval = 60
     var topInset: CGFloat = 38
+    var autoDismissEnabled: Bool = true
+    var hoverPreviewEnabled: Bool = true
 
     /// Called when the reminder cycle completes (dismissed → dormant).
     /// Used by AppDelegate to resume the ReminderScheduler.
@@ -33,7 +35,7 @@ final class NotchViewModel {
     }
 
     func hover() {
-        guard state == .dormant else { return }
+        guard state == .dormant, hoverPreviewEnabled else { return }
         state = .hovering
     }
 
@@ -47,10 +49,13 @@ final class NotchViewModel {
         reminderStartDate = .now
         state = .reminding
 
-        autoDismissTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(30))
-            guard !Task.isCancelled else { return }
-            self?.dismiss()
+        if autoDismissEnabled {
+            autoDismissTask = Task { [weak self] in
+                guard let duration = self?.reminderDuration else { return }
+                try? await Task.sleep(for: .seconds(duration))
+                guard !Task.isCancelled else { return }
+                self?.dismiss()
+            }
         }
     }
 
