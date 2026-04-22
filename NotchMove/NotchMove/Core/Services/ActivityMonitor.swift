@@ -11,8 +11,14 @@ import Foundation
 /// Polls system-wide idle time via CGEventSource.
 /// No Accessibility permission required — reads the combined session state directly.
 @Observable
-final class ActivityMonitor {
+final class ActivityMonitor: IdleTimeProviding {
     private(set) var idleSeconds: TimeInterval = 0
+
+    enum ActivityState: Equatable {
+        case active
+        case idleBelowResetThreshold
+        case idlePastResetThreshold
+    }
 
     /// True when the user has been active within the idle threshold (default 3 min).
     var isActivelyUsing: Bool {
@@ -47,5 +53,21 @@ final class ActivityMonitor {
             .combinedSessionState,
             eventType: Self.anyInputEvent
         )
+    }
+
+    func activityState(for resetThreshold: TimeInterval) -> ActivityState {
+        if isActivelyUsing {
+            return .active
+        }
+
+        if idleSeconds >= resetThreshold {
+            return .idlePastResetThreshold
+        }
+
+        return .idleBelowResetThreshold
+    }
+
+    func setIdleSecondsForTesting(_ idleSeconds: TimeInterval) {
+        self.idleSeconds = idleSeconds
     }
 }

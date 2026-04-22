@@ -12,27 +12,53 @@ import SwiftUI
 final class NotchWindowController {
     private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "notch-window")
     private let panel: NotchWindow
-    private let viewModel: NotchViewModel
+    private let reminderEngine: ReminderEngine
+    private let languageManager: LanguageManager
+    private let preferencesStore: PreferencesStore
+    private let screenProvider: ScreenProviding
+    private let placementService: ScreenPlacementService
     private var screenChangeObserver: NSObjectProtocol?
-    var notchExpansionEnabled: Bool = true
+    private var languageObserver: NSObjectProtocol?
 
-    init(viewModel: NotchViewModel) {
-        self.viewModel = viewModel
+    init(
+        reminderEngine: ReminderEngine,
+        languageManager: LanguageManager,
+        preferencesStore: PreferencesStore,
+        screenProvider: ScreenProviding = MainScreenProvider(),
+        placementService: ScreenPlacementService = ScreenPlacementService()
+    ) {
+        self.reminderEngine = reminderEngine
+        self.languageManager = languageManager
+        self.preferencesStore = preferencesStore
+        self.screenProvider = screenProvider
+        self.placementService = placementService
         panel = NotchWindow()
-        panel.contentView = NSHostingView(rootView: NotchView(viewModel: viewModel))
+        refreshHostingView(topInset: 38)
+
+        languageObserver = NotificationCenter.default.addObserver(
+            forName: LanguageManager.didChangeNotification,
+            object: languageManager,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.applyCurrentPlacement(animated: false)
+            }
+        }
+    }
+
+    private func refreshHostingView(topInset: CGFloat) {
+        panel.contentView = NSHostingView(
+            rootView: NotchView(reminderEngine: reminderEngine, topInset: topInset)
+                .environment(\.locale, languageManager.locale)
+        )
     }
 
     func show() {
-        updateTopInset()
-        repositionForCurrentScreen()
+        applyCurrentPlacement(animated: false)
         panel.orderFrontRegardless()
         installScreenChangeObserver()
-        observeState()
-    }
-
-    private func updateTopInset() {
-        guard let screen = NSScreen.main else { return }
-        viewModel.topInset = screen.notchFrame?.height ?? screen.menuBarHeight
+        observeReminderState()
+        observePreferences()
     }
 
     func hide() {
@@ -43,87 +69,61 @@ final class NotchWindowController {
         }
     }
 
-    func triggerReminder() {
-        viewModel.triggerReminder()
-    }
-
     // MARK: - State Observation
 
-    private func observeState() {
+    private func observeReminderState() {
         withObservationTracking {
-            _ = viewModel.state
+            _ = reminderEngine.state.presentation
         } onChange: {
             Task { @MainActor [weak self] in
-                self?.handleStateChange()
-                self?.observeState()
+                self?.applyCurrentPlacement(animated: true)
+                self?.observeReminderState()
             }
         }
     }
 
-    private func handleStateChange() {
-        guard let screen = NSScreen.main else { return }
-        let target = frameForState(viewModel.state, on: screen)
-        logger.notice("State → \(String(describing: self.viewModel.state), privacy: .public), frame → \(NSStringFromRect(target), privacy: .public)")
-
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.35
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.175, 0.885, 0.32, 1.275)
-            panel.animator().setFrame(target, display: true)
-        }
-    }
-
-    // MARK: - Frame Calculation
-
-    private func frameForState(_ state: NotchViewModel.State, on screen: NSScreen) -> CGRect {
-        let centerX: CGFloat
-        let topY = screen.frame.maxY
-
-        if let notch = screen.notchFrame {
-            centerX = notch.midX
-        } else {
-            centerX = screen.frame.midX
-        }
-
-        let size = sizeForState(state, on: screen)
-        let x = centerX - size.width / 2
-        let y = topY - size.height
-        return CGRect(x: x, y: y, width: size.width, height: size.height)
-    }
-
-    private func sizeForState(_ state: NotchViewModel.State, on screen: NSScreen) -> CGSize {
-        let notchWidth = screen.notchFrame?.width ?? 200
-        let baseHeight = screen.notchFrame?.height ?? screen.menuBarHeight
-
-        switch state {
-        case .dormant, .dismissed:
-            return CGSize(width: notchWidth + 8, height: baseHeight + 24)
-        case .hovering:
-            return CGSize(width: notchWidth + 60, height: baseHeight + 60)
-        case .reminding:
-            if notchExpansionEnabled {
-                return CGSize(width: 380, height: 160)
-            } else {
-                return CGSize(width: notchWidth + 60, height: baseHeight + 60)
+    private func observePreferences() {
+        withObservationTracking {
+            _ = preferencesStore.preferences.notchExpansionEnabled
+        } onChange: {
+            Task { @MainActor [weak self] in
+                self?.applyCurrentPlacement(animated: true)
+                self?.observePreferences()
             }
         }
     }
 
     // MARK: - Screen Tracking
 
-    private func repositionForCurrentScreen() {
-        guard let screen = NSScreen.main else {
+    private func applyCurrentPlacement(animated: Bool) {
+        guard let screen = screenProvider.currentScreen() else {
             logger.notice("No main screen available")
             return
         }
 
+        let placement = placementService.placement(
+            for: reminderEngine.state.presentation,
+            on: screen,
+            notchExpansionEnabled: preferencesStore.preferences.notchExpansionEnabled
+        )
+        refreshHostingView(topInset: placement.topInset)
+
         logger.notice("""
             Screen: frame=\(NSStringFromRect(screen.frame), privacy: .public) \
-            hasNotch=\(screen.hasNotch) \
-            menuBar=\(screen.menuBarHeight)pt
+            hasNotch=\(screen.notchFrame != nil) \
+            menuBar=\(screen.menuBarHeight)pt \
+            state=\(String(describing: self.reminderEngine.state.presentation), privacy: .public)
             """)
 
-        let target = frameForState(viewModel.state, on: screen)
-        panel.setFrame(target, display: true, animate: false)
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.35
+                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.175, 0.885, 0.32, 1.275)
+                panel.animator().setFrame(placement.frame, display: true)
+            }
+        } else {
+            panel.setFrame(placement.frame, display: true, animate: false)
+        }
     }
 
     private func installScreenChangeObserver() {
@@ -134,7 +134,7 @@ final class NotchWindowController {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.repositionForCurrentScreen()
+                self?.applyCurrentPlacement(animated: false)
             }
         }
     }

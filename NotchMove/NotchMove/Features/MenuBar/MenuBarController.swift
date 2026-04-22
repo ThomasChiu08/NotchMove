@@ -11,15 +11,16 @@ import OSLog
 /// Manages the persistent `NSStatusItem` in the menu bar.
 ///
 /// Always visible regardless of notch presence. On non-notch Macs the
-/// "Remind me now" action still calls `viewModel.triggerReminder()` — the
+/// "Remind me now" action still triggers the overlay — the
 /// `NotchWindowController` already provides centred fallback positioning for
 /// screens without a physical notch.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    private let viewModel: NotchViewModel
-    private let scheduler: ReminderScheduler
-    private let sessionCounter: SessionCounter
+    private let reminderEngine: ReminderEngine
+    private let breakStatsStore: BreakStatsStore
+    private let languageManager: LanguageManager
+    private let preferencesStore: PreferencesStore
     private let onOpenSettings: () -> Void
     private let menu = NSMenu()
     private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "menu-bar")
@@ -28,17 +29,22 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusMenuItem = NSMenuItem()
     private let breakCountMenuItem = NSMenuItem()
     private let pauseMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let soundMenuItem = NSMenuItem(title: "Sound on reminder", action: nil, keyEquivalent: "")
+    private let soundMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let remindNowMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let settingsMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ",")
+    private let quitMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "q")
 
     init(
-        viewModel: NotchViewModel,
-        scheduler: ReminderScheduler,
-        sessionCounter: SessionCounter,
+        reminderEngine: ReminderEngine,
+        breakStatsStore: BreakStatsStore,
+        languageManager: LanguageManager,
+        preferencesStore: PreferencesStore,
         onOpenSettings: @escaping () -> Void
     ) {
-        self.viewModel = viewModel
-        self.scheduler = scheduler
-        self.sessionCounter = sessionCounter
+        self.reminderEngine = reminderEngine
+        self.breakStatsStore = breakStatsStore
+        self.languageManager = languageManager
+        self.preferencesStore = preferencesStore
         self.onOpenSettings = onOpenSettings
         super.init()
         configureStatusButton()
@@ -71,9 +77,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(pauseMenuItem)
 
         // Row 4: Manual trigger
-        let remindNow = NSMenuItem(title: "Remind me now", action: #selector(remindNow), keyEquivalent: "")
-        remindNow.target = self
-        menu.addItem(remindNow)
+        remindNowMenuItem.target = self
+        remindNowMenuItem.action = #selector(remindNow)
+        menu.addItem(remindNowMenuItem)
 
         menu.addItem(.separator())
 
@@ -85,15 +91,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         // Settings
-        let settings = NSMenuItem(title: "Settings\u{2026}", action: #selector(openSettings), keyEquivalent: ",")
-        settings.target = self
-        menu.addItem(settings)
+        settingsMenuItem.target = self
+        settingsMenuItem.action = #selector(openSettings)
+        menu.addItem(settingsMenuItem)
 
         menu.addItem(.separator())
 
         // Quit
-        let quit = NSMenuItem(title: "Quit NotchMove", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        menu.addItem(quit)
+        quitMenuItem.action = #selector(NSApplication.terminate(_:))
+        menu.addItem(quitMenuItem)
+    }
+
+    /// Convenience to fetch a localized string through the LanguageManager.
+    private func L(_ key: String) -> String {
+        languageManager.localizedString(key)
     }
 
     // MARK: - NSMenuDelegate
@@ -107,51 +118,64 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // MARK: - Dynamic refresh
 
     private func refreshDynamicItems() {
-        let remindersActive = scheduler.isEnabled && !scheduler.isPaused
+        breakStatsStore.refresh()
+
+        let remindersActive = !reminderEngine.state.scheduleState.blocksAutomaticReminders &&
+            !reminderEngine.state.manualPause &&
+            !reminderEngine.isReminderPresenting
 
         // Next-reminder label
         if remindersActive {
-            let mins = scheduler.minutesRemaining
-            statusMenuItem.title = mins <= 1 ? "Next reminder: < 1 min" : "Next reminder: \(mins) min"
-        } else if !scheduler.isEnabled {
-            statusMenuItem.title = "Reminders paused"
+            let mins = reminderEngine.minutesRemaining
+            if mins <= 1 {
+                statusMenuItem.title = L("menu.next_reminder_soon")
+            } else {
+                statusMenuItem.title = String(format: L("menu.next_reminder"), "\(mins)")
+            }
+        } else if reminderEngine.isReminderPresenting {
+            statusMenuItem.title = L("menu.reminder_active")
         } else {
-            // isPaused == true: a reminder is currently showing
-            statusMenuItem.title = "Stand-up reminder active"
+            statusMenuItem.title = L("menu.reminders_paused")
         }
 
         // Break count label
-        let today = sessionCounter.todayBreaks
-        let week = sessionCounter.weekBreaks
+        let today = breakStatsStore.todayBreaks
+        let week = breakStatsStore.weekBreaks
         switch (today, week) {
         case (0, _):
-            breakCountMenuItem.title = "No breaks yet today"
+            breakCountMenuItem.title = L("menu.no_breaks")
         case (1, _):
-            breakCountMenuItem.title = "1 break today · \(week) this week"
+            breakCountMenuItem.title = String(format: L("menu.one_break_format"), week)
         default:
-            breakCountMenuItem.title = "\(today) breaks today · \(week) this week"
+            breakCountMenuItem.title = String(format: L("menu.breaks_format"), today, week)
         }
 
         // Pause/Resume label
-        pauseMenuItem.title = scheduler.isEnabled ? "Pause reminders" : "Resume reminders"
+        pauseMenuItem.title = reminderEngine.state.manualPause ? L("menu.resume") : L("menu.pause")
 
-        // Sound toggle checkmark
-        soundMenuItem.state = UserDefaults.standard.bool(forKey: "soundEnabled") ? .on : .off
+        // Remind now
+        remindNowMenuItem.title = L("menu.remind_now")
+
+        // Sound toggle
+        soundMenuItem.title = L("menu.sound")
+        soundMenuItem.state = preferencesStore.preferences.soundEnabled ? .on : .off
+
+        // Settings & Quit
+        settingsMenuItem.title = L("menu.settings")
+        quitMenuItem.title = L("menu.quit")
     }
 
     // MARK: - Actions
 
     @objc private func togglePause() {
-        scheduler.isEnabled.toggle()
-        logger.notice("Reminders \(self.scheduler.isEnabled ? "enabled" : "disabled")")
+        let shouldPause = !reminderEngine.state.manualPause
+        reminderEngine.send(.setManualPause(shouldPause))
+        logger.notice("Manual pause \(shouldPause ? "enabled" : "disabled")")
     }
 
     @objc private func remindNow() {
         logger.notice("Manual reminder triggered from menu bar")
-        viewModel.triggerReminder()
-        if UserDefaults.standard.bool(forKey: "soundEnabled") {
-            NSSound(named: "Funk")?.play()
-        }
+        reminderEngine.send(.manualTrigger)
     }
 
     @objc private func openSettings() {
@@ -160,8 +184,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleSound() {
-        let current = UserDefaults.standard.bool(forKey: "soundEnabled")
-        UserDefaults.standard.set(!current, forKey: "soundEnabled")
-        logger.notice("Sound \(!current ? "enabled" : "disabled")")
+        let nextValue = !preferencesStore.preferences.soundEnabled
+        preferencesStore.preferences.soundEnabled = nextValue
+        logger.notice("Sound \(nextValue ? "enabled" : "disabled")")
     }
 }

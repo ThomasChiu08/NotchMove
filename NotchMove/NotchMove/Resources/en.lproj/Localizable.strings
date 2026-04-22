@@ -1,0 +1,71 @@
+/* ─── Sections ─── */
+"section.reminders" = "Reminders";
+"section.schedule" = "Schedule";
+"section.behavior" = "Behavior";
+"section.statistics" = "Statistics";
+"section.about" = "About";
+"section.language" = "Language";
+
+/* ─── Reminders ─── */
+"remind_every" = "Remind me every";
+"minutes_format" = "%d minutes";
+"sit_aware_mode" = "Sit-aware mode";
+"sit_aware_footer_on" = "Resets the timer when you've been idle for 3+ minutes — you probably already stood up.";
+"sit_aware_footer_off" = "Longer intervals reduce interruptions but may allow more continuous sitting.";
+
+/* ─── Schedule ─── */
+"work_hours_only" = "Active during work hours only";
+"schedule_from" = "From";
+"schedule_to" = "To";
+"weekdays_only" = "Weekdays only";
+"schedule_invalid" = "End time should be after start time.";
+"schedule_footer" = "Reminders are paused outside these hours.";
+
+/* ─── Behavior ─── */
+"expand_notch" = "Expand notch on reminder";
+"show_hover_preview" = "Show hover preview";
+"play_sound" = "Play sound on reminder";
+"auto_dismiss" = "Auto-dismiss reminder";
+"dismiss_after" = "Dismiss after";
+"seconds_format" = "%d seconds";
+"behavior_footer" = "Controls how reminders appear and disappear.";
+
+/* ─── Statistics ─── */
+"breaks_today" = "Breaks today";
+"breaks_this_week" = "Breaks this week";
+"reset_statistics" = "Reset Statistics";
+"reset_confirm" = "Reset all statistics?";
+"reset_action" = "Reset";
+"cancel" = "Cancel";
+"restore_defaults" = "Restore Defaults";
+
+/* ─── About ─── */
+"version" = "Version";
+"app_description" = "NotchMove helps you break long sitting periods with elegant notch reminders. Stand up, stretch, move.";
+"current_language" = "Language";
+
+/* ─── Language ─── */
+"language_description" = "Changes take effect immediately. Some strings may require app restart.";
+
+/* ─── Notch ─── */
+"next_reminder_soon" = "Next reminder soon";
+"time_to_stretch" = "Time to stretch!";
+"stand_and_move" = "Stand & Move";
+
+/* ─── Menu Bar ─── */
+"menu.next_reminder" = "Next reminder: %@ min";
+"menu.next_reminder_soon" = "Next reminder: < 1 min";
+"menu.reminders_paused" = "Reminders paused";
+"menu.reminder_active" = "Stand-up reminder active";
+"menu.no_breaks" = "No breaks yet today";
+"menu.breaks_format" = "%d breaks today · %d this week";
+"menu.one_break_format" = "1 break today · %d this week";
+"menu.pause" = "Pause reminders";
+"menu.resume" = "Resume reminders";
+"menu.remind_now" = "Remind me now";
+"menu.sound" = "Sound on reminder";
+"menu.settings" = "Settings…";
+"menu.quit" = "Quit NotchMove";
+
+/* ─── Settings Window ─── */
+"settings.title" = "NotchMove Settings";

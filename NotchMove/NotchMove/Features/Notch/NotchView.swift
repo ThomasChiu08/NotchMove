@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct NotchView: View {
-    let viewModel: NotchViewModel
+    let reminderEngine: ReminderEngine
+    let topInset: CGFloat
 
     var body: some View {
         ZStack {
@@ -19,32 +20,28 @@ struct NotchView: View {
                 .clipped()
         }
         .onHover { hovering in
-            if hovering {
-                viewModel.hover()
-            } else {
-                viewModel.unhover()
-            }
+            reminderEngine.send(.hoverChanged(hovering))
         }
-        .animation(.spring(duration: 0.35), value: viewModel.state)
+        .animation(.spring(duration: 0.35), value: reminderEngine.state.presentation)
     }
 
     private var cornerRadius: CGFloat {
-        switch viewModel.state {
-        case .dormant, .dismissed: 12
-        case .hovering: 16
-        case .reminding: 18
+        switch reminderEngine.state.presentation {
+        case .hidden, .dismissAnimating: 12
+        case .hoverPreview: 16
+        case .presenting: 18
         }
     }
 
     @ViewBuilder
     private var content: some View {
-        switch viewModel.state {
-        case .dormant, .dismissed:
+        switch reminderEngine.state.presentation {
+        case .hidden, .dismissAnimating:
             EmptyView()
-        case .hovering:
+        case .hoverPreview:
             hoverPreview
                 .transition(.opacity)
-        case .reminding:
+        case .presenting:
             reminderContent
                 .transition(.opacity)
         }
@@ -54,17 +51,16 @@ struct NotchView: View {
         HStack(spacing: 8) {
             Image(systemName: "figure.stand")
                 .foregroundStyle(.white.opacity(0.5))
-            Text("Next reminder soon")
+            Text("next_reminder_soon")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.6))
         }
-        .padding(.top, viewModel.topInset + 4)
+        .padding(.top, topInset + 4)
     }
 
     private var reminderContent: some View {
         TimelineView(.animation) { context in
-            let elapsed = context.date.timeIntervalSince(viewModel.reminderStartDate)
-            let progress = min(max(elapsed / viewModel.reminderDuration, 0), 1)
+            let progress = reminderProgress(at: context.date)
 
             HStack(spacing: 16) {
                 progressRing(progress: progress)
@@ -73,34 +69,27 @@ struct NotchView: View {
                 dismissButton
             }
             .padding(.horizontal, 20)
-            .padding(.top, viewModel.topInset + 4)
+            .padding(.top, topInset + 4)
         }
     }
 
     private func progressRing(progress: Double) -> some View {
-        ZStack {
-            Circle()
-                .stroke(.white.opacity(0.15), lineWidth: 3)
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(.green, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-
-            Image(systemName: stretchSymbol(for: progress))
-                .font(.title3)
-                .foregroundStyle(.white)
-                .contentTransition(.symbolEffect(.replace))
-        }
-        .frame(width: 44, height: 44)
+        ProgressRingView(progress: progress, size: 48, lineWidth: 4)
+            .overlay {
+                Image(systemName: stretchSymbol(for: progress))
+                    .font(.title3)
+                    .foregroundStyle(.white)
+                    .contentTransition(.symbolEffect(.replace))
+            }
     }
 
     private func labels(progress: Double) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("Time to stretch!")
+            Text("time_to_stretch")
                 .font(.system(.subheadline, weight: .semibold))
                 .foregroundStyle(.white)
 
-            let remaining = Int(ceil(viewModel.reminderDuration * (1 - progress)))
+            let remaining = Int(ceil(reminderEngine.reminderDuration * (1 - clampedProgress(progress))))
             Text("\(remaining)s")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.6))
@@ -109,8 +98,10 @@ struct NotchView: View {
     }
 
     private var dismissButton: some View {
-        Button("Stand & Move") {
-            viewModel.dismiss()
+        Button {
+            reminderEngine.send(.completeBreak)
+        } label: {
+            Text("stand_and_move")
         }
         .controlSize(.small)
         .buttonStyle(.borderedProminent)
@@ -118,18 +109,49 @@ struct NotchView: View {
     }
 
     private func stretchSymbol(for progress: Double) -> String {
-        switch progress {
+        switch clampedProgress(progress) {
         case ..<0.33: "figure.stand"
         case 0.33..<0.66: "figure.flexibility"
         default: "figure.walk"
         }
     }
+
+    private func reminderProgress(at date: Date) -> Double {
+        guard reminderEngine.reminderDuration > 0 else { return 0 }
+
+        let elapsed = date.timeIntervalSince(reminderEngine.state.reminderStartDate)
+        return clampedProgress(elapsed / reminderEngine.reminderDuration)
+    }
+
+    private func clampedProgress(_ progress: Double) -> Double {
+        let safeProgress = progress.isFinite ? progress : 0
+        return min(max(safeProgress, 0), 1)
+    }
+}
+
+@MainActor
+private final class PreviewIdleProvider: IdleTimeProviding {
+    var idleSeconds: TimeInterval = 0
+}
+
+@MainActor
+private struct PreviewSoundPlayer: SoundPlaying {
+    func playReminderSound() {}
 }
 
 #Preview {
-    let vm = NotchViewModel()
-    NotchView(viewModel: vm)
+    let settings = AppSettings()
+    let preferencesStore = PreferencesStore(settings: settings)
+    let breakStatsStore = BreakStatsStore(defaults: settings.defaults)
+    let engine = ReminderEngine(
+        activityMonitor: PreviewIdleProvider(),
+        preferencesStore: preferencesStore,
+        soundPlayer: PreviewSoundPlayer(),
+        breakStatsStore: breakStatsStore
+    )
+
+    NotchView(reminderEngine: engine, topInset: 38)
         .frame(width: 380, height: 160)
         .background(.gray)
-        .onAppear { vm.triggerReminder() }
+        .onAppear { engine.send(.manualTrigger) }
 }

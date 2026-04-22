@@ -1,0 +1,71 @@
+/* ─── Sections ─── */
+"section.reminders" = "提醒";
+"section.schedule" = "时间表";
+"section.behavior" = "行为";
+"section.statistics" = "统计";
+"section.about" = "关于";
+"section.language" = "语言";
+
+/* ─── Reminders ─── */
+"remind_every" = "提醒间隔";
+"minutes_format" = "%d 分钟";
+"sit_aware_mode" = "久坐感知模式";
+"sit_aware_footer_on" = "空闲 3 分钟以上自动重置计时器——你可能已经站起来了。";
+"sit_aware_footer_off" = "较长的间隔会减少打扰，但可能导致久坐时间过长。";
+
+/* ─── Schedule ─── */
+"work_hours_only" = "仅在工作时间提醒";
+"schedule_from" = "开始";
+"schedule_to" = "结束";
+"weekdays_only" = "仅工作日";
+"schedule_invalid" = "结束时间应晚于开始时间。";
+"schedule_footer" = "在设定时间之外暂停提醒。";
+
+/* ─── Behavior ─── */
+"expand_notch" = "提醒时展开刘海";
+"show_hover_preview" = "悬停预览";
+"play_sound" = "提醒时播放声音";
+"auto_dismiss" = "自动关闭提醒";
+"dismiss_after" = "关闭延迟";
+"seconds_format" = "%d 秒";
+"behavior_footer" = "控制提醒的显示和消失方式。";
+
+/* ─── Statistics ─── */
+"breaks_today" = "今日休息次数";
+"breaks_this_week" = "本周休息次数";
+"reset_statistics" = "重置统计";
+"reset_confirm" = "重置所有统计数据？";
+"reset_action" = "重置";
+"cancel" = "取消";
+"restore_defaults" = "恢复默认设置";
+
+/* ─── About ─── */
+"version" = "版本";
+"app_description" = "NotchMove 通过优雅的刘海提醒帮你打断久坐。站起来，伸展，活动一下。";
+"current_language" = "语言";
+
+/* ─── Language ─── */
+"language_description" = "更改立即生效。部分文字可能需要重启应用。";
+
+/* ─── Notch ─── */
+"next_reminder_soon" = "即将提醒";
+"time_to_stretch" = "该活动一下了！";
+"stand_and_move" = "站起来动一动";
+
+/* ─── Menu Bar ─── */
+"menu.next_reminder" = "下次提醒：%@ 分钟";
+"menu.next_reminder_soon" = "下次提醒：不到 1 分钟";
+"menu.reminders_paused" = "提醒已暂停";
+"menu.reminder_active" = "正在提醒站立";
+"menu.no_breaks" = "今天还没有休息";
+"menu.breaks_format" = "今日 %d 次 · 本周 %d 次";
+"menu.one_break_format" = "今日 1 次 · 本周 %d 次";
+"menu.pause" = "暂停提醒";
+"menu.resume" = "恢复提醒";
+"menu.remind_now" = "立即提醒";
+"menu.sound" = "提醒声音";
+"menu.settings" = "设置…";
+"menu.quit" = "退出 NotchMove";
+
+/* ─── Settings Window ─── */
+"settings.title" = "NotchMove 设置";

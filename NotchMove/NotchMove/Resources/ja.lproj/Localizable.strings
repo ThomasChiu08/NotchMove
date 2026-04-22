@@ -1,0 +1,71 @@
+/* ─── Sections ─── */
+"section.reminders" = "リマインダー";
+"section.schedule" = "スケジュール";
+"section.behavior" = "動作設定";
+"section.statistics" = "統計";
+"section.about" = "このアプリについて";
+"section.language" = "言語";
+
+/* ─── Reminders ─── */
+"remind_every" = "リマインド間隔";
+"minutes_format" = "%d 分";
+"sit_aware_mode" = "着席検知モード";
+"sit_aware_footer_on" = "3分以上アイドル状態になるとタイマーをリセットします（すでに立ち上がったと判断）。";
+"sit_aware_footer_off" = "間隔を長くすると中断が減りますが、長時間座り続ける可能性があります。";
+
+/* ─── Schedule ─── */
+"work_hours_only" = "勤務時間のみ有効";
+"schedule_from" = "開始";
+"schedule_to" = "終了";
+"weekdays_only" = "平日のみ";
+"schedule_invalid" = "終了時刻は開始時刻より後にしてください。";
+"schedule_footer" = "設定時間外はリマインダーを停止します。";
+
+/* ─── Behavior ─── */
+"expand_notch" = "リマインド時にノッチを拡張";
+"show_hover_preview" = "ホバープレビューを表示";
+"play_sound" = "リマインド時にサウンドを再生";
+"auto_dismiss" = "リマインダーを自動で閉じる";
+"dismiss_after" = "自動クローズまで";
+"seconds_format" = "%d 秒";
+"behavior_footer" = "リマインダーの表示と消去の設定です。";
+
+/* ─── Statistics ─── */
+"breaks_today" = "今日の休憩回数";
+"breaks_this_week" = "今週の休憩回数";
+"reset_statistics" = "統計をリセット";
+"reset_confirm" = "すべての統計をリセットしますか？";
+"reset_action" = "リセット";
+"cancel" = "キャンセル";
+"restore_defaults" = "デフォルトに戻す";
+
+/* ─── About ─── */
+"version" = "バージョン";
+"app_description" = "NotchMove はエレガントなノッチリマインダーで長時間の着席を防ぎます。立ち上がって、ストレッチして、動きましょう。";
+"current_language" = "言語";
+
+/* ─── Language ─── */
+"language_description" = "変更はすぐに反映されます。一部のテキストはアプリの再起動が必要な場合があります。";
+
+/* ─── Notch ─── */
+"next_reminder_soon" = "まもなくリマインド";
+"time_to_stretch" = "ストレッチの時間です！";
+"stand_and_move" = "立ち上がろう";
+
+/* ─── Menu Bar ─── */
+"menu.next_reminder" = "次のリマインド：%@ 分";
+"menu.next_reminder_soon" = "次のリマインド：1 分以内";
+"menu.reminders_paused" = "リマインダー停止中";
+"menu.reminder_active" = "スタンドアップ中";
+"menu.no_breaks" = "今日はまだ休憩していません";
+"menu.breaks_format" = "今日 %d 回 · 今週 %d 回";
+"menu.one_break_format" = "今日 1 回 · 今週 %d 回";
+"menu.pause" = "リマインダーを停止";
+"menu.resume" = "リマインダーを再開";
+"menu.remind_now" = "今すぐリマインド";
+"menu.sound" = "リマインドサウンド";
+"menu.settings" = "設定…";
+"menu.quit" = "NotchMove を終了";
+
+/* ─── Settings Window ─── */
+"settings.title" = "NotchMove 設定";
