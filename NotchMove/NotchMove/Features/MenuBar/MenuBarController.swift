@@ -19,6 +19,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let reminderEngine: ReminderEngine
     private let breakStatsStore: BreakStatsStore
+    private let dailyScheduleStore: DailyScheduleStore
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
     private let onOpenDashboard: () -> Void
@@ -29,6 +30,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // Dynamic items refreshed in menuWillOpen(_:)
     private let statusMenuItem = NSMenuItem()
     private let breakCountMenuItem = NSMenuItem()
+    private let scheduleMenuItem = NSMenuItem()
     private let pauseMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let soundMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let remindNowMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -39,6 +41,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     init(
         reminderEngine: ReminderEngine,
         breakStatsStore: BreakStatsStore,
+        dailyScheduleStore: DailyScheduleStore,
         languageManager: LanguageManager,
         preferencesStore: PreferencesStore,
         onOpenDashboard: @escaping () -> Void,
@@ -46,6 +49,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     ) {
         self.reminderEngine = reminderEngine
         self.breakStatsStore = breakStatsStore
+        self.dailyScheduleStore = dailyScheduleStore
         self.languageManager = languageManager
         self.preferencesStore = preferencesStore
         self.onOpenDashboard = onOpenDashboard
@@ -72,6 +76,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // Row 1: break count (disabled label)
         breakCountMenuItem.isEnabled = false
         menu.addItem(breakCountMenuItem)
+
+        // Row 2: next schedule item (disabled label)
+        scheduleMenuItem.isEnabled = false
+        menu.addItem(scheduleMenuItem)
 
         menu.addItem(.separator())
 
@@ -159,6 +167,17 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             breakCountMenuItem.title = String(format: L("menu.breaks_format"), today, week)
         }
 
+        // Daily schedule label
+        if let nextScheduleItem = nextScheduleItem() {
+            scheduleMenuItem.title = String(
+                format: L("menu.next_schedule_format"),
+                nextScheduleItem.startDate.formatted(date: .omitted, time: .shortened),
+                truncatedTitle(nextScheduleItem.title)
+            )
+        } else {
+            scheduleMenuItem.title = L("menu.no_schedule_today")
+        }
+
         // Pause/Resume label
         pauseMenuItem.title = reminderEngine.state.manualPause ? L("menu.resume") : L("menu.pause")
 
@@ -202,5 +221,18 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let nextValue = !preferencesStore.preferences.soundEnabled
         preferencesStore.preferences.soundEnabled = nextValue
         logger.notice("Sound \(nextValue ? "enabled" : "disabled")")
+    }
+
+    private func nextScheduleItem(at now: Date = .now) -> DailyScheduleItem? {
+        dailyScheduleStore.itemsForToday(referenceDate: now).first { item in
+            guard !item.hasReminded(on: now) else { return false }
+            let effectiveEndDate = item.endDate ?? item.startDate.addingTimeInterval(60 * 60)
+            return effectiveEndDate >= now
+        }
+    }
+
+    private func truncatedTitle(_ title: String) -> String {
+        guard title.count > 24 else { return title }
+        return "\(title.prefix(23))…"
     }
 }

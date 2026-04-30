@@ -16,6 +16,7 @@ struct DailyScheduleItem: Identifiable, Codable, Equatable {
     var reminderLeadMinutes: Int
     var isReminderEnabled: Bool
     var lastRemindedDate: Date?
+    var snoozedUntilDate: Date?
 
     init(
         id: UUID = UUID(),
@@ -25,7 +26,8 @@ struct DailyScheduleItem: Identifiable, Codable, Equatable {
         notes: String? = nil,
         reminderLeadMinutes: Int = 10,
         isReminderEnabled: Bool = true,
-        lastRemindedDate: Date? = nil
+        lastRemindedDate: Date? = nil,
+        snoozedUntilDate: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -35,6 +37,7 @@ struct DailyScheduleItem: Identifiable, Codable, Equatable {
         self.reminderLeadMinutes = reminderLeadMinutes
         self.isReminderEnabled = isReminderEnabled
         self.lastRemindedDate = lastRemindedDate
+        self.snoozedUntilDate = snoozedUntilDate
     }
 
     var hasRemindedToday: Bool {

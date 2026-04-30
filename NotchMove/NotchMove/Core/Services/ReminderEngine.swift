@@ -49,10 +49,30 @@ struct ReminderState: Equatable {
 @MainActor
 @Observable
 final class ReminderEngine {
+    struct ScheduleReminderContent: Equatable {
+        let id: DailyScheduleItem.ID
+        let title: String
+        let startDate: Date
+        let endDate: Date?
+
+        init(item: DailyScheduleItem) {
+            id = item.id
+            title = item.title
+            startDate = item.startDate
+            endDate = item.endDate
+        }
+    }
+
+    enum OverlayContent: Equatable {
+        case breakReminder
+        case schedule(ScheduleReminderContent)
+    }
+
     struct OverlayState: Equatable {
         var presentation: ReminderState.PresentationPhase = .hidden
         var reminderStartDate: Date = .distantPast
         var reminderDuration: TimeInterval = TimeInterval(Preferences.defaults.autoDismissSeconds)
+        var content: OverlayContent = .breakReminder
     }
 
     enum RunState: Equatable {
@@ -72,6 +92,10 @@ final class ReminderEngine {
         case dismissReminder
         case autoDismiss
         case cancelReminder
+        case scheduleTrigger(ScheduleReminderContent)
+        case completeScheduleReminder
+        case snoozeScheduleReminder(minutes: Int)
+        case dismissScheduleReminder
     }
 
     private let activityMonitor: IdleTimeProviding
@@ -84,6 +108,7 @@ final class ReminderEngine {
     @ObservationIgnored private var tickTask: Task<Void, Never>?
     @ObservationIgnored private var autoDismissTask: Task<Void, Never>?
     @ObservationIgnored private var settleTask: Task<Void, Never>?
+    @ObservationIgnored private var activeScheduleActions: DailyScheduleReminderActions?
     @ObservationIgnored private nonisolated(unsafe) var preferencesObserver: NSObjectProtocol?
     private var lastTickDate: Date?
 
@@ -149,6 +174,10 @@ final class ReminderEngine {
             overlayState.presentation == .dismissAnimating
     }
 
+    var isBreakReminderPresenting: Bool {
+        isReminderPresenting && overlayState.content == .breakReminder
+    }
+
     var reminderDuration: TimeInterval {
         overlayState.reminderDuration
     }
@@ -175,6 +204,11 @@ final class ReminderEngine {
         logger.notice("Reminder engine started — interval=\(self.reminderInterval)s, idleReset=\(self.idleResetThreshold)s")
     }
 
+    func presentScheduleReminder(for item: DailyScheduleItem, actions: DailyScheduleReminderActions) {
+        activeScheduleActions = actions
+        send(.scheduleTrigger(ScheduleReminderContent(item: item)))
+    }
+
     func send(_ intent: Intent) {
         switch intent {
         case let .tick(now):
@@ -184,15 +218,29 @@ final class ReminderEngine {
         case let .setManualPause(paused):
             handleManualPauseChange(paused)
         case .manualTrigger:
-            beginReminderPresentation(playSound: true)
+            beginBreakReminderPresentation(playSound: true)
         case .completeBreak:
             finishReminder(with: .completedBreak)
         case .dismissReminder:
             finishReminder(with: .dismissed)
         case .autoDismiss:
-            finishReminder(with: .autoDismissed)
+            handleAutoDismiss()
         case .cancelReminder:
             finishReminder(with: .cancelled, animated: false)
+        case .scheduleTrigger(let content):
+            beginScheduleReminderPresentation(content)
+        case .completeScheduleReminder:
+            finishActiveScheduleReminder { actions in
+                actions.complete()
+            }
+        case .snoozeScheduleReminder(let minutes):
+            finishActiveScheduleReminder { actions in
+                actions.snooze(minutes)
+            }
+        case .dismissScheduleReminder:
+            finishActiveScheduleReminder { actions in
+                actions.dismiss()
+            }
         }
     }
 
@@ -204,7 +252,7 @@ final class ReminderEngine {
                 state.activeSeconds = 0
             }
 
-            if isReminderPresenting {
+            if isBreakReminderPresenting {
                 send(.cancelReminder)
             }
 
@@ -234,7 +282,7 @@ final class ReminderEngine {
 
         if state.activeSeconds >= reminderInterval {
             logger.notice("Reminder fired — \(Int(self.state.activeSeconds))s active")
-            beginReminderPresentation(playSound: true)
+            beginBreakReminderPresentation(playSound: true)
         }
     }
 
@@ -261,7 +309,7 @@ final class ReminderEngine {
         lastTickDate = clock.now
 
         if paused {
-            if isReminderPresenting {
+            if isBreakReminderPresenting {
                 send(.cancelReminder)
             } else if overlayState.presentation == .hoverPreview {
                 updatePresentation(.hidden)
@@ -271,11 +319,29 @@ final class ReminderEngine {
         logger.notice("Manual pause \(paused ? "enabled" : "disabled")")
     }
 
-    private func beginReminderPresentation(playSound: Bool) {
+    private func beginBreakReminderPresentation(playSound: Bool) {
+        guard overlayState.content == .breakReminder || !isReminderPresenting else { return }
+        beginReminderPresentation(content: .breakReminder, playSound: playSound, resetActiveSeconds: true)
+        logger.notice("Reminder presentation began")
+    }
+
+    private func beginScheduleReminderPresentation(_ content: ScheduleReminderContent) {
+        beginReminderPresentation(content: .schedule(content), playSound: false, resetActiveSeconds: false)
+        logger.notice("Schedule reminder presentation began for \(content.title, privacy: .public)")
+    }
+
+    private func beginReminderPresentation(
+        content: OverlayContent,
+        playSound: Bool,
+        resetActiveSeconds: Bool
+    ) {
         autoDismissTask?.cancel()
         settleTask?.cancel()
 
-        state.activeSeconds = 0
+        if resetActiveSeconds {
+            state.activeSeconds = 0
+        }
+        updateContent(content)
         updatePresentation(overlayState.presentation == .hoverPreview ? .presenting : .reminderPending)
         updateReminderStartDate(clock.now)
         lastTickDate = clock.now
@@ -285,7 +351,28 @@ final class ReminderEngine {
         }
 
         scheduleAutoDismiss()
-        logger.notice("Reminder presentation began")
+    }
+
+    private func handleAutoDismiss() {
+        if case .schedule = overlayState.content {
+            activeScheduleActions?.dismiss()
+        }
+
+        finishReminder(with: .autoDismissed)
+    }
+
+    private func finishActiveScheduleReminder(
+        action: (DailyScheduleReminderActions) -> Void
+    ) {
+        guard case .schedule = overlayState.content,
+              let activeScheduleActions
+        else {
+            finishReminder(with: .dismissed)
+            return
+        }
+
+        action(activeScheduleActions)
+        finishReminder(with: .dismissed)
     }
 
     private func finishReminder(with outcome: ReminderOutcome, animated: Bool = true) {
@@ -320,6 +407,10 @@ final class ReminderEngine {
     private func finalizeReminder(with outcome: ReminderOutcome) {
         settleTask = nil
         updatePresentation(.hidden)
+        if overlayState.content != .breakReminder {
+            updateContent(.breakReminder)
+            activeScheduleActions = nil
+        }
         lastTickDate = clock.now
         breakStatsStore.recordIfCompleted(outcome)
         logger.notice("Reminder presentation finished with \(String(describing: outcome), privacy: .public)")
@@ -359,7 +450,7 @@ final class ReminderEngine {
 
         if state.scheduleState.blocksAutomaticReminders {
             state.activeSeconds = 0
-            if isReminderPresenting {
+            if isBreakReminderPresenting {
                 send(.cancelReminder)
             }
         }
@@ -397,6 +488,11 @@ final class ReminderEngine {
         let duration = TimeInterval(preferencesStore.preferences.autoDismissSeconds)
         guard overlayState.reminderDuration != duration else { return }
         overlayState.reminderDuration = duration
+    }
+
+    private func updateContent(_ content: OverlayContent) {
+        guard overlayState.content != content else { return }
+        overlayState.content = content
     }
 
     private func currentScheduleState(at date: Date) -> SchedulePolicy.Evaluation {

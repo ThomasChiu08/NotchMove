@@ -63,6 +63,9 @@
 "next_reminder_soon" = "Next reminder soon";
 "time_to_stretch" = "Time to stretch!";
 "stand_and_move" = "Stand & Move";
+"schedule_reminder_title" = "Schedule reminder";
+"schedule_reminder_snooze" = "Later";
+"schedule_reminder_done" = "Done";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "Next reminder: %@ min";
@@ -76,6 +79,8 @@
 "menu.resume" = "Resume reminders";
 "menu.remind_now" = "Remind me now";
 "menu.sound" = "Sound on reminder";
+"menu.next_schedule_format" = "Next schedule: %@ · %@";
+"menu.no_schedule_today" = "No more schedule today";
 "menu.dashboard" = "Today's Schedule";
 "menu.settings" = "Settings…";
 "menu.quit" = "Quit NotchMove";
@@ -86,6 +91,9 @@
 /* ─── Dashboard ─── */
 "dashboard.title" = "Daily Schedule";
 "dashboard.today" = "Today";
+"dashboard.add.button" = "Add";
+"dashboard.add.title" = "Add Schedule Item";
+"dashboard.add.action" = "Add";
 "dashboard.import.button" = "Import";
 "dashboard.clear.button" = "Clear Today";
 "dashboard.empty.title" = "No schedule today";
@@ -96,9 +104,18 @@
 "dashboard.none_next" = "No upcoming item";
 "dashboard.time_range_format" = "%@-%@";
 "dashboard.field.time" = "Time";
+"dashboard.field.title" = "Title";
+"dashboard.field.start_time" = "Start";
+"dashboard.field.has_end_time" = "End time";
+"dashboard.field.end_time" = "End";
 "dashboard.field.reminder_enabled" = "Reminder enabled";
+"dashboard.field.reminder_status" = "Reminder status";
 "dashboard.field.lead_minutes_format" = "Remind %d minutes early";
 "dashboard.field.notes" = "Notes";
+"dashboard.status.reminded" = "Reminded";
+"dashboard.status.snoozed_until_format" = "Snoozed until %@";
+"dashboard.validation.title_required" = "Add a title.";
+"dashboard.validation.end_after_start" = "End time must be after start time.";
 "dashboard.delete.button" = "Delete Item";
 "dashboard.delete.confirm_title" = "Delete this schedule item?";
 "dashboard.delete.action" = "Delete";

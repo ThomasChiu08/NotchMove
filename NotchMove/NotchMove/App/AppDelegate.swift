@@ -40,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let scheduleReminderEngine = DailyScheduleReminderEngine(
             scheduleStore: dailyScheduleStore,
             soundPlayer: soundPlayer,
-            presenter: DailyScheduleAlertPresenter(languageManager: languageManager)
+            presenter: DailyScheduleNotchPresenter(reminderEngine: engine)
         )
         let controller = NotchWindowController(
             reminderEngine: engine,
@@ -72,6 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.menuBarController = MenuBarController(
             reminderEngine: engine,
             breakStatsStore: breakStatsStore,
+            dailyScheduleStore: dailyScheduleStore,
             languageManager: languageManager,
             preferencesStore: preferencesStore,
             onOpenDashboard: { [weak dashboardWindow] in

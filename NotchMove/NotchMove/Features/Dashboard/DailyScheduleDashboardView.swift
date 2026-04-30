@@ -13,6 +13,7 @@ struct DailyScheduleDashboardView: View {
     @Bindable var scheduleStore: DailyScheduleStore
 
     @State private var selectedItemID: DailyScheduleItem.ID?
+    @State private var showingAddSheet = false
     @State private var showingImportSheet = false
     @State private var showingClearConfirmation = false
     @State private var showingDeleteConfirmation = false
@@ -29,6 +30,12 @@ struct DailyScheduleDashboardView: View {
         .toolbar {
             ToolbarItemGroup {
                 Button {
+                    showingAddSheet = true
+                } label: {
+                    Label("dashboard.add.button", systemImage: "plus")
+                }
+
+                Button {
                     showingImportSheet = true
                 } label: {
                     Label("dashboard.import.button", systemImage: "square.and.arrow.down")
@@ -41,6 +48,13 @@ struct DailyScheduleDashboardView: View {
                 }
                 .disabled(todayItems.isEmpty)
             }
+        }
+        .sheet(isPresented: $showingAddSheet) {
+            DailyScheduleItemEditorSheet(languageManager: languageManager) { item in
+                let addedItem = scheduleStore.add(item)
+                selectedItemID = addedItem.id
+            }
+            .environment(\.locale, languageManager.locale)
         }
         .sheet(isPresented: $showingImportSheet) {
             DailyScheduleImportSheet(languageManager: languageManager) { importedItems in
@@ -181,12 +195,33 @@ private struct DailyScheduleSidebarRow: View {
                 Text(item.title)
                     .lineLimit(1)
 
-                Text(timeRange(for: item))
+                Text(detailText(for: item))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }
+    }
+
+    private func detailText(for item: DailyScheduleItem) -> String {
+        let status = reminderStatus(for: item)
+        guard !status.isEmpty else { return timeRange(for: item) }
+        return "\(timeRange(for: item)) · \(status)"
+    }
+
+    private func reminderStatus(for item: DailyScheduleItem) -> String {
+        if item.hasRemindedToday {
+            return languageManager.localizedString("dashboard.status.reminded")
+        }
+
+        if let snoozedUntilDate = item.snoozedUntilDate, snoozedUntilDate > .now {
+            return String(
+                format: languageManager.localizedString("dashboard.status.snoozed_until_format"),
+                snoozedUntilDate.formatted(date: .omitted, time: .shortened)
+            )
+        }
+
+        return ""
     }
 
     private func timeRange(for item: DailyScheduleItem) -> String {
@@ -294,6 +329,14 @@ private struct DailyScheduleDetailView: View {
                     Text("dashboard.field.reminder_enabled")
                 }
 
+                if let reminderStatusText {
+                    LabeledContent {
+                        Text(reminderStatusText)
+                    } label: {
+                        Text("dashboard.field.reminder_status")
+                    }
+                }
+
                 Stepper(value: reminderLeadMinutesBinding, in: 0...120, step: 5) {
                     Text(String(
                         format: languageManager.localizedString("dashboard.field.lead_minutes_format"),
@@ -349,6 +392,21 @@ private struct DailyScheduleDetailView: View {
         scheduleStore.update(updatedItem)
     }
 
+    private var reminderStatusText: String? {
+        if item.hasRemindedToday {
+            return languageManager.localizedString("dashboard.status.reminded")
+        }
+
+        if let snoozedUntilDate = item.snoozedUntilDate, snoozedUntilDate > .now {
+            return String(
+                format: languageManager.localizedString("dashboard.status.snoozed_until_format"),
+                snoozedUntilDate.formatted(date: .omitted, time: .shortened)
+            )
+        }
+
+        return nil
+    }
+
     private func timeRange(for item: DailyScheduleItem) -> String {
         if let endDate = item.endDate {
             return String(
@@ -359,6 +417,127 @@ private struct DailyScheduleDetailView: View {
         }
 
         return item.startDate.formatted(date: .omitted, time: .shortened)
+    }
+}
+
+private struct DailyScheduleItemEditorSheet: View {
+    let languageManager: LanguageManager
+    let onSave: (DailyScheduleItem) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var startDate = Date()
+    @State private var hasEndDate = true
+    @State private var endDate = Date().addingTimeInterval(60 * 60)
+    @State private var notes = ""
+    @State private var reminderLeadMinutes = 10
+    @State private var isReminderEnabled = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("dashboard.add.title")
+                .font(.headline)
+
+            Form {
+                TextField("dashboard.field.title", text: $title)
+
+                DatePicker(
+                    "dashboard.field.start_time",
+                    selection: $startDate,
+                    displayedComponents: [.hourAndMinute]
+                )
+
+                Toggle(isOn: $hasEndDate) {
+                    Text("dashboard.field.has_end_time")
+                }
+
+                if hasEndDate {
+                    DatePicker(
+                        "dashboard.field.end_time",
+                        selection: $endDate,
+                        displayedComponents: [.hourAndMinute]
+                    )
+                }
+
+                Toggle(isOn: $isReminderEnabled) {
+                    Text("dashboard.field.reminder_enabled")
+                }
+
+                Stepper(value: $reminderLeadMinutes, in: 0...120, step: 5) {
+                    Text(String(
+                        format: languageManager.localizedString("dashboard.field.lead_minutes_format"),
+                        reminderLeadMinutes
+                    ))
+                }
+
+                TextField("dashboard.field.notes", text: $notes, axis: .vertical)
+                    .lineLimit(2...4)
+            }
+            .formStyle(.grouped)
+
+            if !isValid {
+                Text(validationMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            HStack {
+                Spacer()
+
+                Button("cancel") {
+                    dismiss()
+                }
+
+                Button("dashboard.add.action") {
+                    save()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!isValid)
+            }
+        }
+        .padding(20)
+        .frame(minWidth: 420, minHeight: 420)
+        .onChange(of: startDate) { _, newValue in
+            if endDate <= newValue {
+                endDate = newValue.addingTimeInterval(60 * 60)
+            }
+        }
+    }
+
+    private var isValid: Bool {
+        guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return false
+        }
+
+        if hasEndDate {
+            return endDate > startDate
+        }
+
+        return true
+    }
+
+    private var validationMessage: String {
+        if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return languageManager.localizedString("dashboard.validation.title_required")
+        }
+
+        return languageManager.localizedString("dashboard.validation.end_after_start")
+    }
+
+    private func save() {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let item = DailyScheduleItem(
+            title: trimmedTitle,
+            startDate: startDate,
+            endDate: hasEndDate ? endDate : nil,
+            notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
+            reminderLeadMinutes: reminderLeadMinutes,
+            isReminderEnabled: isReminderEnabled
+        )
+
+        onSave(item)
+        dismiss()
     }
 }
 

@@ -63,6 +63,9 @@
 "next_reminder_soon" = "即將提醒";
 "time_to_stretch" = "該活動一下了！";
 "stand_and_move" = "站起來動一動";
+"schedule_reminder_title" = "行程提醒";
+"schedule_reminder_snooze" = "稍後";
+"schedule_reminder_done" = "完成";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "下次提醒：%@ 分鐘";
@@ -76,6 +79,8 @@
 "menu.resume" = "恢復提醒";
 "menu.remind_now" = "立即提醒";
 "menu.sound" = "提醒聲音";
+"menu.next_schedule_format" = "下個行程：%@ · %@";
+"menu.no_schedule_today" = "今天沒有更多行程";
 "menu.dashboard" = "今日行程";
 "menu.settings" = "設定…";
 "menu.quit" = "結束 NotchMove";
@@ -86,6 +91,9 @@
 /* ─── Dashboard ─── */
 "dashboard.title" = "日常行程";
 "dashboard.today" = "今天";
+"dashboard.add.button" = "新增";
+"dashboard.add.title" = "新增行程";
+"dashboard.add.action" = "新增";
 "dashboard.import.button" = "匯入";
 "dashboard.clear.button" = "清空今日";
 "dashboard.empty.title" = "今天沒有行程";
@@ -96,9 +104,18 @@
 "dashboard.none_next" = "沒有即將開始的行程";
 "dashboard.time_range_format" = "%@-%@";
 "dashboard.field.time" = "時間";
+"dashboard.field.title" = "標題";
+"dashboard.field.start_time" = "開始";
+"dashboard.field.has_end_time" = "結束時間";
+"dashboard.field.end_time" = "結束";
 "dashboard.field.reminder_enabled" = "開啟提醒";
+"dashboard.field.reminder_status" = "提醒狀態";
 "dashboard.field.lead_minutes_format" = "提前 %d 分鐘提醒";
 "dashboard.field.notes" = "備註";
+"dashboard.status.reminded" = "已提醒";
+"dashboard.status.snoozed_until_format" = "稍後到 %@";
+"dashboard.validation.title_required" = "請填寫標題。";
+"dashboard.validation.end_after_start" = "結束時間必須晚於開始時間。";
 "dashboard.delete.button" = "刪除行程";
 "dashboard.delete.confirm_title" = "刪除這條行程？";
 "dashboard.delete.action" = "刪除";

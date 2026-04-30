@@ -72,13 +72,28 @@ struct NotchView: View {
         )
     }
 
+    @ViewBuilder
     private var reminderContent: some View {
-        ReminderContentView(
-            reminderStartDate: reminderEngine.overlayState.reminderStartDate,
-            reminderDuration: reminderEngine.overlayState.reminderDuration,
-            topInset: overlayMetrics.topInset
-        ) {
-            reminderEngine.send(.completeBreak)
+        switch reminderEngine.overlayState.content {
+        case .breakReminder:
+            BreakReminderContentView(
+                reminderStartDate: reminderEngine.overlayState.reminderStartDate,
+                reminderDuration: reminderEngine.overlayState.reminderDuration,
+                topInset: overlayMetrics.topInset
+            ) {
+                reminderEngine.send(.completeBreak)
+            }
+        case .schedule(let content):
+            ScheduleReminderContentView(
+                content: content,
+                reminderStartDate: reminderEngine.overlayState.reminderStartDate,
+                reminderDuration: reminderEngine.overlayState.reminderDuration,
+                topInset: overlayMetrics.topInset
+            ) {
+                reminderEngine.send(.completeScheduleReminder)
+            } onSnooze: {
+                reminderEngine.send(.snoozeScheduleReminder(minutes: 5))
+            }
         }
     }
 }
@@ -128,7 +143,7 @@ private struct HoverPreviewView: View {
     }
 }
 
-private struct ReminderContentView: View {
+private struct BreakReminderContentView: View {
     let reminderStartDate: Date
     let reminderDuration: TimeInterval
     let topInset: CGFloat
@@ -167,6 +182,70 @@ private struct ReminderContentView: View {
         }
         .padding(.horizontal, 14)
         .padding(.top, topInset + 4)
+    }
+}
+
+private struct ScheduleReminderContentView: View {
+    let content: ReminderEngine.ScheduleReminderContent
+    let reminderStartDate: Date
+    let reminderDuration: TimeInterval
+    let topInset: CGFloat
+    let onComplete: () -> Void
+    let onSnooze: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ReminderProgressView(
+                reminderStartDate: reminderStartDate,
+                reminderDuration: reminderDuration
+            )
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("schedule_reminder_title")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(1)
+
+                Text(content.title)
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                Text(timeRangeText)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.6))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 6)
+
+            Button(action: onSnooze) {
+                Text("schedule_reminder_snooze")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .controlSize(.small)
+
+            Button(action: onComplete) {
+                Text("schedule_reminder_done")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .controlSize(.small)
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, topInset + 4)
+    }
+
+    private var timeRangeText: String {
+        if let endDate = content.endDate {
+            "\(content.startDate.formatted(date: .omitted, time: .shortened))-\(endDate.formatted(date: .omitted, time: .shortened))"
+        } else {
+            content.startDate.formatted(date: .omitted, time: .shortened)
+        }
     }
 }
 

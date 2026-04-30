@@ -63,6 +63,9 @@
 "next_reminder_soon" = "まもなくリマインド";
 "time_to_stretch" = "ストレッチの時間です！";
 "stand_and_move" = "立ち上がろう";
+"schedule_reminder_title" = "予定リマインダー";
+"schedule_reminder_snooze" = "あとで";
+"schedule_reminder_done" = "完了";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "次のリマインド：%@ 分";
@@ -76,6 +79,8 @@
 "menu.resume" = "リマインダーを再開";
 "menu.remind_now" = "今すぐリマインド";
 "menu.sound" = "リマインドサウンド";
+"menu.next_schedule_format" = "次の予定：%@ · %@";
+"menu.no_schedule_today" = "今日の予定はこれ以上ありません";
 "menu.dashboard" = "今日の予定";
 "menu.settings" = "設定…";
 "menu.quit" = "NotchMove を終了";
@@ -86,6 +91,9 @@
 /* ─── Dashboard ─── */
 "dashboard.title" = "日次スケジュール";
 "dashboard.today" = "今日";
+"dashboard.add.button" = "追加";
+"dashboard.add.title" = "予定を追加";
+"dashboard.add.action" = "追加";
 "dashboard.import.button" = "インポート";
 "dashboard.clear.button" = "今日をクリア";
 "dashboard.empty.title" = "今日の予定はありません";
@@ -96,9 +104,18 @@
 "dashboard.none_next" = "次の予定はありません";
 "dashboard.time_range_format" = "%@-%@";
 "dashboard.field.time" = "時刻";
+"dashboard.field.title" = "タイトル";
+"dashboard.field.start_time" = "開始";
+"dashboard.field.has_end_time" = "終了時刻";
+"dashboard.field.end_time" = "終了";
 "dashboard.field.reminder_enabled" = "リマインダーを有効化";
+"dashboard.field.reminder_status" = "リマインダー状態";
 "dashboard.field.lead_minutes_format" = "%d 分前にリマインド";
 "dashboard.field.notes" = "メモ";
+"dashboard.status.reminded" = "リマインド済み";
+"dashboard.status.snoozed_until_format" = "%@ までスヌーズ";
+"dashboard.validation.title_required" = "タイトルを入力してください。";
+"dashboard.validation.end_after_start" = "終了時刻は開始時刻より後にしてください。";
 "dashboard.delete.button" = "予定を削除";
 "dashboard.delete.confirm_title" = "この予定を削除しますか？";
 "dashboard.delete.action" = "削除";
