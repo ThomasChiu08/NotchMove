@@ -102,8 +102,9 @@ struct SettingsContentView: View {
     @State private var availableScreens: [ScreenDescriptor] = []
     @State private var loginItemStatus: LoginItemStatus = .notRegistered
     @State private var launchAtLoginErrorMessage: String?
-    @State private var apiKeys: [AIProviderID: String] = [:]
+    @State private var credentials: [String: String] = [:]
     @State private var apiKeyStatusMessage: String?
+    @State private var isTestingTranscriptionProvider = false
     @State private var isTestingParserProvider = false
 
     private let screenProvider = MainScreenProvider()
@@ -283,16 +284,22 @@ struct SettingsContentView: View {
             }
 
             SettingsPropertyRow("ai.settings.transcription_model") {
-                Picker(selection: $aiProviderPreferences.transcriptionModel) {
-                    ForEach(aiProviderPreferences.availableTranscriptionModels, id: \.self) { model in
-                        Text(model).tag(model)
+                if aiProviderPreferences.availableTranscriptionModels.isEmpty {
+                    TextField("ai.settings.transcription_model", text: $aiProviderPreferences.transcriptionModel)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 220, alignment: .leading)
+                } else {
+                    Picker(selection: $aiProviderPreferences.transcriptionModel) {
+                        ForEach(aiProviderPreferences.availableTranscriptionModels, id: \.self) { model in
+                            Text(model).tag(model)
+                        }
+                    } label: {
+                        Text("ai.settings.transcription_model")
                     }
-                } label: {
-                    Text("ai.settings.transcription_model")
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 220, alignment: .leading)
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(maxWidth: 220, alignment: .leading)
             }
 
             SettingsPropertyRow("ai.settings.parser_provider") {
@@ -309,16 +316,30 @@ struct SettingsContentView: View {
             }
 
             SettingsPropertyRow("ai.settings.parser_model") {
-                Picker(selection: $aiProviderPreferences.parserModel) {
-                    ForEach(aiProviderPreferences.availableParserModels, id: \.self) { model in
-                        Text(model).tag(model)
+                if aiProviderPreferences.availableParserModels.isEmpty {
+                    TextField("ai.settings.parser_model", text: $aiProviderPreferences.parserModel)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 260, alignment: .leading)
+                } else {
+                    Picker(selection: $aiProviderPreferences.parserModel) {
+                        ForEach(aiProviderPreferences.availableParserModels, id: \.self) { model in
+                            Text(model).tag(model)
+                        }
+                    } label: {
+                        Text("ai.settings.parser_model")
                     }
-                } label: {
-                    Text("ai.settings.parser_model")
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 220, alignment: .leading)
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(maxWidth: 220, alignment: .leading)
+            }
+
+            if aiProviderPreferences.selectedParserProvider == .customOpenAICompatible {
+                SettingsPropertyRow("ai.settings.custom_base_url") {
+                    TextField("https://example.com/v1", text: $aiProviderPreferences.customParserBaseURL)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 320, alignment: .leading)
+                }
             }
 
             SettingsPropertyRow("ai.settings.default_lead") {
@@ -330,8 +351,22 @@ struct SettingsContentView: View {
                 }
             }
 
-            ForEach(aiProviderPreferences.requiredAPIKeyProvidersForCurrentFlow) { provider in
-                apiKeyRow(for: provider)
+            ForEach(aiProviderPreferences.credentialRequestsForCurrentFlow) { request in
+                credentialRow(for: request)
+            }
+
+            SettingsPropertyRow("ai.settings.test_transcription") {
+                HStack(spacing: 8) {
+                    Button("ai.settings.test_transcription") {
+                        testTranscriptionProvider()
+                    }
+                    .disabled(isTestingTranscriptionProvider)
+
+                    if isTestingTranscriptionProvider {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
             }
 
             SettingsPropertyRow("ai.settings.test_parser") {
@@ -611,43 +646,53 @@ struct SettingsContentView: View {
         )
     }
 
-    private func apiKeyBinding(for provider: AIProviderID) -> Binding<String> {
+    private func credentialBinding(for request: AICredentialRequest) -> Binding<String> {
         Binding(
-            get: { apiKeys[provider, default: ""] },
-            set: { apiKeys[provider] = $0 }
+            get: { credentials[credentialStateKey(for: request), default: ""] },
+            set: { credentials[credentialStateKey(for: request)] = $0 }
         )
     }
 
-    private func apiKeyTitle(for provider: AIProviderID) -> String {
+    private func credentialTitle(for request: AICredentialRequest) -> String {
         String(
             format: localizedString("ai.settings.provider_key_format"),
-            provider.displayName
+            "\(request.provider.displayName) \(request.field.displayName)"
         )
     }
 
-    private func apiKeyRow(for provider: AIProviderID) -> some View {
+    private func credentialRow(for request: AICredentialRequest) -> some View {
         SettingsDynamicPropertyRow(
-            apiKeyTitle(for: provider),
+            credentialTitle(for: request),
             captionKey: "ai.settings.provider_key_caption"
         ) {
             HStack(spacing: 8) {
-                SecureField(apiKeyTitle(for: provider), text: apiKeyBinding(for: provider))
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 260)
+                if request.field.isSecret {
+                    SecureField(credentialTitle(for: request), text: credentialBinding(for: request))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 260)
+                } else {
+                    TextField(credentialTitle(for: request), text: credentialBinding(for: request))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 260)
+                }
 
                 Button("ai.settings.save_key") {
-                    saveAPIKey(for: provider)
+                    saveCredential(for: request)
                 }
 
                 Button(role: .destructive) {
-                    apiKeys[provider] = ""
-                    saveAPIKey(for: provider)
+                    credentials[credentialStateKey(for: request)] = ""
+                    saveCredential(for: request)
                 } label: {
                     Text("ai.settings.clear_key")
                 }
-                .disabled(apiKeys[provider, default: ""].isEmpty)
+                .disabled(credentials[credentialStateKey(for: request), default: ""].isEmpty)
             }
         }
+    }
+
+    private func credentialStateKey(for request: AICredentialRequest) -> String {
+        "\(request.provider.rawValue).\(request.field.id)"
     }
 
     private func setLaunchAtLoginEnabled(_ isEnabled: Bool) {
@@ -689,7 +734,10 @@ struct SettingsContentView: View {
     private func loadAPIKeys() {
         do {
             for provider in AIProviderID.allCases {
-                apiKeys[provider] = try aiProviderPreferences.apiKey(for: provider) ?? ""
+                for field in provider.definition.credentialFields {
+                    let request = AICredentialRequest(provider: provider, field: field)
+                    credentials[credentialStateKey(for: request)] = try aiProviderPreferences.credential(field.id, for: provider) ?? ""
+                }
             }
             apiKeyStatusMessage = nil
         } catch {
@@ -697,15 +745,37 @@ struct SettingsContentView: View {
         }
     }
 
-    private func saveAPIKey(for provider: AIProviderID) {
+    private func saveCredential(for request: AICredentialRequest) {
         do {
-            try aiProviderPreferences.saveAPIKey(apiKeys[provider, default: ""], for: provider)
+            try aiProviderPreferences.saveCredential(
+                credentials[credentialStateKey(for: request), default: ""],
+                fieldID: request.field.id,
+                for: request.provider
+            )
             apiKeyStatusMessage = String(
                 format: localizedString("ai.settings.key_saved_format"),
-                provider.displayName
+                "\(request.provider.displayName) \(request.field.displayName)"
             )
         } catch {
             apiKeyStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func testTranscriptionProvider() {
+        isTestingTranscriptionProvider = true
+        apiKeyStatusMessage = nil
+
+        Task {
+            defer {
+                isTestingTranscriptionProvider = false
+            }
+
+            do {
+                _ = try AIProviderFactory.makeTranscriptionProvider(preferences: aiProviderPreferences)
+                apiKeyStatusMessage = localizedString("ai.settings.test_transcription_succeeded")
+            } catch {
+                apiKeyStatusMessage = error.localizedDescription
+            }
         }
     }
 

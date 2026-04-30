@@ -10,6 +10,7 @@ import Foundation
 enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
     case disabled
     case missingAPIKey(provider: String)
+    case missingCredential(provider: String, field: String)
     case microphoneDenied
     case recordingFailed(String)
     case emptyTranscript
@@ -25,6 +26,8 @@ enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
             return "AI Assistant is disabled."
         case .missingAPIKey(let provider):
             return "\(provider) API key is missing."
+        case .missingCredential(let provider, let field):
+            return "\(provider) \(field) is missing."
         case .microphoneDenied:
             return "Microphone access is denied."
         case .recordingFailed(let message):
@@ -47,5 +50,13 @@ enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
     static func redactedProviderMessage(_ message: String, apiKey: String?) -> String {
         guard let apiKey, !apiKey.isEmpty else { return message }
         return message.replacingOccurrences(of: apiKey, with: "[redacted]")
+    }
+
+    static func redactedProviderMessage(_ message: String, secrets: [String]) -> String {
+        secrets.reduce(message) { redacted, secret in
+            let trimmedSecret = secret.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedSecret.isEmpty else { return redacted }
+            return redacted.replacingOccurrences(of: trimmedSecret, with: "[redacted]")
+        }
     }
 }

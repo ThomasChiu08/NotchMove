@@ -38,12 +38,14 @@ final class AudioCaptureService: NSObject {
 
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("notchmove-ai-\(UUID().uuidString)")
-            .appendingPathExtension("m4a")
+            .appendingPathExtension("wav")
         let settings: [String: Any] = [
-            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 44_100,
+            AVFormatIDKey: Int(kAudioFormatLinearPCM),
+            AVSampleRateKey: 16_000,
             AVNumberOfChannelsKey: 1,
-            AVEncoderAudioQualityKey: AVAudioQuality.medium.rawValue,
+            AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsFloatKey: false,
+            AVLinearPCMIsBigEndianKey: false,
         ]
 
         do {
@@ -77,7 +79,7 @@ final class AudioCaptureService: NSObject {
             url: activeURL,
             startedAt: startedAt,
             duration: Date().timeIntervalSince(startedAt),
-            mimeType: "audio/mp4"
+            mimeType: "audio/wav"
         )
     }
 

@@ -204,7 +204,7 @@ struct AIScheduleAssistantServiceTests {
 }
 
 @MainActor
-struct OpenAIProviderSupportTests {
+struct AIProviderSupportTests {
     @Test func responseTextExtractorFindsOutputText() throws {
         let responseJSON = """
         {
@@ -236,14 +236,37 @@ struct OpenAIProviderSupportTests {
     }
 
     @Test func providerRegistryIncludesOpenAICompatibleParserProviders() {
+        #expect(AIProviderPreferences.supportedParserProviders.contains(.dashScope))
         #expect(AIProviderPreferences.supportedParserProviders.contains(.openAI))
         #expect(AIProviderPreferences.supportedParserProviders.contains(.deepSeek))
         #expect(AIProviderPreferences.supportedParserProviders.contains(.zhipu))
         #expect(AIProviderPreferences.supportedParserProviders.contains(.miniMax))
-        #expect(AIProviderPreferences.supportedTranscriptionProviders == [.openAI])
+        #expect(AIProviderPreferences.supportedParserProviders.contains(.moonshot))
+        #expect(AIProviderPreferences.supportedParserProviders.contains(.tencentHunyuan))
+        #expect(AIProviderPreferences.supportedParserProviders.contains(.baiduERNIE))
+        #expect(AIProviderPreferences.supportedParserProviders.contains(.customOpenAICompatible))
+        #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.dashScope))
+        #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.openAI))
+        #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.tencentCloudASR))
+        #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.baiduSpeech))
+        #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.iFlyTek))
+        #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.volcengine))
+        #expect(AIProviderID.dashScope.definition.openAICompatibleBaseURL?.absoluteString == "https://dashscope.aliyuncs.com/compatible-mode/v1")
         #expect(AIProviderID.deepSeek.definition.openAICompatibleBaseURL?.absoluteString == "https://api.deepseek.com")
         #expect(AIProviderID.zhipu.definition.defaultParserModel == "glm-5.1")
         #expect(AIProviderID.miniMax.definition.defaultParserModel == "MiniMax-M2.7")
+    }
+
+    @Test func freshPreferencesDefaultToMainlandProviderPair() {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveMainlandDefaults-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+
+        #expect(preferences.selectedTranscriptionProvider == .dashScope)
+        #expect(preferences.selectedParserProvider == .dashScope)
+        #expect(preferences.transcriptionModel == "qwen3-asr-flash")
+        #expect(preferences.parserModel == "qwen-plus")
     }
 
     @Test func parserProviderSelectionFallsBackToProviderDefaultModel() {
@@ -271,6 +294,37 @@ struct OpenAIProviderSupportTests {
         let provider = try AIProviderFactory.makeParserProvider(preferences: preferences)
 
         #expect(provider.displayName == "Zhipu GLM")
+    }
+
+    @Test func providerFactoryBuildsMainlandTranscriptionProvider() throws {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveTranscriptionProviderFactory-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        preferences.selectTranscriptionProvider(.tencentCloudASR)
+        try preferences.saveCredential("secret-id", fieldID: AICredentialField.secretID.id, for: .tencentCloudASR)
+        try preferences.saveCredential("secret-key", fieldID: AICredentialField.secretKey.id, for: .tencentCloudASR)
+
+        let provider = try AIProviderFactory.makeTranscriptionProvider(preferences: preferences)
+
+        #expect(provider.displayName == "Tencent Cloud ASR")
+    }
+
+    @Test func missingProviderCredentialReportsFieldName() {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveMissingCredential-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        preferences.selectTranscriptionProvider(.iFlyTek)
+
+        do {
+            _ = try AIProviderFactory.makeTranscriptionProvider(preferences: preferences)
+            Issue.record("Expected missing credential.")
+        } catch let error as AIScheduleAssistantError {
+            #expect(error == .missingCredential(provider: "iFlyTek", field: "App ID"))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
     }
 
     @Test func chatCompletionExtractorFindsMessageContent() throws {
@@ -334,13 +388,13 @@ private func makeAIDate(hour: Int, minute: Int) -> Date {
 private func makeTemporaryRecordingFile() throws -> AudioRecordingFile {
     let url = FileManager.default.temporaryDirectory
         .appendingPathComponent("notchmove-ai-test-\(UUID().uuidString)")
-        .appendingPathExtension("m4a")
+        .appendingPathExtension("wav")
     try Data("audio".utf8).write(to: url)
     return AudioRecordingFile(
         url: url,
         startedAt: makeAIDate(hour: 9, minute: 0),
         duration: 1,
-        mimeType: "audio/mp4"
+        mimeType: "audio/wav"
     )
 }
 
@@ -400,17 +454,17 @@ private final class FakeScheduleParserProvider: ScheduleParserProvider {
 }
 
 private final class InMemoryAPIKeyStore: APIKeyStoring {
-    private var apiKeys: [AIProviderID: String] = [:]
+    private var credentials: [String: String] = [:]
 
-    func apiKey(for provider: AIProviderID) throws -> String? {
-        apiKeys[provider]
+    func credential(_ fieldID: String, for provider: AIProviderID) throws -> String? {
+        credentials["\(provider.rawValue).\(fieldID)"]
     }
 
-    func saveAPIKey(_ apiKey: String, for provider: AIProviderID) throws {
-        apiKeys[provider] = apiKey
+    func saveCredential(_ value: String, fieldID: String, for provider: AIProviderID) throws {
+        credentials["\(provider.rawValue).\(fieldID)"] = value
     }
 
-    func deleteAPIKey(for provider: AIProviderID) throws {
-        apiKeys.removeValue(forKey: provider)
+    func deleteCredential(_ fieldID: String, for provider: AIProviderID) throws {
+        credentials.removeValue(forKey: "\(provider.rawValue).\(fieldID)")
     }
 }

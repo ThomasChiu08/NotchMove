@@ -32,7 +32,7 @@ struct OpenAIScheduleParserProvider: ScheduleParserProvider {
         request.httpBody = try JSONEncoder().encode(makeRequest(transcript: transcript, context: context))
 
         let (data, response) = try await urlSession.data(for: request)
-        try OpenAIHTTP.validateResponse(
+        try ProviderHTTP.validateResponse(
             data: data,
             response: response,
             provider: displayName,

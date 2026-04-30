@@ -13,19 +13,66 @@ enum AIProviderCapability: Hashable {
     case scheduleParsing
 }
 
+enum TranscriptionAdapterKind: Equatable {
+    case openAI
+    case dashScopeOpenAICompatibleAudio
+    case tencentSentenceRecognition
+    case baiduShortSpeech
+    case iFlyTekVoiceDictation
+    case volcengineFlash
+}
+
 enum ScheduleParserAdapterKind: Equatable {
     case openAIResponses
     case openAICompatibleChat
+    case customOpenAICompatibleChat
+}
+
+struct AICredentialField: Identifiable, Equatable, Hashable {
+    let id: String
+    let displayName: String
+    let isSecret: Bool
+    let isRequired: Bool
+
+    static let apiKey = AICredentialField(id: "apiKey", displayName: "API Key", isSecret: true)
+    static let apiSecret = AICredentialField(id: "apiSecret", displayName: "API Secret", isSecret: true)
+    static let secretID = AICredentialField(id: "secretID", displayName: "Secret ID", isSecret: false)
+    static let secretKey = AICredentialField(id: "secretKey", displayName: "Secret Key", isSecret: true)
+    static let appID = AICredentialField(id: "appID", displayName: "App ID", isSecret: false)
+    static let accessKey = AICredentialField(id: "accessKey", displayName: "Access Key", isSecret: true, isRequired: false)
+
+    init(id: String, displayName: String, isSecret: Bool, isRequired: Bool = true) {
+        self.id = id
+        self.displayName = displayName
+        self.isSecret = isSecret
+        self.isRequired = isRequired
+    }
+}
+
+struct AICredentialRequest: Identifiable, Equatable, Hashable {
+    var provider: AIProviderID
+    var field: AICredentialField
+
+    var id: String { "\(provider.rawValue).\(field.id)" }
 }
 
 enum AIProviderID: String, CaseIterable, Identifiable {
+    case dashScope = "dashscope"
     case openAI = "openai"
     case deepSeek = "deepseek"
     case zhipu = "zhipu"
     case miniMax = "minimax"
+    case moonshot = "moonshot"
+    case tencentHunyuan = "tencent-hunyuan"
+    case baiduERNIE = "baidu-ernie"
     case openRouter = "openrouter"
     case groq = "groq"
     case xAI = "xai"
+    case customOpenAICompatible = "custom-openai-compatible"
+    case tencentCloudASR = "tencent-cloud-asr"
+    case baiduSpeech = "baidu-speech"
+    case iFlyTek = "iflytek"
+    case volcengine = "volcengine"
     case anthropic = "anthropic"
     case gemini = "gemini"
 
@@ -53,11 +100,13 @@ struct AIProviderDefinition: Identifiable, Equatable {
     let providerID: AIProviderID
     let displayName: String
     let capabilities: Set<AIProviderCapability>
+    let credentialFields: [AICredentialField]
     let transcriptionModels: [AIModelDefinition]
     let parserModels: [AIModelDefinition]
     let defaultTranscriptionModel: String?
     let defaultParserModel: String?
     let openAICompatibleBaseURL: URL?
+    let transcriptionAdapter: TranscriptionAdapterKind?
     let scheduleParserAdapter: ScheduleParserAdapterKind?
     let usesJSONResponseFormat: Bool
 
@@ -77,9 +126,30 @@ struct AIProviderDefinition: Identifiable, Equatable {
 
     private static let all: [AIProviderDefinition] = [
         AIProviderDefinition(
+            providerID: .dashScope,
+            displayName: "DashScope",
+            capabilities: [.transcription, .scheduleParsing],
+            credentialFields: [.apiKey],
+            transcriptionModels: [
+                AIModelDefinition(id: "qwen3-asr-flash", displayName: "qwen3-asr-flash"),
+            ],
+            parserModels: [
+                AIModelDefinition(id: "qwen-plus", displayName: "qwen-plus"),
+                AIModelDefinition(id: "qwen-turbo", displayName: "qwen-turbo"),
+                AIModelDefinition(id: "qwen-max", displayName: "qwen-max"),
+            ],
+            defaultTranscriptionModel: "qwen3-asr-flash",
+            defaultParserModel: "qwen-plus",
+            openAICompatibleBaseURL: URL(string: "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+            transcriptionAdapter: .dashScopeOpenAICompatibleAudio,
+            scheduleParserAdapter: .openAICompatibleChat,
+            usesJSONResponseFormat: true
+        ),
+        AIProviderDefinition(
             providerID: .openAI,
             displayName: "OpenAI",
             capabilities: [.transcription, .scheduleParsing],
+            credentialFields: [.apiKey],
             transcriptionModels: [
                 AIModelDefinition(id: "gpt-4o-mini-transcribe", displayName: "gpt-4o-mini-transcribe"),
                 AIModelDefinition(id: "gpt-4o-transcribe", displayName: "gpt-4o-transcribe"),
@@ -92,6 +162,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
             defaultTranscriptionModel: "gpt-4o-mini-transcribe",
             defaultParserModel: "gpt-5.4-mini",
             openAICompatibleBaseURL: nil,
+            transcriptionAdapter: .openAI,
             scheduleParserAdapter: .openAIResponses,
             usesJSONResponseFormat: false
         ),
@@ -99,6 +170,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
             providerID: .deepSeek,
             displayName: "DeepSeek",
             capabilities: [.scheduleParsing],
+            credentialFields: [.apiKey],
             transcriptionModels: [],
             parserModels: [
                 AIModelDefinition(id: "deepseek-v4-flash", displayName: "deepseek-v4-flash"),
@@ -108,6 +180,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
             defaultTranscriptionModel: nil,
             defaultParserModel: "deepseek-v4-flash",
             openAICompatibleBaseURL: URL(string: "https://api.deepseek.com"),
+            transcriptionAdapter: nil,
             scheduleParserAdapter: .openAICompatibleChat,
             usesJSONResponseFormat: true
         ),
@@ -115,6 +188,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
             providerID: .zhipu,
             displayName: "Zhipu GLM",
             capabilities: [.scheduleParsing],
+            credentialFields: [.apiKey],
             transcriptionModels: [],
             parserModels: [
                 AIModelDefinition(id: "glm-5.1", displayName: "glm-5.1"),
@@ -125,6 +199,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
             defaultTranscriptionModel: nil,
             defaultParserModel: "glm-5.1",
             openAICompatibleBaseURL: URL(string: "https://open.bigmodel.cn/api/paas/v4"),
+            transcriptionAdapter: nil,
             scheduleParserAdapter: .openAICompatibleChat,
             usesJSONResponseFormat: true
         ),
@@ -132,6 +207,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
             providerID: .miniMax,
             displayName: "MiniMax",
             capabilities: [.scheduleParsing],
+            credentialFields: [.apiKey],
             transcriptionModels: [],
             parserModels: [
                 AIModelDefinition(id: "MiniMax-M2.7", displayName: "MiniMax-M2.7"),
@@ -142,6 +218,61 @@ struct AIProviderDefinition: Identifiable, Equatable {
             defaultTranscriptionModel: nil,
             defaultParserModel: "MiniMax-M2.7",
             openAICompatibleBaseURL: URL(string: "https://api.minimax.io/v1"),
+            transcriptionAdapter: nil,
+            scheduleParserAdapter: .openAICompatibleChat,
+            usesJSONResponseFormat: true
+        ),
+        AIProviderDefinition(
+            providerID: .moonshot,
+            displayName: "Moonshot Kimi",
+            capabilities: [.scheduleParsing],
+            credentialFields: [.apiKey],
+            transcriptionModels: [],
+            parserModels: [
+                AIModelDefinition(id: "kimi-latest", displayName: "kimi-latest"),
+                AIModelDefinition(id: "kimi-k2-turbo-preview", displayName: "kimi-k2-turbo-preview"),
+                AIModelDefinition(id: "moonshot-v1-32k", displayName: "moonshot-v1-32k"),
+            ],
+            defaultTranscriptionModel: nil,
+            defaultParserModel: "kimi-latest",
+            openAICompatibleBaseURL: URL(string: "https://api.moonshot.cn/v1"),
+            transcriptionAdapter: nil,
+            scheduleParserAdapter: .openAICompatibleChat,
+            usesJSONResponseFormat: true
+        ),
+        AIProviderDefinition(
+            providerID: .tencentHunyuan,
+            displayName: "Tencent Hunyuan",
+            capabilities: [.scheduleParsing],
+            credentialFields: [.apiKey],
+            transcriptionModels: [],
+            parserModels: [
+                AIModelDefinition(id: "hunyuan-turbos-latest", displayName: "hunyuan-turbos-latest"),
+                AIModelDefinition(id: "hunyuan-large", displayName: "hunyuan-large"),
+                AIModelDefinition(id: "hunyuan-lite", displayName: "hunyuan-lite"),
+            ],
+            defaultTranscriptionModel: nil,
+            defaultParserModel: "hunyuan-turbos-latest",
+            openAICompatibleBaseURL: URL(string: "https://api.hunyuan.cloud.tencent.com/v1"),
+            transcriptionAdapter: nil,
+            scheduleParserAdapter: .openAICompatibleChat,
+            usesJSONResponseFormat: true
+        ),
+        AIProviderDefinition(
+            providerID: .baiduERNIE,
+            displayName: "Baidu Qianfan",
+            capabilities: [.scheduleParsing],
+            credentialFields: [.apiKey],
+            transcriptionModels: [],
+            parserModels: [
+                AIModelDefinition(id: "ernie-4.5-turbo-128k", displayName: "ernie-4.5-turbo-128k"),
+                AIModelDefinition(id: "ernie-4.5-turbo-32k", displayName: "ernie-4.5-turbo-32k"),
+                AIModelDefinition(id: "ernie-3.5-8k", displayName: "ernie-3.5-8k"),
+            ],
+            defaultTranscriptionModel: nil,
+            defaultParserModel: "ernie-4.5-turbo-128k",
+            openAICompatibleBaseURL: URL(string: "https://qianfan.baidubce.com/v2"),
+            transcriptionAdapter: nil,
             scheduleParserAdapter: .openAICompatibleChat,
             usesJSONResponseFormat: true
         ),
@@ -149,6 +280,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
             providerID: .openRouter,
             displayName: "OpenRouter",
             capabilities: [.scheduleParsing],
+            credentialFields: [.apiKey],
             transcriptionModels: [],
             parserModels: [
                 AIModelDefinition(id: "openai/gpt-4o-mini", displayName: "openai/gpt-4o-mini"),
@@ -158,6 +290,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
             defaultTranscriptionModel: nil,
             defaultParserModel: "openai/gpt-4o-mini",
             openAICompatibleBaseURL: URL(string: "https://openrouter.ai/api/v1"),
+            transcriptionAdapter: nil,
             scheduleParserAdapter: .openAICompatibleChat,
             usesJSONResponseFormat: true
         ),
@@ -165,6 +298,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
             providerID: .groq,
             displayName: "Groq",
             capabilities: [.scheduleParsing],
+            credentialFields: [.apiKey],
             transcriptionModels: [],
             parserModels: [
                 AIModelDefinition(id: "llama-3.3-70b-versatile", displayName: "llama-3.3-70b-versatile"),
@@ -173,6 +307,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
             defaultTranscriptionModel: nil,
             defaultParserModel: "llama-3.3-70b-versatile",
             openAICompatibleBaseURL: URL(string: "https://api.groq.com/openai/v1"),
+            transcriptionAdapter: nil,
             scheduleParserAdapter: .openAICompatibleChat,
             usesJSONResponseFormat: true
         ),
@@ -180,6 +315,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
             providerID: .xAI,
             displayName: "xAI",
             capabilities: [.scheduleParsing],
+            credentialFields: [.apiKey],
             transcriptionModels: [],
             parserModels: [
                 AIModelDefinition(id: "grok-4", displayName: "grok-4"),
@@ -188,18 +324,103 @@ struct AIProviderDefinition: Identifiable, Equatable {
             defaultTranscriptionModel: nil,
             defaultParserModel: "grok-4",
             openAICompatibleBaseURL: URL(string: "https://api.x.ai/v1"),
+            transcriptionAdapter: nil,
             scheduleParserAdapter: .openAICompatibleChat,
             usesJSONResponseFormat: true
         ),
         AIProviderDefinition(
-            providerID: .anthropic,
-            displayName: "Anthropic",
-            capabilities: [],
+            providerID: .customOpenAICompatible,
+            displayName: "Custom OpenAI-Compatible",
+            capabilities: [.scheduleParsing],
+            credentialFields: [.apiKey],
             transcriptionModels: [],
             parserModels: [],
             defaultTranscriptionModel: nil,
             defaultParserModel: nil,
             openAICompatibleBaseURL: nil,
+            transcriptionAdapter: nil,
+            scheduleParserAdapter: .customOpenAICompatibleChat,
+            usesJSONResponseFormat: true
+        ),
+        AIProviderDefinition(
+            providerID: .tencentCloudASR,
+            displayName: "Tencent Cloud ASR",
+            capabilities: [.transcription],
+            credentialFields: [.secretID, .secretKey],
+            transcriptionModels: [
+                AIModelDefinition(id: "16k_zh", displayName: "16k_zh"),
+                AIModelDefinition(id: "16k_en", displayName: "16k_en"),
+                AIModelDefinition(id: "16k_yue", displayName: "16k_yue"),
+            ],
+            parserModels: [],
+            defaultTranscriptionModel: "16k_zh",
+            defaultParserModel: nil,
+            openAICompatibleBaseURL: nil,
+            transcriptionAdapter: .tencentSentenceRecognition,
+            scheduleParserAdapter: nil,
+            usesJSONResponseFormat: false
+        ),
+        AIProviderDefinition(
+            providerID: .baiduSpeech,
+            displayName: "Baidu Speech",
+            capabilities: [.transcription],
+            credentialFields: [.apiKey, .secretKey],
+            transcriptionModels: [
+                AIModelDefinition(id: "80001", displayName: "极速版普通话"),
+                AIModelDefinition(id: "1537", displayName: "普通话"),
+                AIModelDefinition(id: "1737", displayName: "英语"),
+            ],
+            parserModels: [],
+            defaultTranscriptionModel: "80001",
+            defaultParserModel: nil,
+            openAICompatibleBaseURL: nil,
+            transcriptionAdapter: .baiduShortSpeech,
+            scheduleParserAdapter: nil,
+            usesJSONResponseFormat: false
+        ),
+        AIProviderDefinition(
+            providerID: .iFlyTek,
+            displayName: "iFlyTek",
+            capabilities: [.transcription],
+            credentialFields: [.appID, .apiKey, .apiSecret],
+            transcriptionModels: [
+                AIModelDefinition(id: "iat", displayName: "语音听写"),
+            ],
+            parserModels: [],
+            defaultTranscriptionModel: "iat",
+            defaultParserModel: nil,
+            openAICompatibleBaseURL: nil,
+            transcriptionAdapter: .iFlyTekVoiceDictation,
+            scheduleParserAdapter: nil,
+            usesJSONResponseFormat: false
+        ),
+        AIProviderDefinition(
+            providerID: .volcengine,
+            displayName: "Volcengine ASR",
+            capabilities: [.transcription],
+            credentialFields: [.apiKey, .accessKey],
+            transcriptionModels: [
+                AIModelDefinition(id: "bigmodel", displayName: "bigmodel"),
+            ],
+            parserModels: [],
+            defaultTranscriptionModel: "bigmodel",
+            defaultParserModel: nil,
+            openAICompatibleBaseURL: nil,
+            transcriptionAdapter: .volcengineFlash,
+            scheduleParserAdapter: nil,
+            usesJSONResponseFormat: false
+        ),
+        AIProviderDefinition(
+            providerID: .anthropic,
+            displayName: "Anthropic",
+            capabilities: [],
+            credentialFields: [.apiKey],
+            transcriptionModels: [],
+            parserModels: [],
+            defaultTranscriptionModel: nil,
+            defaultParserModel: nil,
+            openAICompatibleBaseURL: nil,
+            transcriptionAdapter: nil,
             scheduleParserAdapter: nil,
             usesJSONResponseFormat: false
         ),
@@ -207,11 +428,13 @@ struct AIProviderDefinition: Identifiable, Equatable {
             providerID: .gemini,
             displayName: "Gemini",
             capabilities: [],
+            credentialFields: [.apiKey],
             transcriptionModels: [],
             parserModels: [],
             defaultTranscriptionModel: nil,
             defaultParserModel: nil,
             openAICompatibleBaseURL: nil,
+            transcriptionAdapter: nil,
             scheduleParserAdapter: nil,
             usesJSONResponseFormat: false
         ),
@@ -227,12 +450,15 @@ final class AIProviderPreferences {
         static let parserProviderID = "aiAssistant.parserProviderID"
         static let transcriptionModel = "aiAssistant.transcriptionModel"
         static let parserModel = "aiAssistant.parserModel"
+        static let customParserBaseURL = "aiAssistant.customParserBaseURL"
         static let languageMode = "aiAssistant.languageMode"
         static let defaultReminderLeadMinutes = "aiAssistant.defaultReminderLeadMinutes"
     }
 
-    static let defaultTranscriptionModel = AIProviderID.openAI.definition.defaultTranscriptionModel!
-    static let defaultParserModel = AIProviderID.openAI.definition.defaultParserModel!
+    static let defaultTranscriptionProvider: AIProviderID = .dashScope
+    static let defaultParserProvider: AIProviderID = .dashScope
+    static let defaultTranscriptionModel = defaultTranscriptionProvider.definition.defaultTranscriptionModel!
+    static let defaultParserModel = defaultParserProvider.definition.defaultParserModel!
 
     static let supportedTranscriptionProviders = AIProviderDefinition.transcriptionProviders
     static let supportedParserProviders = AIProviderDefinition.scheduleParserProviders
@@ -260,6 +486,10 @@ final class AIProviderPreferences {
         didSet { defaults.set(parserModel, forKey: Keys.parserModel) }
     }
 
+    var customParserBaseURL: String {
+        didSet { defaults.set(customParserBaseURL, forKey: Keys.customParserBaseURL) }
+    }
+
     var languageMode: String {
         didSet { defaults.set(languageMode, forKey: Keys.languageMode) }
     }
@@ -276,32 +506,34 @@ final class AIProviderPreferences {
         self.apiKeyStore = apiKeyStore
         defaults.register(defaults: [
             Keys.isEnabled: false,
-            Keys.transcriptionProviderID: AIProviderID.openAI.rawValue,
-            Keys.parserProviderID: AIProviderID.openAI.rawValue,
+            Keys.transcriptionProviderID: Self.defaultTranscriptionProvider.rawValue,
+            Keys.parserProviderID: Self.defaultParserProvider.rawValue,
             Keys.transcriptionModel: Self.defaultTranscriptionModel,
             Keys.parserModel: Self.defaultParserModel,
+            Keys.customParserBaseURL: "",
             Keys.languageMode: "auto",
             Keys.defaultReminderLeadMinutes: 10,
         ])
 
         self.isEnabled = defaults.object(forKey: Keys.isEnabled) as? Bool ?? false
-        self.transcriptionProviderID = defaults.string(forKey: Keys.transcriptionProviderID) ?? AIProviderID.openAI.rawValue
-        self.parserProviderID = defaults.string(forKey: Keys.parserProviderID) ?? AIProviderID.openAI.rawValue
+        self.transcriptionProviderID = defaults.string(forKey: Keys.transcriptionProviderID) ?? Self.defaultTranscriptionProvider.rawValue
+        self.parserProviderID = defaults.string(forKey: Keys.parserProviderID) ?? Self.defaultParserProvider.rawValue
         self.transcriptionModel = defaults.string(forKey: Keys.transcriptionModel) ?? Self.defaultTranscriptionModel
         self.parserModel = defaults.string(forKey: Keys.parserModel) ?? Self.defaultParserModel
+        self.customParserBaseURL = defaults.string(forKey: Keys.customParserBaseURL) ?? ""
         self.languageMode = defaults.string(forKey: Keys.languageMode) ?? "auto"
         self.defaultReminderLeadMinutes = defaults.object(forKey: Keys.defaultReminderLeadMinutes) as? Int ?? 10
         normalizeStoredProviderChoices()
     }
 
     var selectedTranscriptionProvider: AIProviderID {
-        let provider = AIProviderID(rawValue: transcriptionProviderID) ?? .openAI
-        return provider.supports(.transcription) ? provider : .openAI
+        let provider = AIProviderID(rawValue: transcriptionProviderID) ?? Self.defaultTranscriptionProvider
+        return provider.supports(.transcription) ? provider : Self.defaultTranscriptionProvider
     }
 
     var selectedParserProvider: AIProviderID {
-        let provider = AIProviderID(rawValue: parserProviderID) ?? .openAI
-        return provider.supports(.scheduleParsing) ? provider : .openAI
+        let provider = AIProviderID(rawValue: parserProviderID) ?? Self.defaultParserProvider
+        return provider.supports(.scheduleParsing) ? provider : Self.defaultParserProvider
     }
 
     var availableTranscriptionModels: [String] {
@@ -312,9 +544,22 @@ final class AIProviderPreferences {
         selectedParserProvider.definition.parserModels.map(\.id)
     }
 
-    var requiredAPIKeyProvidersForCurrentFlow: [AIProviderID] {
+    var credentialRequestsForCurrentFlow: [AICredentialRequest] {
         let selected = Set([selectedTranscriptionProvider, selectedParserProvider])
-        return AIProviderID.allCases.filter { selected.contains($0) }
+        return AIProviderID.allCases
+            .filter { selected.contains($0) }
+            .flatMap { provider in
+                provider.definition.credentialFields.map { AICredentialRequest(provider: provider, field: $0) }
+            }
+    }
+
+    var requiredCredentialRequestsForCurrentFlow: [AICredentialRequest] {
+        credentialRequestsForCurrentFlow.filter(\.field.isRequired)
+    }
+
+    var requiredAPIKeyProvidersForCurrentFlow: [AIProviderID] {
+        let providerSet = Set(requiredCredentialRequestsForCurrentFlow.map(\.provider))
+        return AIProviderID.allCases.filter { providerSet.contains($0) }
     }
 
     func selectTranscriptionProvider(_ provider: AIProviderID) {
@@ -330,6 +575,14 @@ final class AIProviderPreferences {
     func selectParserProvider(_ provider: AIProviderID) {
         guard provider.supports(.scheduleParsing) else { return }
         parserProviderID = provider.rawValue
+
+        if provider == .customOpenAICompatible {
+            if parserModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                parserModel = "custom-model"
+            }
+            return
+        }
+
         parserModel = validModel(
             currentModel: parserModel,
             availableModels: provider.definition.parserModels,
@@ -337,35 +590,39 @@ final class AIProviderPreferences {
         )
     }
 
+    func credential(_ fieldID: String, for provider: AIProviderID) throws -> String? {
+        try apiKeyStore.credential(fieldID, for: provider)
+    }
+
+    func saveCredential(_ value: String, fieldID: String, for provider: AIProviderID) throws {
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedValue.isEmpty {
+            try apiKeyStore.deleteCredential(fieldID, for: provider)
+        } else {
+            try apiKeyStore.saveCredential(trimmedValue, fieldID: fieldID, for: provider)
+        }
+    }
+
     func apiKey(for provider: AIProviderID) throws -> String? {
         try apiKeyStore.apiKey(for: provider)
     }
 
     func saveAPIKey(_ key: String, for provider: AIProviderID) throws {
-        let trimmedKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedKey.isEmpty {
-            try apiKeyStore.deleteAPIKey(for: provider)
-        } else {
-            try apiKeyStore.saveAPIKey(trimmedKey, for: provider)
-        }
+        try saveCredential(key, fieldID: AICredentialField.apiKey.id, for: provider)
     }
 
-    func firstMissingAPIKeyProviderForCurrentFlow() throws -> AIProviderID? {
-        for provider in requiredAPIKeyProvidersForCurrentFlow {
-            let key = try apiKey(for: provider)
-            if key?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
-                return provider
+    func firstMissingCredentialForCurrentFlow() throws -> AICredentialRequest? {
+        for request in requiredCredentialRequestsForCurrentFlow {
+            let value = try credential(request.field.id, for: request.provider)
+            if value?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                return request
             }
         }
         return nil
     }
 
-    func openAIAPIKey() throws -> String? {
-        try apiKey(for: .openAI)
-    }
-
-    func saveOpenAIAPIKey(_ key: String) throws {
-        try saveAPIKey(key, for: .openAI)
+    func firstMissingAPIKeyProviderForCurrentFlow() throws -> AIProviderID? {
+        try firstMissingCredentialForCurrentFlow()?.provider
     }
 
     private func normalizeStoredProviderChoices() {

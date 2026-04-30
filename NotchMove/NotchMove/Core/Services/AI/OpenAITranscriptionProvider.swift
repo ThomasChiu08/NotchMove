@@ -37,7 +37,7 @@ struct OpenAITranscriptionProvider: TranscriptionProvider {
         )
 
         let (data, response) = try await urlSession.data(for: request)
-        try OpenAIHTTP.validateResponse(
+        try ProviderHTTP.validateResponse(
             data: data,
             response: response,
             provider: displayName,

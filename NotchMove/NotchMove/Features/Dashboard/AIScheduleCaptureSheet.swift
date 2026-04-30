@@ -318,8 +318,14 @@ struct AIScheduleCaptureSheet: View {
                     throw AIScheduleAssistantError.disabled
                 }
 
-                if let missingProvider = try aiPreferences.firstMissingAPIKeyProviderForCurrentFlow() {
-                    throw AIScheduleAssistantError.missingAPIKey(provider: missingProvider.displayName)
+                if let missingCredential = try aiPreferences.firstMissingCredentialForCurrentFlow() {
+                    if missingCredential.field == .apiKey {
+                        throw AIScheduleAssistantError.missingAPIKey(provider: missingCredential.provider.displayName)
+                    }
+                    throw AIScheduleAssistantError.missingCredential(
+                        provider: missingCredential.provider.displayName,
+                        field: missingCredential.field.displayName
+                    )
                 }
 
                 try await captureService.startRecording()

@@ -1,5 +1,5 @@
 //
-//  OpenAIHTTP.swift
+//  ProviderHTTP.swift
 //  NotchMove
 //
 //  Created by Codex on 4/30/26.
@@ -7,12 +7,26 @@
 
 import Foundation
 
-enum OpenAIHTTP {
+enum ProviderHTTP {
     static func validateResponse(
         data: Data,
         response: URLResponse,
         provider: String,
         apiKey: String
+    ) throws {
+        try validateResponse(
+            data: data,
+            response: response,
+            provider: provider,
+            secrets: [apiKey]
+        )
+    }
+
+    static func validateResponse(
+        data: Data,
+        response: URLResponse,
+        provider: String,
+        secrets: [String]
     ) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw AIScheduleAssistantError.networkUnavailable
@@ -20,10 +34,7 @@ enum OpenAIHTTP {
 
         guard (200..<300).contains(httpResponse.statusCode) else {
             let message = decodeErrorMessage(from: data)
-            let redactedMessage = AIScheduleAssistantError.redactedProviderMessage(
-                message,
-                apiKey: apiKey
-            )
+            let redactedMessage = AIScheduleAssistantError.redactedProviderMessage(message, secrets: secrets)
 
             if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
                 throw AIScheduleAssistantError.providerAuthenticationFailed(provider: provider)
@@ -38,7 +49,7 @@ enum OpenAIHTTP {
     }
 
     static func decodeErrorMessage(from data: Data) -> String {
-        guard let errorResponse = try? JSONDecoder().decode(OpenAIErrorResponse.self, from: data) else {
+        guard let errorResponse = try? JSONDecoder().decode(ProviderErrorResponse.self, from: data) else {
             return String(data: data, encoding: .utf8) ?? "Unknown provider error."
         }
 
@@ -46,7 +57,7 @@ enum OpenAIHTTP {
     }
 }
 
-private struct OpenAIErrorResponse: Decodable {
+private struct ProviderErrorResponse: Decodable {
     struct ErrorBody: Decodable {
         var message: String
     }
