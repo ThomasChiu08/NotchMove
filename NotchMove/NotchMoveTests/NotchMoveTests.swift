@@ -176,6 +176,36 @@ struct PreferencesStoreTests {
         #expect(reminderRuntimeNotifications.count == 1)
     }
 
+    @Test func intervalAndSitAwareChangesPostReminderRuntimeNotifications() async {
+        let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = PreferencesStore(settings: AppSettings(defaults: defaults))
+        let reminderRuntimeNotifications = NotificationCounter()
+
+        let observer = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.reminderRuntimeDidChangeNotification,
+            object: store,
+            queue: nil
+        ) { _ in
+            Task { @MainActor in
+                reminderRuntimeNotifications.increment()
+            }
+        }
+
+        defer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        store.preferences.reminderIntervalMinutes = 45
+        store.preferences.sitAwareEnabled = false
+
+        await flushAsyncWork()
+
+        #expect(reminderRuntimeNotifications.count == 2)
+    }
+
     @Test func overlayDisplayPreferencePostsLayoutNotification() async {
         let suiteName = "NotchMoveTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -251,7 +281,7 @@ struct ReminderEngineTests {
         #expect(context.engine.runState == .scheduleBlocked)
     }
 
-    @Test func automaticReminderWaitsTuckedUntilHoverAndPlaysSound() {
+    @Test func automaticReminderPresentsImmediatelyAndPlaysSound() {
         let now = makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0)
         let context = makeReminderContext(now: now)
         defer { context.cleanup() }
@@ -263,15 +293,29 @@ struct ReminderEngineTests {
         context.clock.now = now.addingTimeInterval(60)
         context.engine.send(.tick(context.clock.now))
 
-        #expect(context.engine.state.presentation == .reminderPending)
+        #expect(context.engine.state.presentation == .presenting)
         #expect(context.engine.isReminderPresenting)
         #expect(context.soundPlayer.playCount == 1)
 
-        context.engine.send(.hoverChanged(true))
-        #expect(context.engine.state.presentation == .presenting)
-
         context.engine.send(.hoverChanged(false))
-        #expect(context.engine.state.presentation == .reminderPending)
+        #expect(context.engine.state.presentation == .presenting)
+    }
+
+    @Test func sitAwareDisabledContinuesCountingDuringIdleTime() {
+        let now = makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+
+        context.preferencesStore.preferences.reminderIntervalMinutes = 1
+        context.preferencesStore.preferences.sitAwareEnabled = false
+        context.idleProvider.idleSeconds = 600
+
+        context.engine.send(.tick(now))
+        context.clock.now = now.addingTimeInterval(60)
+        context.engine.send(.tick(context.clock.now))
+
+        #expect(context.engine.state.presentation == .presenting)
+        #expect(context.soundPlayer.playCount == 1)
     }
 
     @Test func completedBreakIncrementsStatistics() async {
@@ -306,7 +350,7 @@ struct ReminderEngineTests {
         defer { context.cleanup() }
 
         context.engine.send(.manualTrigger)
-        #expect(context.engine.state.presentation == .reminderPending)
+        #expect(context.engine.state.presentation == .presenting)
 
         context.preferencesStore.preferences.schedule = Preferences.Schedule(
             isEnabled: true,

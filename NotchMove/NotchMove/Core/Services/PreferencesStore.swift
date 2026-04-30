@@ -39,7 +39,9 @@ final class PreferencesStore {
             NotificationCenter.default.post(name: Self.notchLayoutDidChangeNotification, object: self)
         }
 
-        if oldValue.schedule != newValue.schedule ||
+        if oldValue.reminderIntervalMinutes != newValue.reminderIntervalMinutes ||
+            oldValue.sitAwareEnabled != newValue.sitAwareEnabled ||
+            oldValue.schedule != newValue.schedule ||
             oldValue.hoverPreviewEnabled != newValue.hoverPreviewEnabled ||
             oldValue.autoDismissEnabled != newValue.autoDismissEnabled ||
             oldValue.autoDismissSeconds != newValue.autoDismissSeconds {

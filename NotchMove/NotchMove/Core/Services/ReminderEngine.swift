@@ -298,8 +298,6 @@ final class ReminderEngine {
 
         if overlayState.presentation == .hoverPreview {
             updatePresentation(.hidden)
-        } else if overlayState.presentation == .presenting {
-            updatePresentation(.reminderPending)
         }
     }
 
@@ -342,7 +340,7 @@ final class ReminderEngine {
             state.activeSeconds = 0
         }
         updateContent(content)
-        updatePresentation(overlayState.presentation == .hoverPreview ? .presenting : .reminderPending)
+        updatePresentation(.presenting)
         updateReminderStartDate(clock.now)
         lastTickDate = clock.now
 
@@ -500,6 +498,10 @@ final class ReminderEngine {
     }
 
     private func activityState(for resetThreshold: TimeInterval) -> ActivityState {
+        guard resetThreshold < .greatestFiniteMagnitude else {
+            return .active
+        }
+
         if activityMonitor.idleSeconds < 180 {
             return .active
         }

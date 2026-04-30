@@ -52,13 +52,11 @@ struct ProgressRingView: View {
         if clampedProgress >= 1 {
             ringShape
                 .stroke(ringGradient, style: strokeStyle)
-                .shadow(color: tint.opacity(0.18), radius: 1.5)
         } else if clampedProgress > 0 {
             ringShape
                 .trim(from: 0, to: clampedProgress)
                 .stroke(ringGradient, style: strokeStyle)
                 .rotationEffect(.degrees(-90))
-                .shadow(color: tint.opacity(0.18), radius: 1.5)
         }
     }
 }

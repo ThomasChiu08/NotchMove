@@ -56,6 +56,9 @@ final class NotchWindowController {
                 locale: languageManager.locale
             )
         )
+        hostingView.wantsLayer = true
+        hostingView.layer?.drawsAsynchronously = true
+        hostingView.layer?.allowsEdgeAntialiasing = true
         panel = NotchWindow()
         panel.contentView = hostingView
 
