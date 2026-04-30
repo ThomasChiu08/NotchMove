@@ -29,8 +29,7 @@ struct OverlayPlacement: Equatable {
 
 struct ScreenPlacementService {
     private enum Sizing {
-        static let dormantExtraWidth: CGFloat = 8
-        static let dormantExtraHeight: CGFloat = 8
+        static let fallbackTuckedWidth: CGFloat = 164
         static let previewExtraWidth: CGFloat = 48
         static let reminderCollapsedExtraWidth: CGFloat = 88
         static let reminderExpandedExtraWidth: CGFloat = 120
@@ -66,15 +65,12 @@ struct ScreenPlacementService {
         on screen: ScreenDescriptor,
         notchExpansionEnabled: Bool
     ) -> CGSize {
-        let notchWidth = screen.notchFrame?.width ?? 200
+        let notchWidth = screen.notchFrame?.width ?? Sizing.fallbackTuckedWidth
         let baseHeight = screen.notchFrame?.height ?? screen.menuBarHeight
 
         switch presentation {
-        case .hidden, .dismissAnimating:
-            return CGSize(
-                width: notchWidth + Sizing.dormantExtraWidth,
-                height: baseHeight + Sizing.dormantExtraHeight
-            )
+        case .hidden, .reminderPending, .dismissAnimating:
+            return tuckedSize(on: screen)
         case .hoverPreview:
             return CGSize(
                 width: clamped(
@@ -104,6 +100,17 @@ struct ScreenPlacementService {
                 height: Sizing.reminderCollapsedMinHeight
             )
         }
+    }
+
+    private func tuckedSize(on screen: ScreenDescriptor) -> CGSize {
+        if let notchFrame = screen.notchFrame {
+            return notchFrame.size
+        }
+
+        return CGSize(
+            width: min(Sizing.fallbackTuckedWidth, screen.frame.width),
+            height: max(screen.menuBarHeight, 1)
+        )
     }
 
     private func clamped(_ value: CGFloat, min minValue: CGFloat, max maxValue: CGFloat) -> CGFloat {

@@ -30,7 +30,7 @@ struct NotchView: View {
 
     private var cornerRadius: CGFloat {
         switch reminderEngine.overlayState.presentation {
-        case .hidden, .dismissAnimating: 10
+        case .hidden, .reminderPending, .dismissAnimating: 10
         case .hoverPreview: 14
         case .presenting: 16
         }
@@ -49,6 +49,9 @@ struct NotchView: View {
         switch reminderEngine.overlayState.presentation {
         case .hidden, .dismissAnimating:
             EmptyView()
+        case .reminderPending:
+            reminderPendingIndicator
+                .transition(.opacity)
         case .hoverPreview:
             hoverPreview
                 .transition(.notchOverlayInsertion)
@@ -62,6 +65,13 @@ struct NotchView: View {
         HoverPreviewView(topInset: overlayMetrics.topInset)
     }
 
+    private var reminderPendingIndicator: some View {
+        ReminderPendingIndicatorView(
+            reminderStartDate: reminderEngine.overlayState.reminderStartDate,
+            reminderDuration: reminderEngine.overlayState.reminderDuration
+        )
+    }
+
     private var reminderContent: some View {
         ReminderContentView(
             reminderStartDate: reminderEngine.overlayState.reminderStartDate,
@@ -69,6 +79,33 @@ struct NotchView: View {
             topInset: overlayMetrics.topInset
         ) {
             reminderEngine.send(.completeBreak)
+        }
+    }
+}
+
+private struct ReminderPendingIndicatorView: View {
+    let reminderStartDate: Date
+    let reminderDuration: TimeInterval
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            let progress = reminderProgress(
+                at: context.date,
+                reminderStartDate: reminderStartDate,
+                reminderDuration: reminderDuration
+            )
+
+            VStack {
+                Spacer(minLength: 0)
+
+                Capsule()
+                    .fill(.green.opacity(0.86))
+                    .frame(width: 42 + 24 * CGFloat(progress), height: 2)
+                    .shadow(color: .green.opacity(0.32), radius: 2)
+                    .padding(.bottom, 4)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(false)
         }
     }
 }
@@ -256,5 +293,8 @@ private struct PreviewSoundPlayer: SoundPlaying {
     NotchView(reminderEngine: engine, overlayMetrics: overlayMetrics)
         .frame(width: 380, height: 160)
         .background(.gray)
-        .onAppear { engine.send(.manualTrigger) }
+        .onAppear {
+            engine.send(.manualTrigger)
+            engine.send(.hoverChanged(true))
+        }
 }

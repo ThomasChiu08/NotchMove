@@ -251,7 +251,7 @@ struct ReminderEngineTests {
         #expect(context.engine.runState == .scheduleBlocked)
     }
 
-    @Test func automaticReminderTransitionsToPresentingAndPlaysSound() {
+    @Test func automaticReminderWaitsTuckedUntilHoverAndPlaysSound() {
         let now = makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0)
         let context = makeReminderContext(now: now)
         defer { context.cleanup() }
@@ -263,8 +263,15 @@ struct ReminderEngineTests {
         context.clock.now = now.addingTimeInterval(60)
         context.engine.send(.tick(context.clock.now))
 
-        #expect(context.engine.state.presentation == .presenting)
+        #expect(context.engine.state.presentation == .reminderPending)
+        #expect(context.engine.isReminderPresenting)
         #expect(context.soundPlayer.playCount == 1)
+
+        context.engine.send(.hoverChanged(true))
+        #expect(context.engine.state.presentation == .presenting)
+
+        context.engine.send(.hoverChanged(false))
+        #expect(context.engine.state.presentation == .reminderPending)
     }
 
     @Test func completedBreakIncrementsStatistics() async {
@@ -299,7 +306,7 @@ struct ReminderEngineTests {
         defer { context.cleanup() }
 
         context.engine.send(.manualTrigger)
-        #expect(context.engine.state.presentation == .presenting)
+        #expect(context.engine.state.presentation == .reminderPending)
 
         context.preferencesStore.preferences.schedule = Preferences.Schedule(
             isEnabled: true,
@@ -344,6 +351,47 @@ struct ReminderEngineTests {
 
 @MainActor
 struct ScreenPlacementServiceTests {
+    @Test func tuckedReminderMatchesPhysicalNotchFrame() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .reminderPending,
+            on: screen,
+            notchExpansionEnabled: true
+        )
+
+        #expect(placement.topInset == 38)
+        #expect(placement.frame == CGRect(x: 656, y: 944, width: 200, height: 38))
+    }
+
+    @Test func tuckedFallbackStaysInsideMenuBarHeight() {
+        let screen = ScreenDescriptor(
+            displayID: 2,
+            localizedName: "Studio Display",
+            isBuiltIn: false,
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            notchFrame: nil,
+            menuBarHeight: 24
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .reminderPending,
+            on: screen,
+            notchExpansionEnabled: true
+        )
+
+        #expect(placement.topInset == 24)
+        #expect(placement.frame.origin.x == 638)
+        #expect(placement.frame.size == CGSize(width: 164, height: 24))
+    }
+
     @Test func presentingReminderUsesNotchMidpointWhenAvailable() {
         let screen = ScreenDescriptor(
             displayID: 1,
@@ -382,8 +430,8 @@ struct ScreenPlacementServiceTests {
         )
 
         #expect(placement.topInset == 24)
-        #expect(placement.frame.origin.x == 596)
-        #expect(placement.frame.size == CGSize(width: 248, height: 64))
+        #expect(placement.frame.origin.x == 600)
+        #expect(placement.frame.size == CGSize(width: 240, height: 64))
     }
 
     @Test func compactPresentingReminderKeepsMinimumUsableWidth() {

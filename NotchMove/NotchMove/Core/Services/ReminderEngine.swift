@@ -33,6 +33,7 @@ struct SystemClock: Clock {
 struct ReminderState: Equatable {
     enum PresentationPhase: Equatable {
         case hidden
+        case reminderPending
         case hoverPreview
         case presenting
         case dismissAnimating
@@ -143,7 +144,9 @@ final class ReminderEngine {
     }
 
     var isReminderPresenting: Bool {
-        overlayState.presentation == .presenting || overlayState.presentation == .dismissAnimating
+        overlayState.presentation == .reminderPending ||
+            overlayState.presentation == .presenting ||
+            overlayState.presentation == .dismissAnimating
     }
 
     var reminderDuration: TimeInterval {
@@ -237,13 +240,19 @@ final class ReminderEngine {
 
     private func handleHoverChange(_ hovering: Bool) {
         if hovering {
-            guard overlayState.presentation == .hidden, preferencesStore.preferences.hoverPreviewEnabled else { return }
-            updatePresentation(.hoverPreview)
+            if overlayState.presentation == .reminderPending {
+                updatePresentation(.presenting)
+            } else if overlayState.presentation == .hidden, preferencesStore.preferences.hoverPreviewEnabled {
+                updatePresentation(.hoverPreview)
+            }
             return
         }
 
-        guard overlayState.presentation == .hoverPreview else { return }
-        updatePresentation(.hidden)
+        if overlayState.presentation == .hoverPreview {
+            updatePresentation(.hidden)
+        } else if overlayState.presentation == .presenting {
+            updatePresentation(.reminderPending)
+        }
     }
 
     private func handleManualPauseChange(_ paused: Bool) {
@@ -267,7 +276,7 @@ final class ReminderEngine {
         settleTask?.cancel()
 
         state.activeSeconds = 0
-        updatePresentation(.presenting)
+        updatePresentation(overlayState.presentation == .hoverPreview ? .presenting : .reminderPending)
         updateReminderStartDate(clock.now)
         lastTickDate = clock.now
 
