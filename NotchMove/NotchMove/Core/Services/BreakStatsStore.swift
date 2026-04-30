@@ -34,15 +34,6 @@ final class BreakStatsStore {
         weekBreaks = defaults.integer(forKey: weekBreaksKey(for: date))
     }
 
-    func recordCompletedBreak() {
-        let date = dateProvider()
-        let todayKey = todayBreaksKey(for: date)
-        let weekKey = weekBreaksKey(for: date)
-        defaults.set(defaults.integer(forKey: todayKey) + 1, forKey: todayKey)
-        defaults.set(defaults.integer(forKey: weekKey) + 1, forKey: weekKey)
-        refresh()
-    }
-
     func recordIfCompleted(_ outcome: ReminderOutcome) {
         guard outcome == .completedBreak else { return }
         recordCompletedBreak()
@@ -66,5 +57,14 @@ final class BreakStatsStore {
         let week = calendar.component(.weekOfYear, from: date)
         let year = calendar.component(.yearForWeekOfYear, from: date)
         return String(format: "breaksWeek_%04d-W%02d", year, week)
+    }
+
+    private func recordCompletedBreak() {
+        let date = dateProvider()
+        let todayKey = todayBreaksKey(for: date)
+        let weekKey = weekBreaksKey(for: date)
+        defaults.set(defaults.integer(forKey: todayKey) + 1, forKey: todayKey)
+        defaults.set(defaults.integer(forKey: weekKey) + 1, forKey: weekKey)
+        refresh()
     }
 }

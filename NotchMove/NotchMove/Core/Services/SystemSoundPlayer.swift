@@ -10,13 +10,16 @@ import AppKit
 @MainActor
 struct SystemSoundPlayer: SoundPlaying {
     private let preferencesStore: PreferencesStore
+    private let reminderSound: NSSound?
 
     init(preferencesStore: PreferencesStore) {
         self.preferencesStore = preferencesStore
+        reminderSound = NSSound(named: "Funk")
     }
 
     func playReminderSound() {
         guard preferencesStore.preferences.soundEnabled else { return }
-        NSSound(named: "Funk")?.play()
+        reminderSound?.stop()
+        reminderSound?.play()
     }
 }

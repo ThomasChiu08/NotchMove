@@ -55,10 +55,6 @@ final class LanguageManager {
         observePreferences()
     }
 
-    func setLanguage(_ languageCode: String) {
-        preferencesStore.preferences.appLanguage = languageCode
-    }
-
     /// Convenience for AppKit code that cannot use SwiftUI's LocalizedStringKey.
     func localizedString(_ key: String) -> String {
         NSLocalizedString(key, bundle: bundle, comment: "")

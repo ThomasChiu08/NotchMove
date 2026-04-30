@@ -45,7 +45,6 @@ struct ProgressRingView: View {
             progressLayer
         }
         .frame(width: size, height: size)
-        .animation(.easeInOut(duration: 0.8), value: clampedProgress)
     }
 
     @ViewBuilder
