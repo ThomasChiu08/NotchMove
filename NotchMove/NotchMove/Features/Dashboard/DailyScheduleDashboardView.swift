@@ -21,33 +21,34 @@ struct DailyScheduleDashboardView: View {
     @State private var now = Date()
 
     var body: some View {
-        NavigationSplitView {
-            sidebar
-        } detail: {
-            detail
-        }
-        .frame(minWidth: 680, minHeight: 460)
-        .toolbar {
-            ToolbarItemGroup {
+        VStack(spacing: 0) {
+            DashboardPageHeader(titleKey: "dashboard.title", systemImage: "calendar") {
                 Button {
                     showingAddSheet = true
                 } label: {
                     Label("dashboard.add.button", systemImage: "plus")
                 }
+                .buttonStyle(.bordered)
 
                 Button {
                     showingImportSheet = true
                 } label: {
                     Label("dashboard.import.button", systemImage: "square.and.arrow.down")
                 }
+                .buttonStyle(.bordered)
 
                 Button(role: .destructive) {
                     showingClearConfirmation = true
                 } label: {
                     Label("dashboard.clear.button", systemImage: "trash")
                 }
+                .buttonStyle(.bordered)
                 .disabled(todayItems.isEmpty)
             }
+
+            Divider()
+
+            content
         }
         .sheet(isPresented: $showingAddSheet) {
             DailyScheduleItemEditorSheet(languageManager: languageManager) { item in
@@ -109,7 +110,29 @@ struct DailyScheduleDashboardView: View {
         }
     }
 
-    private var sidebar: some View {
+    @ViewBuilder
+    private var content: some View {
+        if todayItems.isEmpty {
+            ContentUnavailableView(
+                "dashboard.empty.title",
+                systemImage: "calendar",
+                description: Text("dashboard.empty.description")
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            HStack(spacing: 0) {
+                scheduleList
+                    .frame(minWidth: 240, idealWidth: 280, maxWidth: 320)
+
+                Divider()
+
+                detail
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+
+    private var scheduleList: some View {
         Group {
             if todayItems.isEmpty {
                 ContentUnavailableView(
@@ -129,7 +152,6 @@ struct DailyScheduleDashboardView: View {
                 .listStyle(.sidebar)
             }
         }
-        .navigationTitle(Text("dashboard.title"))
     }
 
     @ViewBuilder

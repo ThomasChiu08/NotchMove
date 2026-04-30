@@ -14,11 +14,23 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     private var hostingView: NSHostingView<AnyView>?
     private let languageManager: LanguageManager
     private let scheduleStore: DailyScheduleStore
+    private let preferencesStore: PreferencesStore
+    private let breakStatsStore: BreakStatsStore
+    private let loginItemManager: any LoginItemManaging
     private nonisolated(unsafe) var languageObserver: NSObjectProtocol?
 
-    init(languageManager: LanguageManager, scheduleStore: DailyScheduleStore) {
+    init(
+        languageManager: LanguageManager,
+        scheduleStore: DailyScheduleStore,
+        preferencesStore: PreferencesStore,
+        breakStatsStore: BreakStatsStore,
+        loginItemManager: any LoginItemManaging
+    ) {
         self.languageManager = languageManager
         self.scheduleStore = scheduleStore
+        self.preferencesStore = preferencesStore
+        self.breakStatsStore = breakStatsStore
+        self.loginItemManager = loginItemManager
         super.init()
 
         languageObserver = NotificationCenter.default.addObserver(
@@ -53,14 +65,14 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
 
         let hostingView = NSHostingView(rootView: makeDashboardRootView())
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 760, height: 520),
+            contentRect: NSRect(x: 0, y: 0, width: 920, height: 620),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
-        newWindow.title = languageManager.localizedString("dashboard.title")
+        newWindow.title = languageManager.localizedString("dashboard.unified.title")
         newWindow.contentView = hostingView
-        newWindow.contentMinSize = NSSize(width: 680, height: 460)
+        newWindow.contentMinSize = NSSize(width: 860, height: 560)
         newWindow.isReleasedWhenClosed = false
         newWindow.delegate = self
         newWindow.level = .normal
@@ -75,9 +87,12 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
 
     private func makeDashboardRootView() -> AnyView {
         AnyView(
-            DailyScheduleDashboardView(
+            UnifiedDashboardView(
                 languageManager: languageManager,
-                scheduleStore: scheduleStore
+                loginItemManager: loginItemManager,
+                scheduleStore: scheduleStore,
+                preferencesStore: preferencesStore,
+                breakStatsStore: breakStatsStore
             )
             .environment(\.locale, languageManager.locale)
         )
@@ -85,7 +100,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
 
     private func refreshWindowContent() {
         guard let window, let hostingView else { return }
-        window.title = languageManager.localizedString("dashboard.title")
+        window.title = languageManager.localizedString("dashboard.unified.title")
         hostingView.rootView = makeDashboardRootView()
     }
 

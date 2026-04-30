@@ -81,7 +81,7 @@
 "menu.sound" = "リマインドサウンド";
 "menu.next_schedule_format" = "次の予定：%@ · %@";
 "menu.no_schedule_today" = "今日の予定はこれ以上ありません";
-"menu.dashboard" = "今日の予定";
+"menu.dashboard" = "ダッシュボード…";
 "menu.settings" = "設定…";
 "menu.quit" = "NotchMove を終了";
 
@@ -89,6 +89,9 @@
 "settings.title" = "NotchMove 設定";
 
 /* ─── Dashboard ─── */
+"dashboard.unified.title" = "NotchMove ダッシュボード";
+"dashboard.sidebar.workspace" = "ワークスペース";
+"dashboard.sidebar.settings" = "設定";
 "dashboard.title" = "日次スケジュール";
 "dashboard.today" = "今日";
 "dashboard.add.button" = "追加";

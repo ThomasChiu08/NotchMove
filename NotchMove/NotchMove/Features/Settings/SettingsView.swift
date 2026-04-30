@@ -8,11 +8,88 @@
 import AppKit
 import SwiftUI
 
+enum SettingsPageSection: String, CaseIterable, Identifiable {
+    case language
+    case startup
+    case reminders
+    case schedule
+    case behavior
+    case statistics
+    case about
+
+    static let fullSettingsOrder: [SettingsPageSection] = [
+        .language,
+        .startup,
+        .reminders,
+        .schedule,
+        .behavior,
+        .statistics,
+        .about,
+    ]
+
+    static let dashboardOrder: [SettingsPageSection] = [
+        .reminders,
+        .schedule,
+        .behavior,
+        .statistics,
+        .language,
+        .startup,
+        .about,
+    ]
+
+    var id: String { rawValue }
+
+    var titleKey: String {
+        switch self {
+        case .language: "section.language"
+        case .startup: "section.startup"
+        case .reminders: "section.reminders"
+        case .schedule: "section.schedule"
+        case .behavior: "section.behavior"
+        case .statistics: "section.statistics"
+        case .about: "section.about"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .language: "globe"
+        case .startup: "power"
+        case .reminders: "bell"
+        case .schedule: "clock"
+        case .behavior: "slider.horizontal.3"
+        case .statistics: "chart.bar"
+        case .about: "info.circle"
+        }
+    }
+}
+
 struct SettingsView: View {
+    let languageManager: LanguageManager
+    let loginItemManager: any LoginItemManaging
+    let preferencesStore: PreferencesStore
+    let breakStatsStore: BreakStatsStore
+
+    var body: some View {
+        SettingsContentView(
+            languageManager: languageManager,
+            loginItemManager: loginItemManager,
+            preferencesStore: preferencesStore,
+            breakStatsStore: breakStatsStore,
+            sections: SettingsPageSection.fullSettingsOrder,
+            showsSectionHeaders: true
+        )
+        .frame(minWidth: 420, minHeight: 520)
+    }
+}
+
+struct SettingsContentView: View {
     let languageManager: LanguageManager
     let loginItemManager: any LoginItemManaging
     @Bindable var preferencesStore: PreferencesStore
     @Bindable var breakStatsStore: BreakStatsStore
+    let sections: [SettingsPageSection]
+    let showsSectionHeaders: Bool
 
     @State private var showingResetConfirmation = false
     @State private var availableScreens: [ScreenDescriptor] = []
@@ -23,18 +100,29 @@ struct SettingsView: View {
     private static let intervalOptions = [15, 20, 25, 30, 45, 60]
     private static let dismissOptions = [30, 45, 60, 90, 120]
 
+    init(
+        languageManager: LanguageManager,
+        loginItemManager: any LoginItemManaging,
+        preferencesStore: PreferencesStore,
+        breakStatsStore: BreakStatsStore,
+        sections: [SettingsPageSection] = SettingsPageSection.fullSettingsOrder,
+        showsSectionHeaders: Bool = true
+    ) {
+        self.languageManager = languageManager
+        self.loginItemManager = loginItemManager
+        self.preferencesStore = preferencesStore
+        self.breakStatsStore = breakStatsStore
+        self.sections = sections
+        self.showsSectionHeaders = showsSectionHeaders
+    }
+
     var body: some View {
         Form {
-            languageSection
-            startupSection
-            remindersSection
-            scheduleSection
-            behaviorSection
-            statisticsSection
-            aboutSection
+            ForEach(sections) { section in
+                settingsSection(section)
+            }
         }
         .formStyle(.grouped)
-        .frame(minWidth: 420, minHeight: 520)
         .onAppear {
             breakStatsStore.refresh()
             refreshAvailableScreens()
@@ -42,6 +130,33 @@ struct SettingsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             refreshAvailableScreens()
+        }
+    }
+
+    @ViewBuilder
+    private func settingsSection(_ section: SettingsPageSection) -> some View {
+        switch section {
+        case .language:
+            languageSection
+        case .startup:
+            startupSection
+        case .reminders:
+            remindersSection
+        case .schedule:
+            scheduleSection
+        case .behavior:
+            behaviorSection
+        case .statistics:
+            statisticsSection
+        case .about:
+            aboutSection
+        }
+    }
+
+    @ViewBuilder
+    private func sectionHeader(_ key: String) -> some View {
+        if showsSectionHeaders {
+            Text(LocalizedStringKey(key))
         }
     }
 
@@ -61,7 +176,7 @@ struct SettingsView: View {
             }
             .pickerStyle(.menu)
         } header: {
-            Text("section.language")
+            sectionHeader("section.language")
         } footer: {
             Text("language_description")
         }
@@ -75,7 +190,7 @@ struct SettingsView: View {
                 Text("launch_at_login")
             }
         } header: {
-            Text("section.startup")
+            sectionHeader("section.startup")
         } footer: {
             startupFooter
         }
@@ -110,7 +225,7 @@ struct SettingsView: View {
                 Text("sit_aware_mode")
             }
         } header: {
-            Text("section.reminders")
+            sectionHeader("section.reminders")
         } footer: {
             if preferencesStore.preferences.sitAwareEnabled {
                 Text("sit_aware_footer_on")
@@ -140,7 +255,7 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Text("section.schedule")
+            sectionHeader("section.schedule")
         } footer: {
             if preferencesStore.preferences.schedule.isEnabled && !isValidTimeRange {
                 Text("schedule_invalid")
@@ -197,7 +312,7 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Text("section.behavior")
+            sectionHeader("section.behavior")
         } footer: {
             Text("behavior_footer")
         }
@@ -247,7 +362,7 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Text("section.statistics")
+            sectionHeader("section.statistics")
         }
     }
 
@@ -271,7 +386,7 @@ struct SettingsView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
         } header: {
-            Text("section.about")
+            sectionHeader("section.about")
         }
     }
 

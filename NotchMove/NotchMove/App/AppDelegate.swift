@@ -22,7 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var dailyScheduleReminderEngine: DailyScheduleReminderEngine?
     private var notchWindowController: NotchWindowController?
     private var menuBarController: MenuBarController?
-    private var settingsWindowController: SettingsWindowController?
     private var dashboardWindowController: DashboardWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -47,15 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             languageManager: languageManager,
             preferencesStore: preferencesStore
         )
-        let settingsWindow = SettingsWindowController(
+        let dashboardWindow = DashboardWindowController(
             languageManager: languageManager,
+            scheduleStore: dailyScheduleStore,
             preferencesStore: preferencesStore,
             breakStatsStore: breakStatsStore,
             loginItemManager: loginItemService
-        )
-        let dashboardWindow = DashboardWindowController(
-            languageManager: languageManager,
-            scheduleStore: dailyScheduleStore
         )
 
         monitor.start()
@@ -67,7 +63,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.reminderEngine = engine
         self.dailyScheduleReminderEngine = scheduleReminderEngine
         self.notchWindowController = controller
-        self.settingsWindowController = settingsWindow
         self.dashboardWindowController = dashboardWindow
         self.menuBarController = MenuBarController(
             reminderEngine: engine,
@@ -77,9 +72,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferencesStore: preferencesStore,
             onOpenDashboard: { [weak dashboardWindow] in
                 dashboardWindow?.openDashboard()
-            },
-            onOpenSettings: { [weak settingsWindow] in
-                settingsWindow?.openSettings()
             }
         )
 

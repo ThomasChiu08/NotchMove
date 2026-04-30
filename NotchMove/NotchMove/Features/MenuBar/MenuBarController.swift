@@ -23,7 +23,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
     private let onOpenDashboard: () -> Void
-    private let onOpenSettings: () -> Void
     private let menu = NSMenu()
     private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "menu-bar")
 
@@ -34,8 +33,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let pauseMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let soundMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let remindNowMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let dashboardMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let settingsMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ",")
+    private let dashboardMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ",")
     private let quitMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "q")
 
     init(
@@ -44,8 +42,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         dailyScheduleStore: DailyScheduleStore,
         languageManager: LanguageManager,
         preferencesStore: PreferencesStore,
-        onOpenDashboard: @escaping () -> Void,
-        onOpenSettings: @escaping () -> Void
+        onOpenDashboard: @escaping () -> Void
     ) {
         self.reminderEngine = reminderEngine
         self.breakStatsStore = breakStatsStore
@@ -53,7 +50,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.languageManager = languageManager
         self.preferencesStore = preferencesStore
         self.onOpenDashboard = onOpenDashboard
-        self.onOpenSettings = onOpenSettings
         super.init()
         configureStatusButton()
         buildMenu()
@@ -106,11 +102,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         dashboardMenuItem.target = self
         dashboardMenuItem.action = #selector(openDashboard)
         menu.addItem(dashboardMenuItem)
-
-        // Settings
-        settingsMenuItem.target = self
-        settingsMenuItem.action = #selector(openSettings)
-        menu.addItem(settingsMenuItem)
 
         menu.addItem(.separator())
 
@@ -190,7 +181,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         // Settings & Quit
         dashboardMenuItem.title = L("menu.dashboard")
-        settingsMenuItem.title = L("menu.settings")
         quitMenuItem.title = L("menu.quit")
     }
 
@@ -207,13 +197,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         reminderEngine.send(.manualTrigger)
     }
 
-    @objc private func openSettings() {
-        logger.notice("Opening settings window")
-        onOpenSettings()
-    }
-
     @objc private func openDashboard() {
-        logger.notice("Opening daily schedule dashboard")
+        logger.notice("Opening unified dashboard")
         onOpenDashboard()
     }
 

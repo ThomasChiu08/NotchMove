@@ -81,7 +81,7 @@
 "menu.sound" = "Sound on reminder";
 "menu.next_schedule_format" = "Next schedule: %@ · %@";
 "menu.no_schedule_today" = "No more schedule today";
-"menu.dashboard" = "Today's Schedule";
+"menu.dashboard" = "Dashboard…";
 "menu.settings" = "Settings…";
 "menu.quit" = "Quit NotchMove";
 
@@ -89,6 +89,9 @@
 "settings.title" = "NotchMove Settings";
 
 /* ─── Dashboard ─── */
+"dashboard.unified.title" = "NotchMove Dashboard";
+"dashboard.sidebar.workspace" = "Workspace";
+"dashboard.sidebar.settings" = "Settings";
 "dashboard.title" = "Daily Schedule";
 "dashboard.today" = "Today";
 "dashboard.add.button" = "Add";

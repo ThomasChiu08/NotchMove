@@ -81,7 +81,7 @@
 "menu.sound" = "提醒声音";
 "menu.next_schedule_format" = "下个行程：%@ · %@";
 "menu.no_schedule_today" = "今天没有更多行程";
-"menu.dashboard" = "今日行程";
+"menu.dashboard" = "控制台…";
 "menu.settings" = "设置…";
 "menu.quit" = "退出 NotchMove";
 
@@ -89,6 +89,9 @@
 "settings.title" = "NotchMove 设置";
 
 /* ─── Dashboard ─── */
+"dashboard.unified.title" = "NotchMove 控制台";
+"dashboard.sidebar.workspace" = "工作区";
+"dashboard.sidebar.settings" = "设置";
 "dashboard.title" = "日常行程";
 "dashboard.today" = "今天";
 "dashboard.add.button" = "新增";
