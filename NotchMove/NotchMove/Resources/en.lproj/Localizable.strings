@@ -42,6 +42,7 @@
 "reset_confirm" = "Reset all statistics?";
 "reset_action" = "Reset";
 "cancel" = "Cancel";
+"ok" = "OK";
 "restore_defaults" = "Restore Defaults";
 
 /* ─── About ─── */
@@ -75,8 +76,40 @@
 "menu.resume" = "Resume reminders";
 "menu.remind_now" = "Remind me now";
 "menu.sound" = "Sound on reminder";
+"menu.dashboard" = "Today's Schedule";
 "menu.settings" = "Settings…";
 "menu.quit" = "Quit NotchMove";
 
 /* ─── Settings Window ─── */
 "settings.title" = "NotchMove Settings";
+
+/* ─── Dashboard ─── */
+"dashboard.title" = "Daily Schedule";
+"dashboard.today" = "Today";
+"dashboard.import.button" = "Import";
+"dashboard.clear.button" = "Clear Today";
+"dashboard.empty.title" = "No schedule today";
+"dashboard.empty.description" = "Today's schedule is empty.";
+"dashboard.current" = "Current";
+"dashboard.next" = "Next";
+"dashboard.none_current" = "No current item";
+"dashboard.none_next" = "No upcoming item";
+"dashboard.time_range_format" = "%@-%@";
+"dashboard.field.time" = "Time";
+"dashboard.field.reminder_enabled" = "Reminder enabled";
+"dashboard.field.lead_minutes_format" = "Remind %d minutes early";
+"dashboard.field.notes" = "Notes";
+"dashboard.delete.button" = "Delete Item";
+"dashboard.delete.confirm_title" = "Delete this schedule item?";
+"dashboard.delete.action" = "Delete";
+"dashboard.clear.confirm_title" = "Clear today's schedule?";
+"dashboard.clear.action" = "Clear Today";
+"dashboard.import.title" = "Import Schedule";
+"dashboard.import.action" = "Import";
+"dashboard.import.errors_title" = "Rows needing attention";
+"dashboard.import.error.line_format" = "Line %d: %@";
+"dashboard.import.error.invalid_time" = "Use a valid 24-hour time.";
+"dashboard.import.error.missing_title" = "Add a title after the time.";
+"dashboard.import.error.end_before_start" = "End time must be after start time.";
+"dashboard.reminder.alert_title" = "Schedule Reminder";
+"dashboard.reminder.alert_message_format" = "%@ is coming up.";

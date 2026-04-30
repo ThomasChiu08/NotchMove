@@ -42,6 +42,7 @@
 "reset_confirm" = "すべての統計をリセットしますか？";
 "reset_action" = "リセット";
 "cancel" = "キャンセル";
+"ok" = "OK";
 "restore_defaults" = "デフォルトに戻す";
 
 /* ─── About ─── */
@@ -75,8 +76,40 @@
 "menu.resume" = "リマインダーを再開";
 "menu.remind_now" = "今すぐリマインド";
 "menu.sound" = "リマインドサウンド";
+"menu.dashboard" = "今日の予定";
 "menu.settings" = "設定…";
 "menu.quit" = "NotchMove を終了";
 
 /* ─── Settings Window ─── */
 "settings.title" = "NotchMove 設定";
+
+/* ─── Dashboard ─── */
+"dashboard.title" = "日次スケジュール";
+"dashboard.today" = "今日";
+"dashboard.import.button" = "インポート";
+"dashboard.clear.button" = "今日をクリア";
+"dashboard.empty.title" = "今日の予定はありません";
+"dashboard.empty.description" = "今日のスケジュールは空です。";
+"dashboard.current" = "現在";
+"dashboard.next" = "次";
+"dashboard.none_current" = "現在の予定はありません";
+"dashboard.none_next" = "次の予定はありません";
+"dashboard.time_range_format" = "%@-%@";
+"dashboard.field.time" = "時刻";
+"dashboard.field.reminder_enabled" = "リマインダーを有効化";
+"dashboard.field.lead_minutes_format" = "%d 分前にリマインド";
+"dashboard.field.notes" = "メモ";
+"dashboard.delete.button" = "予定を削除";
+"dashboard.delete.confirm_title" = "この予定を削除しますか？";
+"dashboard.delete.action" = "削除";
+"dashboard.clear.confirm_title" = "今日の予定をクリアしますか？";
+"dashboard.clear.action" = "今日をクリア";
+"dashboard.import.title" = "予定をインポート";
+"dashboard.import.action" = "インポート";
+"dashboard.import.errors_title" = "確認が必要な行";
+"dashboard.import.error.line_format" = "%d 行目：%@";
+"dashboard.import.error.invalid_time" = "有効な 24 時間表記を使用してください。";
+"dashboard.import.error.missing_title" = "時刻の後にタイトルを追加してください。";
+"dashboard.import.error.end_before_start" = "終了時刻は開始時刻より後にしてください。";
+"dashboard.reminder.alert_title" = "予定リマインダー";
+"dashboard.reminder.alert_message_format" = "%@ がまもなく始まります。";

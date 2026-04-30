@@ -14,24 +14,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let loginItemService = LoginItemService()
     private lazy var preferencesStore = PreferencesStore(settings: settings)
     private lazy var breakStatsStore = BreakStatsStore(defaults: settings.defaults)
+    private lazy var dailyScheduleStore = DailyScheduleStore(defaults: settings.defaults)
     private lazy var languageManager = LanguageManager(preferencesStore: preferencesStore)
 
     private var activityMonitor: ActivityMonitor?
     private var reminderEngine: ReminderEngine?
+    private var dailyScheduleReminderEngine: DailyScheduleReminderEngine?
     private var notchWindowController: NotchWindowController?
     private var menuBarController: MenuBarController?
     private var settingsWindowController: SettingsWindowController?
+    private var dashboardWindowController: DashboardWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         reconcileLaunchAtLogin()
 
         let monitor = ActivityMonitor()
+        let soundPlayer = SystemSoundPlayer(preferencesStore: preferencesStore)
         let engine = ReminderEngine(
             activityMonitor: monitor,
             preferencesStore: preferencesStore,
-            soundPlayer: SystemSoundPlayer(preferencesStore: preferencesStore),
+            soundPlayer: soundPlayer,
             breakStatsStore: breakStatsStore
+        )
+        let scheduleReminderEngine = DailyScheduleReminderEngine(
+            scheduleStore: dailyScheduleStore,
+            soundPlayer: soundPlayer,
+            presenter: DailyScheduleAlertPresenter(languageManager: languageManager)
         )
         let controller = NotchWindowController(
             reminderEngine: engine,
@@ -44,20 +53,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             breakStatsStore: breakStatsStore,
             loginItemManager: loginItemService
         )
+        let dashboardWindow = DashboardWindowController(
+            languageManager: languageManager,
+            scheduleStore: dailyScheduleStore
+        )
 
         monitor.start()
         engine.start()
+        scheduleReminderEngine.start()
         controller.show()
 
         self.activityMonitor = monitor
         self.reminderEngine = engine
+        self.dailyScheduleReminderEngine = scheduleReminderEngine
         self.notchWindowController = controller
         self.settingsWindowController = settingsWindow
+        self.dashboardWindowController = dashboardWindow
         self.menuBarController = MenuBarController(
             reminderEngine: engine,
             breakStatsStore: breakStatsStore,
             languageManager: languageManager,
             preferencesStore: preferencesStore,
+            onOpenDashboard: { [weak dashboardWindow] in
+                dashboardWindow?.openDashboard()
+            },
             onOpenSettings: { [weak settingsWindow] in
                 settingsWindow?.openSettings()
             }

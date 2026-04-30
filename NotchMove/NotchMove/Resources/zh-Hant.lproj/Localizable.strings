@@ -42,6 +42,7 @@
 "reset_confirm" = "重置所有統計數據？";
 "reset_action" = "重置";
 "cancel" = "取消";
+"ok" = "好";
 "restore_defaults" = "恢復預設設定";
 
 /* ─── About ─── */
@@ -75,8 +76,40 @@
 "menu.resume" = "恢復提醒";
 "menu.remind_now" = "立即提醒";
 "menu.sound" = "提醒聲音";
+"menu.dashboard" = "今日行程";
 "menu.settings" = "設定…";
 "menu.quit" = "結束 NotchMove";
 
 /* ─── Settings Window ─── */
 "settings.title" = "NotchMove 設定";
+
+/* ─── Dashboard ─── */
+"dashboard.title" = "日常行程";
+"dashboard.today" = "今天";
+"dashboard.import.button" = "匯入";
+"dashboard.clear.button" = "清空今日";
+"dashboard.empty.title" = "今天沒有行程";
+"dashboard.empty.description" = "今日行程為空。";
+"dashboard.current" = "目前";
+"dashboard.next" = "下一個";
+"dashboard.none_current" = "目前沒有行程";
+"dashboard.none_next" = "沒有即將開始的行程";
+"dashboard.time_range_format" = "%@-%@";
+"dashboard.field.time" = "時間";
+"dashboard.field.reminder_enabled" = "開啟提醒";
+"dashboard.field.lead_minutes_format" = "提前 %d 分鐘提醒";
+"dashboard.field.notes" = "備註";
+"dashboard.delete.button" = "刪除行程";
+"dashboard.delete.confirm_title" = "刪除這條行程？";
+"dashboard.delete.action" = "刪除";
+"dashboard.clear.confirm_title" = "清空今天的行程？";
+"dashboard.clear.action" = "清空今日";
+"dashboard.import.title" = "匯入行程";
+"dashboard.import.action" = "匯入";
+"dashboard.import.errors_title" = "需要處理的行";
+"dashboard.import.error.line_format" = "第 %d 行：%@";
+"dashboard.import.error.invalid_time" = "請使用有效的 24 小時時間。";
+"dashboard.import.error.missing_title" = "請在時間後加入標題。";
+"dashboard.import.error.end_before_start" = "結束時間必須晚於開始時間。";
+"dashboard.reminder.alert_title" = "行程提醒";
+"dashboard.reminder.alert_message_format" = "%@ 即將開始。";
