@@ -85,21 +85,7 @@ final class AIScheduleAssistantService {
             return transcriptionProviderOverride
         }
 
-        guard preferences.transcriptionProviderID == AIProviderID.openAI.rawValue else {
-            throw AIScheduleAssistantError.providerResponseInvalid(
-                provider: preferences.transcriptionProviderID,
-                message: "Unsupported transcription provider."
-            )
-        }
-
-        guard let apiKey = try preferences.openAIAPIKey(), !apiKey.isEmpty else {
-            throw AIScheduleAssistantError.missingAPIKey(provider: AIProviderID.openAI.displayName)
-        }
-
-        return OpenAITranscriptionProvider(
-            apiKey: apiKey,
-            model: preferences.transcriptionModel
-        )
+        return try AIProviderFactory.makeTranscriptionProvider(preferences: preferences)
     }
 
     private func makeParserProvider() throws -> any ScheduleParserProvider {
@@ -107,20 +93,6 @@ final class AIScheduleAssistantService {
             return parserProviderOverride
         }
 
-        guard preferences.parserProviderID == AIProviderID.openAI.rawValue else {
-            throw AIScheduleAssistantError.providerResponseInvalid(
-                provider: preferences.parserProviderID,
-                message: "Unsupported parser provider."
-            )
-        }
-
-        guard let apiKey = try preferences.openAIAPIKey(), !apiKey.isEmpty else {
-            throw AIScheduleAssistantError.missingAPIKey(provider: AIProviderID.openAI.displayName)
-        }
-
-        return OpenAIScheduleParserProvider(
-            apiKey: apiKey,
-            model: preferences.parserModel
-        )
+        return try AIProviderFactory.makeParserProvider(preferences: preferences)
     }
 }

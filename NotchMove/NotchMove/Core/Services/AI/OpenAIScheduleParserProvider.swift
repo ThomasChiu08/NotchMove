@@ -46,17 +46,7 @@ struct OpenAIScheduleParserProvider: ScheduleParserProvider {
             )
         }
 
-        do {
-            return try ScheduleParseResult.decoder.decode(
-                ScheduleParseResult.self,
-                from: Data(outputText.utf8)
-            )
-        } catch {
-            throw AIScheduleAssistantError.providerResponseInvalid(
-                provider: displayName,
-                message: error.localizedDescription
-            )
-        }
+        return try ScheduleParserPrompt.decodeResult(from: outputText, provider: displayName)
     }
 
     private func makeRequest(
@@ -65,114 +55,17 @@ struct OpenAIScheduleParserProvider: ScheduleParserProvider {
     ) -> OpenAIResponsesRequest {
         OpenAIResponsesRequest(
             model: model,
-            instructions: instructions,
-            input: input(transcript: transcript, context: context),
+            instructions: ScheduleParserPrompt.instructions,
+            input: ScheduleParserPrompt.input(transcript: transcript, context: context),
             text: .init(format: .init(
                 type: "json_schema",
                 name: "notchmove_schedule_parse_result",
                 strict: true,
-                schema: Self.scheduleSchema
+                schema: ScheduleParserPrompt.scheduleSchema
             )),
             store: false
         )
     }
-
-    private var instructions: String {
-        """
-        Extract schedule reminder drafts for NotchMove. Return only structured output.
-        Create drafts only when the title and start date/time are clear.
-        Resolve relative dates using the supplied current date, timezone, locale, and app language.
-        If the user is ambiguous, add questions and do not invent exact dates.
-        Use the default reminder lead minutes unless the transcript says otherwise.
-        Never claim that reminders were added. The user will review drafts before anything is saved.
-        """
-    }
-
-    private func input(transcript: Transcript, context: ScheduleParseContext) -> String {
-        """
-        Transcript:
-        \(transcript.text)
-
-        Current date:
-        \(ISO8601DateFormatter.aiScheduleString(from: context.currentDate, timeZone: context.timeZone))
-
-        Timezone:
-        \(context.timeZone.identifier)
-
-        Locale:
-        \(context.localeIdentifier)
-
-        App language:
-        \(context.appLanguage)
-
-        Default reminder lead minutes:
-        \(context.defaultReminderLeadMinutes)
-
-        Existing schedule items:
-        \(existingItemsDescription(context.existingScheduleItems, timeZone: context.timeZone))
-        """
-    }
-
-    private func existingItemsDescription(_ items: [DailyScheduleItem], timeZone: TimeZone) -> String {
-        guard !items.isEmpty else { return "[]" }
-
-        return items.map { item in
-            let start = ISO8601DateFormatter.aiScheduleString(from: item.startDate, timeZone: timeZone)
-            let end = item.endDate.map { ISO8601DateFormatter.aiScheduleString(from: $0, timeZone: timeZone) } ?? "null"
-            return "- \(item.title): start=\(start), end=\(end)"
-        }
-        .joined(separator: "\n")
-    }
-
-    private static let scheduleSchema: JSONValue = .object([
-        "type": .string("object"),
-        "additionalProperties": .bool(false),
-        "required": .array([
-            .string("items"),
-            .string("questions"),
-            .string("warnings"),
-        ]),
-        "properties": .object([
-            "items": .object([
-                "type": .string("array"),
-                "items": .object([
-                    "type": .string("object"),
-                    "additionalProperties": .bool(false),
-                    "required": .array([
-                        .string("title"),
-                        .string("startDate"),
-                        .string("endDate"),
-                        .string("notes"),
-                        .string("reminderLeadMinutes"),
-                        .string("isReminderEnabled"),
-                        .string("confidence"),
-                        .string("warning"),
-                    ]),
-                    "properties": .object([
-                        "title": .object(["type": .string("string")]),
-                        "startDate": .object(["type": .string("string")]),
-                        "endDate": .object(["type": .array([.string("string"), .string("null")])]),
-                        "notes": .object(["type": .array([.string("string"), .string("null")])]),
-                        "reminderLeadMinutes": .object(["type": .string("integer")]),
-                        "isReminderEnabled": .object(["type": .string("boolean")]),
-                        "confidence": .object([
-                            "type": .string("string"),
-                            "enum": .array([.string("high"), .string("medium"), .string("low")]),
-                        ]),
-                        "warning": .object(["type": .array([.string("string"), .string("null")])]),
-                    ]),
-                ]),
-            ]),
-            "questions": .object([
-                "type": .string("array"),
-                "items": .object(["type": .string("string")]),
-            ]),
-            "warnings": .object([
-                "type": .string("array"),
-                "items": .object(["type": .string("string")]),
-            ]),
-        ]),
-    ])
 }
 
 struct OpenAIResponseTextExtractor {
@@ -216,19 +109,4 @@ private struct OpenAIResponsesResponse: Decodable {
     }
 
     var output: [OutputItem]
-}
-
-private extension ScheduleParseResult {
-    static let decoder: JSONDecoder = {
-        JSONDecoder()
-    }()
-}
-
-private extension ISO8601DateFormatter {
-    static func aiScheduleString(from date: Date, timeZone: TimeZone) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.timeZone = timeZone
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.string(from: date)
-    }
 }

@@ -318,8 +318,8 @@ struct AIScheduleCaptureSheet: View {
                     throw AIScheduleAssistantError.disabled
                 }
 
-                guard let apiKey = try aiPreferences.openAIAPIKey(), !apiKey.isEmpty else {
-                    throw AIScheduleAssistantError.missingAPIKey(provider: AIProviderID.openAI.displayName)
+                if let missingProvider = try aiPreferences.firstMissingAPIKeyProviderForCurrentFlow() {
+                    throw AIScheduleAssistantError.missingAPIKey(provider: missingProvider.displayName)
                 }
 
                 try await captureService.startRecording()

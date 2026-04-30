@@ -102,8 +102,9 @@ struct SettingsContentView: View {
     @State private var availableScreens: [ScreenDescriptor] = []
     @State private var loginItemStatus: LoginItemStatus = .notRegistered
     @State private var launchAtLoginErrorMessage: String?
-    @State private var openAIAPIKey = ""
+    @State private var apiKeys: [AIProviderID: String] = [:]
     @State private var apiKeyStatusMessage: String?
+    @State private var isTestingParserProvider = false
 
     private let screenProvider = MainScreenProvider()
     private static let intervalOptions = [15, 20, 25, 30, 45, 60]
@@ -139,7 +140,7 @@ struct SettingsContentView: View {
             breakStatsStore.refresh()
             refreshAvailableScreens()
             refreshLoginItemStatus()
-            loadOpenAIAPIKey()
+            loadAPIKeys()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             refreshAvailableScreens()
@@ -269,8 +270,8 @@ struct SettingsContentView: View {
             }
 
             SettingsPropertyRow("ai.settings.transcription_provider") {
-                Picker(selection: $aiProviderPreferences.transcriptionProviderID) {
-                    ForEach(AIProviderID.allCases) { provider in
+                Picker(selection: transcriptionProviderBinding) {
+                    ForEach(AIProviderPreferences.supportedTranscriptionProviders) { provider in
                         Text(provider.displayName).tag(provider.rawValue)
                     }
                 } label: {
@@ -283,7 +284,7 @@ struct SettingsContentView: View {
 
             SettingsPropertyRow("ai.settings.transcription_model") {
                 Picker(selection: $aiProviderPreferences.transcriptionModel) {
-                    ForEach(AIProviderPreferences.supportedTranscriptionModels, id: \.self) { model in
+                    ForEach(aiProviderPreferences.availableTranscriptionModels, id: \.self) { model in
                         Text(model).tag(model)
                     }
                 } label: {
@@ -295,8 +296,8 @@ struct SettingsContentView: View {
             }
 
             SettingsPropertyRow("ai.settings.parser_provider") {
-                Picker(selection: $aiProviderPreferences.parserProviderID) {
-                    ForEach(AIProviderID.allCases) { provider in
+                Picker(selection: parserProviderBinding) {
+                    ForEach(AIProviderPreferences.supportedParserProviders) { provider in
                         Text(provider.displayName).tag(provider.rawValue)
                     }
                 } label: {
@@ -309,7 +310,7 @@ struct SettingsContentView: View {
 
             SettingsPropertyRow("ai.settings.parser_model") {
                 Picker(selection: $aiProviderPreferences.parserModel) {
-                    ForEach(AIProviderPreferences.supportedParserModels, id: \.self) { model in
+                    ForEach(aiProviderPreferences.availableParserModels, id: \.self) { model in
                         Text(model).tag(model)
                     }
                 } label: {
@@ -329,23 +330,21 @@ struct SettingsContentView: View {
                 }
             }
 
-            SettingsPropertyRow("ai.settings.openai_key", captionKey: "ai.settings.openai_key_caption") {
+            ForEach(aiProviderPreferences.requiredAPIKeyProvidersForCurrentFlow) { provider in
+                apiKeyRow(for: provider)
+            }
+
+            SettingsPropertyRow("ai.settings.test_parser") {
                 HStack(spacing: 8) {
-                    SecureField("ai.settings.openai_key", text: $openAIAPIKey)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 260)
-
-                    Button("ai.settings.save_key") {
-                        saveOpenAIAPIKey()
+                    Button("ai.settings.test_parser") {
+                        testParserProvider()
                     }
+                    .disabled(isTestingParserProvider)
 
-                    Button(role: .destructive) {
-                        openAIAPIKey = ""
-                        saveOpenAIAPIKey()
-                    } label: {
-                        Text("ai.settings.clear_key")
+                    if isTestingParserProvider {
+                        ProgressView()
+                            .controlSize(.small)
                     }
-                    .disabled(openAIAPIKey.isEmpty)
                 }
             }
 
@@ -590,6 +589,67 @@ struct SettingsContentView: View {
         )
     }
 
+    private var transcriptionProviderBinding: Binding<String> {
+        Binding(
+            get: { aiProviderPreferences.selectedTranscriptionProvider.rawValue },
+            set: { providerID in
+                guard let provider = AIProviderID(rawValue: providerID) else { return }
+                aiProviderPreferences.selectTranscriptionProvider(provider)
+                loadAPIKeys()
+            }
+        )
+    }
+
+    private var parserProviderBinding: Binding<String> {
+        Binding(
+            get: { aiProviderPreferences.selectedParserProvider.rawValue },
+            set: { providerID in
+                guard let provider = AIProviderID(rawValue: providerID) else { return }
+                aiProviderPreferences.selectParserProvider(provider)
+                loadAPIKeys()
+            }
+        )
+    }
+
+    private func apiKeyBinding(for provider: AIProviderID) -> Binding<String> {
+        Binding(
+            get: { apiKeys[provider, default: ""] },
+            set: { apiKeys[provider] = $0 }
+        )
+    }
+
+    private func apiKeyTitle(for provider: AIProviderID) -> String {
+        String(
+            format: localizedString("ai.settings.provider_key_format"),
+            provider.displayName
+        )
+    }
+
+    private func apiKeyRow(for provider: AIProviderID) -> some View {
+        SettingsDynamicPropertyRow(
+            apiKeyTitle(for: provider),
+            captionKey: "ai.settings.provider_key_caption"
+        ) {
+            HStack(spacing: 8) {
+                SecureField(apiKeyTitle(for: provider), text: apiKeyBinding(for: provider))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 260)
+
+                Button("ai.settings.save_key") {
+                    saveAPIKey(for: provider)
+                }
+
+                Button(role: .destructive) {
+                    apiKeys[provider] = ""
+                    saveAPIKey(for: provider)
+                } label: {
+                    Text("ai.settings.clear_key")
+                }
+                .disabled(apiKeys[provider, default: ""].isEmpty)
+            }
+        }
+    }
+
     private func setLaunchAtLoginEnabled(_ isEnabled: Bool) {
         launchAtLoginErrorMessage = nil
 
@@ -626,21 +686,55 @@ struct SettingsContentView: View {
         refreshLoginItemStatus()
     }
 
-    private func loadOpenAIAPIKey() {
+    private func loadAPIKeys() {
         do {
-            openAIAPIKey = try aiProviderPreferences.openAIAPIKey() ?? ""
+            for provider in AIProviderID.allCases {
+                apiKeys[provider] = try aiProviderPreferences.apiKey(for: provider) ?? ""
+            }
             apiKeyStatusMessage = nil
         } catch {
             apiKeyStatusMessage = error.localizedDescription
         }
     }
 
-    private func saveOpenAIAPIKey() {
+    private func saveAPIKey(for provider: AIProviderID) {
         do {
-            try aiProviderPreferences.saveOpenAIAPIKey(openAIAPIKey)
-            apiKeyStatusMessage = localizedString("ai.settings.key_saved")
+            try aiProviderPreferences.saveAPIKey(apiKeys[provider, default: ""], for: provider)
+            apiKeyStatusMessage = String(
+                format: localizedString("ai.settings.key_saved_format"),
+                provider.displayName
+            )
         } catch {
             apiKeyStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func testParserProvider() {
+        isTestingParserProvider = true
+        apiKeyStatusMessage = nil
+
+        Task {
+            defer {
+                isTestingParserProvider = false
+            }
+
+            do {
+                let parserProvider = try AIProviderFactory.makeParserProvider(preferences: aiProviderPreferences)
+                _ = try await parserProvider.parseSchedule(
+                    transcript: Transcript(text: "No schedule items.", language: "en", duration: nil),
+                    context: ScheduleParseContext(
+                        currentDate: .now,
+                        timeZone: .current,
+                        localeIdentifier: languageManager.locale.identifier,
+                        appLanguage: languageManager.selectedLanguage,
+                        defaultReminderLeadMinutes: aiProviderPreferences.defaultReminderLeadMinutes,
+                        existingScheduleItems: []
+                    )
+                )
+                apiKeyStatusMessage = localizedString("ai.settings.test_succeeded")
+            } catch {
+                apiKeyStatusMessage = error.localizedDescription
+            }
         }
     }
 
@@ -739,6 +833,44 @@ private struct SettingsPropertyRow<Content: View>: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .center, spacing: 16) {
                 Text(LocalizedStringKey(titleKey))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 168, alignment: .leading)
+
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if let captionKey {
+                Text(LocalizedStringKey(captionKey))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.leading, 184)
+            }
+        }
+        .font(.system(size: 13))
+        .padding(.vertical, 4)
+    }
+}
+
+private struct SettingsDynamicPropertyRow<Content: View>: View {
+    let title: String
+    let captionKey: String?
+    let content: Content
+
+    init(
+        _ title: String,
+        captionKey: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.captionKey = captionKey
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .center, spacing: 16) {
+                Text(title)
                     .foregroundStyle(.secondary)
                     .frame(width: 168, alignment: .leading)
 

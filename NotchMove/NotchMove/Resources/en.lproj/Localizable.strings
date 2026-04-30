@@ -186,9 +186,14 @@
 "ai.settings.default_lead" = "Default advance notice";
 "ai.settings.openai_key" = "OpenAI API key";
 "ai.settings.openai_key_caption" = "Stored in macOS Keychain, not UserDefaults.";
+"ai.settings.provider_key_format" = "%@ API key";
+"ai.settings.provider_key_caption" = "Stored in macOS Keychain, not UserDefaults.";
 "ai.settings.save_key" = "Save";
 "ai.settings.clear_key" = "Clear";
 "ai.settings.key_saved" = "API key saved.";
+"ai.settings.key_saved_format" = "%@ API key saved.";
+"ai.settings.test_parser" = "Test parser";
+"ai.settings.test_succeeded" = "Parser provider connection succeeded.";
 "ai.settings.open" = "AI Settings";
 "ai.settings.privacy_footer" = "Audio and transcript text may be sent to the selected cloud providers. Drafts are reviewed before anything is added.";
 "ai.capture.title" = "AI Add Schedule";

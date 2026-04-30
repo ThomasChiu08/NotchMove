@@ -186,9 +186,14 @@
 "ai.settings.default_lead" = "預設提前提醒";
 "ai.settings.openai_key" = "OpenAI API Key";
 "ai.settings.openai_key_caption" = "儲存在 macOS 鑰匙圈，不寫入 UserDefaults。";
+"ai.settings.provider_key_format" = "%@ API Key";
+"ai.settings.provider_key_caption" = "儲存在 macOS 鑰匙圈，不寫入 UserDefaults。";
 "ai.settings.save_key" = "儲存";
 "ai.settings.clear_key" = "清除";
 "ai.settings.key_saved" = "API Key 已儲存。";
+"ai.settings.key_saved_format" = "%@ API Key 已儲存。";
+"ai.settings.test_parser" = "測試解析服務";
+"ai.settings.test_succeeded" = "解析服務連線成功。";
 "ai.settings.open" = "AI 設定";
 "ai.settings.privacy_footer" = "音訊和轉寫文字可能會傳送給所選雲端服務。確認草稿後才會新增日程。";
 "ai.capture.title" = "AI 新增日程";

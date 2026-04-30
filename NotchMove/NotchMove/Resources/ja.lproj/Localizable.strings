@@ -186,9 +186,14 @@
 "ai.settings.default_lead" = "既定の事前通知";
 "ai.settings.openai_key" = "OpenAI API キー";
 "ai.settings.openai_key_caption" = "UserDefaults ではなく macOS キーチェーンに保存します。";
+"ai.settings.provider_key_format" = "%@ API キー";
+"ai.settings.provider_key_caption" = "UserDefaults ではなく macOS キーチェーンに保存します。";
 "ai.settings.save_key" = "保存";
 "ai.settings.clear_key" = "消去";
 "ai.settings.key_saved" = "API キーを保存しました。";
+"ai.settings.key_saved_format" = "%@ API キーを保存しました。";
+"ai.settings.test_parser" = "解析をテスト";
+"ai.settings.test_succeeded" = "解析プロバイダーに接続できました。";
 "ai.settings.open" = "AI 設定";
 "ai.settings.privacy_footer" = "音声と文字起こしテキストは、選択したクラウドプロバイダーに送信される場合があります。予定は確認後に追加されます。";
 "ai.capture.title" = "AI で予定を追加";

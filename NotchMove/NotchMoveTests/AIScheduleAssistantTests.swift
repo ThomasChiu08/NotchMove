@@ -234,6 +234,77 @@ struct OpenAIProviderSupportTests {
 
         #expect(redacted == "Invalid key [redacted]")
     }
+
+    @Test func providerRegistryIncludesOpenAICompatibleParserProviders() {
+        #expect(AIProviderPreferences.supportedParserProviders.contains(.openAI))
+        #expect(AIProviderPreferences.supportedParserProviders.contains(.deepSeek))
+        #expect(AIProviderPreferences.supportedParserProviders.contains(.zhipu))
+        #expect(AIProviderPreferences.supportedParserProviders.contains(.miniMax))
+        #expect(AIProviderPreferences.supportedTranscriptionProviders == [.openAI])
+        #expect(AIProviderID.deepSeek.definition.openAICompatibleBaseURL?.absoluteString == "https://api.deepseek.com")
+        #expect(AIProviderID.zhipu.definition.defaultParserModel == "glm-5.1")
+        #expect(AIProviderID.miniMax.definition.defaultParserModel == "MiniMax-M2.7")
+    }
+
+    @Test func parserProviderSelectionFallsBackToProviderDefaultModel() {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveProviderSelection-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+
+        preferences.parserModel = AIProviderPreferences.defaultParserModel
+        preferences.selectParserProvider(.deepSeek)
+
+        #expect(preferences.selectedParserProvider == .deepSeek)
+        #expect(preferences.parserModel == "deepseek-v4-flash")
+        #expect(preferences.availableParserModels.contains("deepseek-v4-pro"))
+    }
+
+    @Test func providerFactoryBuildsOpenAICompatibleParserProvider() throws {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveProviderFactory-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        preferences.selectParserProvider(.zhipu)
+        try preferences.saveAPIKey("zhipu-test-key", for: .zhipu)
+
+        let provider = try AIProviderFactory.makeParserProvider(preferences: preferences)
+
+        #expect(provider.displayName == "Zhipu GLM")
+    }
+
+    @Test func chatCompletionExtractorFindsMessageContent() throws {
+        let responseJSON = """
+        {
+          "choices": [
+            {
+              "message": {
+                "content": "{\\"items\\":[],\\"questions\\":[],\\"warnings\\":[]}"
+              }
+            }
+          ]
+        }
+        """
+
+        let output = try OpenAICompatibleChatResponseTextExtractor.outputText(from: Data(responseJSON.utf8))
+
+        #expect(output == #"{"items":[],"questions":[],"warnings":[]}"#)
+    }
+
+    @Test func scheduleParserPromptStripsThinkingBlocksAndMarkdownFences() throws {
+        let providerText = """
+        <think>reasoning text</think>
+        ```json
+        {"items":[],"questions":[],"warnings":[]}
+        ```
+        """
+
+        let result = try ScheduleParserPrompt.decodeResult(from: providerText, provider: "MiniMax")
+
+        #expect(result.drafts.isEmpty)
+        #expect(result.questions.isEmpty)
+        #expect(result.warnings.isEmpty)
+    }
 }
 
 @MainActor
