@@ -106,6 +106,7 @@ struct SettingsContentView: View {
     @State private var apiKeyStatusMessage: String?
     @State private var isTestingTranscriptionProvider = false
     @State private var isTestingParserProvider = false
+    @State private var setupGuideProvider: AIProviderID?
 
     private let screenProvider = MainScreenProvider()
     private static let intervalOptions = [15, 20, 25, 30, 45, 60]
@@ -145,6 +146,14 @@ struct SettingsContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             refreshAvailableScreens()
+        }
+        .sheet(item: $setupGuideProvider) { provider in
+            AIProviderSetupGuideSheet(
+                provider: provider,
+                guide: provider.definition.setupGuide,
+                languageManager: languageManager
+            )
+            .environment(\.locale, languageManager.locale)
         }
     }
 
@@ -687,6 +696,15 @@ struct SettingsContentView: View {
                     Text("ai.settings.clear_key")
                 }
                 .disabled(credentials[credentialStateKey(for: request), default: ""].isEmpty)
+
+                Button {
+                    setupGuideProvider = request.provider
+                } label: {
+                    Label("ai.settings.provider_guide", systemImage: "questionmark.circle")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.borderless)
+                .help(Text("ai.settings.provider_guide_help"))
             }
         }
     }
@@ -881,6 +899,123 @@ struct SettingsContentView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
+    }
+}
+
+private struct AIProviderSetupGuideSheet: View {
+    let provider: AIProviderID
+    let guide: AIProviderSetupGuide
+    let languageManager: LanguageManager
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(title)
+                            .font(.title3.weight(.semibold))
+
+                        Spacer()
+
+                        Button {
+                            dismiss()
+                        } label: {
+                            Label("ai.guide.close", systemImage: "xmark.circle.fill")
+                                .labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                        .help(Text("ai.guide.close"))
+                    }
+
+                    Text(LocalizedStringKey(guide.overviewKey))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("ai.guide.required_fields")
+                            .font(.headline)
+
+                        Text(requiredFieldsText)
+                            .font(.system(size: 13))
+                            .textSelection(.enabled)
+                    }
+
+                    if guide.documentationURL != nil || guide.consoleURL != nil {
+                        HStack(spacing: 8) {
+                            if let documentationURL = guide.documentationURL {
+                                Link(destination: documentationURL) {
+                                    Label("ai.guide.official_docs", systemImage: "book")
+                                }
+                            }
+
+                            if let consoleURL = guide.consoleURL {
+                                Link(destination: consoleURL) {
+                                    Label("ai.guide.provider_console", systemImage: "safari")
+                                }
+                            }
+                        }
+                        .controlSize(.small)
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("ai.guide.steps")
+                            .font(.headline)
+
+                        Text(LocalizedStringKey(guide.stepsKey))
+                            .font(.system(size: 13))
+                            .lineSpacing(4)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Divider()
+
+                    Label {
+                        Text("ai.guide.security_body")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "lock")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Divider()
+
+            HStack {
+                Spacer()
+
+                Button("ai.guide.close") {
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+        }
+        .frame(width: 520)
+        .frame(minHeight: 360, maxHeight: 640)
+    }
+
+    private var title: String {
+        String(
+            format: languageManager.localizedString("ai.guide.title_format"),
+            provider.displayName
+        )
+    }
+
+    private var requiredFieldsText: String {
+        guide.requiredFieldNames.joined(separator: " · ")
     }
 }
 

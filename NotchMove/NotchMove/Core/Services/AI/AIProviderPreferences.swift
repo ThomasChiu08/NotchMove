@@ -89,11 +89,122 @@ enum AIProviderID: String, CaseIterable, Identifiable {
     func supports(_ capability: AIProviderCapability) -> Bool {
         definition.capabilities.contains(capability)
     }
+
+    var localizationKeySuffix: String {
+        rawValue.replacingOccurrences(of: "-", with: "_")
+    }
 }
 
 struct AIModelDefinition: Identifiable, Equatable {
     let id: String
     let displayName: String
+}
+
+struct AIProviderSetupGuide: Identifiable, Equatable {
+    let providerID: AIProviderID
+    let documentationURL: URL?
+    let consoleURL: URL?
+    let extraRequiredFieldNames: [String]
+
+    var id: AIProviderID { providerID }
+    var overviewKey: String { "ai.guide.\(providerID.localizationKeySuffix).overview" }
+    var stepsKey: String { "ai.guide.\(providerID.localizationKeySuffix).steps" }
+
+    var requiredFieldNames: [String] {
+        providerID.definition.credentialFields.map(\.displayName) + extraRequiredFieldNames
+    }
+
+    init(providerID: AIProviderID) {
+        self.providerID = providerID
+        let urls = Self.urls(for: providerID)
+        self.documentationURL = urls.documentation
+        self.consoleURL = urls.console
+        self.extraRequiredFieldNames = providerID == .customOpenAICompatible ? ["Base URL", "Model"] : []
+    }
+
+    private static func urls(for providerID: AIProviderID) -> (documentation: URL?, console: URL?) {
+        switch providerID {
+        case .dashScope:
+            return (
+                URL(string: "https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key"),
+                URL(string: "https://dashscope.console.aliyun.com/apiKey")
+            )
+        case .openAI:
+            return (
+                URL(string: "https://platform.openai.com/docs/quickstart"),
+                URL(string: "https://platform.openai.com/api-keys")
+            )
+        case .deepSeek:
+            return (
+                URL(string: "https://api-docs.deepseek.com/zh-cn/"),
+                URL(string: "https://platform.deepseek.com/api_keys")
+            )
+        case .zhipu:
+            return (
+                URL(string: "https://docs.bigmodel.cn/cn/guide/start/introduction"),
+                URL(string: "https://open.bigmodel.cn/usercenter/apikeys")
+            )
+        case .miniMax:
+            return (
+                URL(string: "https://platform.minimax.io/docs/api-reference/api-overview"),
+                URL(string: "https://platform.minimax.io/user-center/basic-information/interface-key")
+            )
+        case .moonshot:
+            return (
+                URL(string: "https://platform.moonshot.cn/docs/intro"),
+                URL(string: "https://platform.moonshot.cn/console/api-keys")
+            )
+        case .tencentHunyuan:
+            return (
+                URL(string: "https://cloud.tencent.com/document/product/1729/111008"),
+                nil
+            )
+        case .baiduERNIE:
+            return (
+                URL(string: "https://cloud.baidu.com/doc/qianfan/s/wmh8l6tnf"),
+                URL(string: "https://console.bce.baidu.com/iam/#/iam/apikey/list")
+            )
+        case .openRouter:
+            return (
+                URL(string: "https://openrouter.ai/docs/api-keys"),
+                URL(string: "https://openrouter.ai/settings/keys")
+            )
+        case .groq:
+            return (
+                URL(string: "https://console.groq.com/docs"),
+                URL(string: "https://console.groq.com/keys")
+            )
+        case .xAI:
+            return (
+                URL(string: "https://docs.x.ai/docs/tutorial"),
+                URL(string: "https://console.x.ai/")
+            )
+        case .customOpenAICompatible:
+            return (nil, nil)
+        case .tencentCloudASR:
+            return (
+                URL(string: "https://cloud.tencent.com/document/product/1093/54362"),
+                URL(string: "https://console.cloud.tencent.com/cam/capi")
+            )
+        case .baiduSpeech:
+            return (
+                URL(string: "https://cloud.baidu.com/doc/SPEECH/s/4lbxdz34z"),
+                URL(string: "https://console.bce.baidu.com/ai/#/ai/speech/app/list")
+            )
+        case .iFlyTek:
+            return (
+                URL(string: "https://www.xfyun.cn/doc/asr/voicedictation/API.html"),
+                URL(string: "https://console.xfyun.cn/app/myapp")
+            )
+        case .volcengine:
+            return (
+                URL(string: "https://www.volcengine.com/docs/6561/1631584"),
+                nil
+            )
+        case .anthropic, .gemini:
+            return (nil, nil)
+        }
+    }
 }
 
 struct AIProviderDefinition: Identifiable, Equatable {
@@ -111,6 +222,7 @@ struct AIProviderDefinition: Identifiable, Equatable {
     let usesJSONResponseFormat: Bool
 
     var id: AIProviderID { providerID }
+    var setupGuide: AIProviderSetupGuide { AIProviderSetupGuide(providerID: providerID) }
 
     static func provider(for providerID: AIProviderID) -> AIProviderDefinition {
         all.first { $0.providerID == providerID }!

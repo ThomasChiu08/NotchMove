@@ -257,6 +257,24 @@ struct AIProviderSupportTests {
         #expect(AIProviderID.miniMax.definition.defaultParserModel == "MiniMax-M2.7")
     }
 
+    @Test func enabledProviderRegistryHasSetupGuides() {
+        let enabledProviders = Set(
+            AIProviderPreferences.supportedParserProviders + AIProviderPreferences.supportedTranscriptionProviders
+        )
+
+        for provider in enabledProviders {
+            let guide = provider.definition.setupGuide
+
+            #expect(!guide.overviewKey.isEmpty)
+            #expect(!guide.stepsKey.isEmpty)
+            #expect(!guide.requiredFieldNames.isEmpty)
+
+            if provider != .customOpenAICompatible {
+                #expect(guide.documentationURL != nil || guide.consoleURL != nil)
+            }
+        }
+    }
+
     @Test func freshPreferencesDefaultToMainlandProviderPair() {
         let preferences = AIProviderPreferences(
             defaults: UserDefaults(suiteName: "NotchMoveMainlandDefaults-\(UUID().uuidString)")!,
