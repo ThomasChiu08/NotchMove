@@ -6,8 +6,22 @@
 //
 
 import AppKit
+import CoreGraphics
 
 extension NSScreen {
+    var displayID: CGDirectDisplayID? {
+        guard let screenNumber = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+            return nil
+        }
+
+        return CGDirectDisplayID(screenNumber.uint32Value)
+    }
+
+    var isBuiltInDisplay: Bool {
+        guard let displayID else { return false }
+        return CGDisplayIsBuiltin(displayID) != 0
+    }
+
     var hasNotch: Bool {
         safeAreaInsets.top > 0
     }

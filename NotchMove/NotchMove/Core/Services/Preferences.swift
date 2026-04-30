@@ -5,9 +5,15 @@
 //  Created by Codex on 4/22/26.
 //
 
+import CoreGraphics
 import Foundation
 
 struct Preferences: Equatable {
+    enum OverlayDisplayMode: Equatable, Hashable {
+        case automatic
+        case display(CGDirectDisplayID)
+    }
+
     struct Schedule: Equatable {
         var isEnabled: Bool
         var startHour: Int
@@ -30,6 +36,7 @@ struct Preferences: Equatable {
     var autoDismissEnabled: Bool
     var autoDismissSeconds: Int
     var appLanguage: String
+    var overlayDisplayMode: OverlayDisplayMode
 
     static let defaults = Preferences(
         soundEnabled: true,
@@ -47,6 +54,7 @@ struct Preferences: Equatable {
         hoverPreviewEnabled: true,
         autoDismissEnabled: true,
         autoDismissSeconds: 60,
-        appLanguage: "en"
+        appLanguage: "en",
+        overlayDisplayMode: .automatic
     )
 }

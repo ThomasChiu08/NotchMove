@@ -6,12 +6,17 @@
 //
 
 import AppKit
+import CoreGraphics
 
 protocol ScreenProviding {
-    func currentScreen() -> ScreenDescriptor?
+    func currentScreen(for mode: Preferences.OverlayDisplayMode) -> ScreenDescriptor?
+    func availableScreens() -> [ScreenDescriptor]
 }
 
 struct ScreenDescriptor: Equatable {
+    let displayID: CGDirectDisplayID
+    let localizedName: String
+    let isBuiltIn: Bool
     let frame: CGRect
     let notchFrame: CGRect?
     let menuBarHeight: CGFloat
@@ -61,13 +66,55 @@ struct ScreenPlacementService {
     }
 }
 
+struct ScreenSelectionService {
+    func selectedScreen(
+        for mode: Preferences.OverlayDisplayMode,
+        in screens: [ScreenDescriptor],
+        mainDisplayID: CGDirectDisplayID?
+    ) -> ScreenDescriptor? {
+        switch mode {
+        case .automatic:
+            return automaticScreen(in: screens, mainDisplayID: mainDisplayID)
+        case .display(let displayID):
+            return screens.first { $0.displayID == displayID } ??
+                automaticScreen(in: screens, mainDisplayID: mainDisplayID)
+        }
+    }
+
+    private func automaticScreen(
+        in screens: [ScreenDescriptor],
+        mainDisplayID: CGDirectDisplayID?
+    ) -> ScreenDescriptor? {
+        screens.first { $0.isBuiltIn && $0.notchFrame != nil } ??
+            screens.first { $0.isBuiltIn } ??
+            screens.first { $0.displayID == mainDisplayID } ??
+            screens.first
+    }
+}
+
 struct MainScreenProvider: ScreenProviding {
-    func currentScreen() -> ScreenDescriptor? {
-        guard let screen = NSScreen.main else { return nil }
-        return ScreenDescriptor(
-            frame: screen.frame,
-            notchFrame: screen.notchFrame,
-            menuBarHeight: screen.menuBarHeight
+    private let selectionService = ScreenSelectionService()
+
+    func currentScreen(for mode: Preferences.OverlayDisplayMode) -> ScreenDescriptor? {
+        selectionService.selectedScreen(
+            for: mode,
+            in: availableScreens(),
+            mainDisplayID: NSScreen.main?.displayID
         )
+    }
+
+    func availableScreens() -> [ScreenDescriptor] {
+        NSScreen.screens.compactMap { screen in
+            guard let displayID = screen.displayID else { return nil }
+
+            return ScreenDescriptor(
+                displayID: displayID,
+                localizedName: screen.localizedName,
+                isBuiltIn: screen.isBuiltInDisplay,
+                frame: screen.frame,
+                notchFrame: screen.notchFrame,
+                menuBarHeight: screen.menuBarHeight
+            )
+        }
     }
 }

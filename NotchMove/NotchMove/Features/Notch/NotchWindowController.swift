@@ -6,19 +6,34 @@
 //
 
 import AppKit
-import OSLog
 import SwiftUI
 
 final class NotchWindowController {
-    private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "notch-window")
     private let panel: NotchWindow
     private let reminderEngine: ReminderEngine
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
+    private let overlayMetrics: NotchOverlayMetrics
+    private let hostingView: NSHostingView<AnyView>
     private let screenProvider: ScreenProviding
     private let placementService: ScreenPlacementService
-    private var screenChangeObserver: NSObjectProtocol?
-    private var languageObserver: NSObjectProtocol?
+    private nonisolated(unsafe) var screenChangeObserver: NSObjectProtocol?
+    private nonisolated(unsafe) var languageObserver: NSObjectProtocol?
+    private nonisolated(unsafe) var notchLayoutObserver: NSObjectProtocol?
+
+    deinit {
+        if let observer = screenChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        if let observer = languageObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        if let observer = notchLayoutObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
 
     init(
         reminderEngine: ReminderEngine,
@@ -32,8 +47,17 @@ final class NotchWindowController {
         self.preferencesStore = preferencesStore
         self.screenProvider = screenProvider
         self.placementService = placementService
+        let overlayMetrics = NotchOverlayMetrics(topInset: 38)
+        self.overlayMetrics = overlayMetrics
+        hostingView = NSHostingView(
+            rootView: Self.makeRootView(
+                reminderEngine: reminderEngine,
+                overlayMetrics: overlayMetrics,
+                locale: languageManager.locale
+            )
+        )
         panel = NotchWindow()
-        refreshHostingView(topInset: 38)
+        panel.contentView = hostingView
 
         languageObserver = NotificationCenter.default.addObserver(
             forName: LanguageManager.didChangeNotification,
@@ -41,16 +65,20 @@ final class NotchWindowController {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
+                self?.updateHostingRootView()
                 self?.applyCurrentPlacement(animated: false)
             }
         }
-    }
 
-    private func refreshHostingView(topInset: CGFloat) {
-        panel.contentView = NSHostingView(
-            rootView: NotchView(reminderEngine: reminderEngine, topInset: topInset)
-                .environment(\.locale, languageManager.locale)
-        )
+        notchLayoutObserver = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.notchLayoutDidChangeNotification,
+            object: preferencesStore,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.applyCurrentPlacement(animated: true)
+            }
+        }
     }
 
     func show() {
@@ -58,22 +86,13 @@ final class NotchWindowController {
         panel.orderFrontRegardless()
         installScreenChangeObserver()
         observeReminderState()
-        observePreferences()
-    }
-
-    func hide() {
-        panel.orderOut(nil)
-        if let observer = screenChangeObserver {
-            NotificationCenter.default.removeObserver(observer)
-            screenChangeObserver = nil
-        }
     }
 
     // MARK: - State Observation
 
     private func observeReminderState() {
         withObservationTracking {
-            _ = reminderEngine.state.presentation
+            _ = reminderEngine.overlayState.presentation
         } onChange: {
             Task { @MainActor [weak self] in
                 self?.applyCurrentPlacement(animated: true)
@@ -82,48 +101,52 @@ final class NotchWindowController {
         }
     }
 
-    private func observePreferences() {
-        withObservationTracking {
-            _ = preferencesStore.preferences.notchExpansionEnabled
-        } onChange: {
-            Task { @MainActor [weak self] in
-                self?.applyCurrentPlacement(animated: true)
-                self?.observePreferences()
-            }
-        }
-    }
-
     // MARK: - Screen Tracking
 
     private func applyCurrentPlacement(animated: Bool) {
-        guard let screen = screenProvider.currentScreen() else {
-            logger.notice("No main screen available")
+        guard let screen = screenProvider.currentScreen(for: preferencesStore.preferences.overlayDisplayMode) else {
             return
         }
 
         let placement = placementService.placement(
-            for: reminderEngine.state.presentation,
+            for: reminderEngine.overlayState.presentation,
             on: screen,
             notchExpansionEnabled: preferencesStore.preferences.notchExpansionEnabled
         )
-        refreshHostingView(topInset: placement.topInset)
+        if overlayMetrics.topInset != placement.topInset {
+            overlayMetrics.topInset = placement.topInset
+        }
 
-        logger.notice("""
-            Screen: frame=\(NSStringFromRect(screen.frame), privacy: .public) \
-            hasNotch=\(screen.notchFrame != nil) \
-            menuBar=\(screen.menuBarHeight)pt \
-            state=\(String(describing: self.reminderEngine.state.presentation), privacy: .public)
-            """)
+        guard panel.frame != placement.frame else { return }
 
         if animated {
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.35
-                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.175, 0.885, 0.32, 1.275)
+                context.duration = 0.24
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 panel.animator().setFrame(placement.frame, display: true)
             }
         } else {
             panel.setFrame(placement.frame, display: true, animate: false)
         }
+    }
+
+    private func updateHostingRootView() {
+        hostingView.rootView = Self.makeRootView(
+            reminderEngine: reminderEngine,
+            overlayMetrics: overlayMetrics,
+            locale: languageManager.locale
+        )
+    }
+
+    private static func makeRootView(
+        reminderEngine: ReminderEngine,
+        overlayMetrics: NotchOverlayMetrics,
+        locale: Locale
+    ) -> AnyView {
+        AnyView(
+            NotchView(reminderEngine: reminderEngine, overlayMetrics: overlayMetrics)
+                .environment(\.locale, locale)
+        )
     }
 
     private func installScreenChangeObserver() {

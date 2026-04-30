@@ -80,11 +80,107 @@ struct PreferencesStoreTests {
         store.preferences.soundEnabled = false
         store.preferences.reminderIntervalMinutes = 60
         store.preferences.appLanguage = "ja"
+        store.preferences.overlayDisplayMode = .display(CGDirectDisplayID(42))
 
         store.restoreDefaults()
 
         #expect(store.preferences == .defaults)
         #expect(settings.loadPreferences() == .defaults)
+    }
+
+    @Test func overlayDisplayPreferencePersistsAndClearsDisplayIDWhenAutomatic() {
+        let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let settings = AppSettings(defaults: defaults)
+        var preferences = settings.loadPreferences()
+
+        #expect(preferences.overlayDisplayMode == .automatic)
+
+        preferences.overlayDisplayMode = .display(CGDirectDisplayID(123))
+        settings.save(preferences)
+
+        #expect(settings.loadPreferences().overlayDisplayMode == .display(CGDirectDisplayID(123)))
+
+        preferences.overlayDisplayMode = .automatic
+        settings.save(preferences)
+
+        #expect(settings.loadPreferences().overlayDisplayMode == .automatic)
+        #expect(defaults.object(forKey: AppSettings.Keys.overlayDisplayID) == nil)
+    }
+
+    @Test func postsTargetedNotificationsForRelevantPreferenceChanges() async {
+        let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = PreferencesStore(settings: AppSettings(defaults: defaults))
+        let notchLayoutNotifications = NotificationCounter()
+        let reminderRuntimeNotifications = NotificationCounter()
+
+        let notchObserver = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.notchLayoutDidChangeNotification,
+            object: store,
+            queue: nil
+        ) { _ in
+            Task { @MainActor in
+                notchLayoutNotifications.increment()
+            }
+        }
+
+        let reminderObserver = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.reminderRuntimeDidChangeNotification,
+            object: store,
+            queue: nil
+        ) { _ in
+            Task { @MainActor in
+                reminderRuntimeNotifications.increment()
+            }
+        }
+
+        defer {
+            NotificationCenter.default.removeObserver(notchObserver)
+            NotificationCenter.default.removeObserver(reminderObserver)
+        }
+
+        store.preferences.notchExpansionEnabled = false
+        store.preferences.appLanguage = "ja"
+        store.preferences.autoDismissSeconds = 90
+
+        await flushAsyncWork()
+
+        #expect(notchLayoutNotifications.count == 1)
+        #expect(reminderRuntimeNotifications.count == 1)
+    }
+
+    @Test func overlayDisplayPreferencePostsLayoutNotification() async {
+        let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = PreferencesStore(settings: AppSettings(defaults: defaults))
+        let notchLayoutNotifications = NotificationCounter()
+
+        let observer = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.notchLayoutDidChangeNotification,
+            object: store,
+            queue: nil
+        ) { _ in
+            Task { @MainActor in
+                notchLayoutNotifications.increment()
+            }
+        }
+
+        defer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        store.preferences.overlayDisplayMode = .display(CGDirectDisplayID(123))
+
+        await flushAsyncWork()
+
+        #expect(notchLayoutNotifications.count == 1)
     }
 }
 
@@ -209,12 +305,28 @@ struct ReminderEngineTests {
 
         #expect(context.engine.state.presentation == .hidden)
     }
+
+    @Test func autoDismissPreferenceChangeUpdatesOverlayDuration() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.engine.send(.manualTrigger)
+        #expect(context.engine.overlayState.reminderDuration == 60)
+
+        context.preferencesStore.preferences.autoDismissSeconds = 90
+        await flushAsyncWork()
+
+        #expect(context.engine.overlayState.reminderDuration == 90)
+    }
 }
 
 @MainActor
 struct ScreenPlacementServiceTests {
     @Test func presentingReminderUsesNotchMidpointWhenAvailable() {
         let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
             frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
             notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
             menuBarHeight: 38
@@ -233,6 +345,9 @@ struct ScreenPlacementServiceTests {
 
     @Test func nonNotchedScreenFallsBackToScreenCenter() {
         let screen = ScreenDescriptor(
+            displayID: 2,
+            localizedName: "Studio Display",
+            isBuiltIn: false,
             frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
             notchFrame: nil,
             menuBarHeight: 24
@@ -247,6 +362,65 @@ struct ScreenPlacementServiceTests {
         #expect(placement.topInset == 24)
         #expect(placement.frame.origin.x == 590)
         #expect(placement.frame.size == CGSize(width: 260, height: 84))
+    }
+}
+
+@MainActor
+struct ScreenSelectionServiceTests {
+    @Test func automaticModePrefersBuiltInNotchScreenOverMainExternalScreen() {
+        let external = makeScreen(displayID: 1, isBuiltIn: false, notchFrame: nil)
+        let builtInNotch = makeScreen(
+            displayID: 2,
+            isBuiltIn: true,
+            notchFrame: CGRect(x: 620, y: 860, width: 220, height: 38)
+        )
+
+        let selected = ScreenSelectionService().selectedScreen(
+            for: .automatic,
+            in: [external, builtInNotch],
+            mainDisplayID: external.displayID
+        )
+
+        #expect(selected?.displayID == builtInNotch.displayID)
+    }
+
+    @Test func displayModeUsesPersistedDisplayIDWhenScreenIsAvailable() {
+        let builtIn = makeScreen(displayID: 1, isBuiltIn: true)
+        let external = makeScreen(displayID: 2, isBuiltIn: false)
+
+        let selected = ScreenSelectionService().selectedScreen(
+            for: .display(external.displayID),
+            in: [builtIn, external],
+            mainDisplayID: builtIn.displayID
+        )
+
+        #expect(selected?.displayID == external.displayID)
+    }
+
+    @Test func displayModeFallsBackToAutomaticWhenPersistedScreenIsUnavailable() {
+        let builtIn = makeScreen(displayID: 1, isBuiltIn: true)
+        let external = makeScreen(displayID: 2, isBuiltIn: false)
+
+        let selected = ScreenSelectionService().selectedScreen(
+            for: .display(CGDirectDisplayID(99)),
+            in: [external, builtIn],
+            mainDisplayID: external.displayID
+        )
+
+        #expect(selected?.displayID == builtIn.displayID)
+    }
+
+    @Test func automaticModeUsesMainScreenWhenNoBuiltInScreenExists() {
+        let leftExternal = makeScreen(displayID: 1, isBuiltIn: false)
+        let rightExternal = makeScreen(displayID: 2, isBuiltIn: false)
+
+        let selected = ScreenSelectionService().selectedScreen(
+            for: .automatic,
+            in: [leftExternal, rightExternal],
+            mainDisplayID: rightExternal.displayID
+        )
+
+        #expect(selected?.displayID == rightExternal.displayID)
     }
 }
 
@@ -300,6 +474,21 @@ private func flushAsyncWork() async {
     await Task.yield()
 }
 
+private func makeScreen(
+    displayID: CGDirectDisplayID,
+    isBuiltIn: Bool,
+    notchFrame: CGRect? = nil
+) -> ScreenDescriptor {
+    ScreenDescriptor(
+        displayID: displayID,
+        localizedName: isBuiltIn ? "Built-in Display" : "External Display",
+        isBuiltIn: isBuiltIn,
+        frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+        notchFrame: notchFrame,
+        menuBarHeight: notchFrame?.height ?? 24
+    )
+}
+
 @MainActor
 private struct ReminderTestContext {
     let suiteName: String
@@ -338,4 +527,13 @@ private final class TestClock: Clock {
     }
 
     func sleep(for duration: Duration) async throws {}
+}
+
+@MainActor
+private final class NotificationCounter {
+    private(set) var count = 0
+
+    func increment() {
+        count += 1
+    }
 }

@@ -22,6 +22,10 @@
 "schedule_footer" = "在設定時間之外暫停提醒。";
 
 /* ─── Behavior ─── */
+"overlay_display" = "浮層顯示螢幕";
+"display_automatic" = "自動";
+"display_builtin_format" = "%@（內建）";
+"display_unavailable_format" = "顯示器 #%d（不可用）";
 "expand_notch" = "提醒時展開瀏海";
 "show_hover_preview" = "懸停預覽";
 "play_sound" = "提醒時播放聲音";

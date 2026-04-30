@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Observation
 import OSLog
 
 protocol IdleTimeProviding: AnyObject {
@@ -47,6 +48,12 @@ struct ReminderState: Equatable {
 @MainActor
 @Observable
 final class ReminderEngine {
+    struct OverlayState: Equatable {
+        var presentation: ReminderState.PresentationPhase = .hidden
+        var reminderStartDate: Date = .distantPast
+        var reminderDuration: TimeInterval = TimeInterval(Preferences.defaults.autoDismissSeconds)
+    }
+
     enum RunState: Equatable {
         case tracking
         case manuallyPaused
@@ -73,12 +80,23 @@ final class ReminderEngine {
     private let clock: Clock
     private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "reminder-engine")
 
-    private var tickTask: Task<Void, Never>?
-    private var autoDismissTask: Task<Void, Never>?
-    private var settleTask: Task<Void, Never>?
+    @ObservationIgnored private var tickTask: Task<Void, Never>?
+    @ObservationIgnored private var autoDismissTask: Task<Void, Never>?
+    @ObservationIgnored private var settleTask: Task<Void, Never>?
+    @ObservationIgnored private nonisolated(unsafe) var preferencesObserver: NSObjectProtocol?
     private var lastTickDate: Date?
 
     private(set) var state = ReminderState()
+    private(set) var overlayState = OverlayState()
+
+    deinit {
+        tickTask?.cancel()
+        autoDismissTask?.cancel()
+        settleTask?.cancel()
+        if let observer = preferencesObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
 
     init(
         activityMonitor: IdleTimeProviding,
@@ -93,13 +111,9 @@ final class ReminderEngine {
         self.breakStatsStore = breakStatsStore
         self.clock = clock
 
+        updateReminderDuration()
         applyPreferences()
         observePreferences()
-    }
-
-    var progress: Double {
-        guard reminderInterval > 0 else { return 0 }
-        return min(state.activeSeconds / reminderInterval, 1)
     }
 
     var runState: RunState {
@@ -129,11 +143,11 @@ final class ReminderEngine {
     }
 
     var isReminderPresenting: Bool {
-        state.presentation == .presenting || state.presentation == .dismissAnimating
+        overlayState.presentation == .presenting || overlayState.presentation == .dismissAnimating
     }
 
     var reminderDuration: TimeInterval {
-        TimeInterval(preferencesStore.preferences.autoDismissSeconds)
+        overlayState.reminderDuration
     }
 
     var reminderInterval: TimeInterval {
@@ -156,15 +170,6 @@ final class ReminderEngine {
         }
 
         logger.notice("Reminder engine started — interval=\(self.reminderInterval)s, idleReset=\(self.idleResetThreshold)s")
-    }
-
-    func stop() {
-        tickTask?.cancel()
-        tickTask = nil
-        autoDismissTask?.cancel()
-        autoDismissTask = nil
-        settleTask?.cancel()
-        settleTask = nil
     }
 
     func send(_ intent: Intent) {
@@ -232,13 +237,13 @@ final class ReminderEngine {
 
     private func handleHoverChange(_ hovering: Bool) {
         if hovering {
-            guard state.presentation == .hidden, preferencesStore.preferences.hoverPreviewEnabled else { return }
-            state.presentation = .hoverPreview
+            guard overlayState.presentation == .hidden, preferencesStore.preferences.hoverPreviewEnabled else { return }
+            updatePresentation(.hoverPreview)
             return
         }
 
-        guard state.presentation == .hoverPreview else { return }
-        state.presentation = .hidden
+        guard overlayState.presentation == .hoverPreview else { return }
+        updatePresentation(.hidden)
     }
 
     private func handleManualPauseChange(_ paused: Bool) {
@@ -249,8 +254,8 @@ final class ReminderEngine {
         if paused {
             if isReminderPresenting {
                 send(.cancelReminder)
-            } else if state.presentation == .hoverPreview {
-                state.presentation = .hidden
+            } else if overlayState.presentation == .hoverPreview {
+                updatePresentation(.hidden)
             }
         }
 
@@ -262,8 +267,8 @@ final class ReminderEngine {
         settleTask?.cancel()
 
         state.activeSeconds = 0
-        state.presentation = .presenting
-        state.reminderStartDate = clock.now
+        updatePresentation(.presenting)
+        updateReminderStartDate(clock.now)
         lastTickDate = clock.now
 
         if playSound {
@@ -276,8 +281,8 @@ final class ReminderEngine {
 
     private func finishReminder(with outcome: ReminderOutcome, animated: Bool = true) {
         guard isReminderPresenting else {
-            if state.presentation == .hoverPreview {
-                state.presentation = .hidden
+            if overlayState.presentation == .hoverPreview {
+                updatePresentation(.hidden)
             }
             return
         }
@@ -292,7 +297,7 @@ final class ReminderEngine {
             return
         }
 
-        state.presentation = .dismissAnimating
+        updatePresentation(.dismissAnimating)
         settleTask = Task { [weak self] in
             guard let self else { return }
             try? await self.clock.sleep(for: .seconds(0.4))
@@ -305,7 +310,7 @@ final class ReminderEngine {
 
     private func finalizeReminder(with outcome: ReminderOutcome) {
         settleTask = nil
-        state.presentation = .hidden
+        updatePresentation(.hidden)
         lastTickDate = clock.now
         breakStatsStore.recordIfCompleted(outcome)
         logger.notice("Reminder presentation finished with \(String(describing: outcome), privacy: .public)")
@@ -315,10 +320,10 @@ final class ReminderEngine {
         autoDismissTask?.cancel()
         autoDismissTask = nil
 
-        guard preferencesStore.preferences.autoDismissEnabled else { return }
+        guard overlayState.reminderDuration > 0, preferencesStore.preferences.autoDismissEnabled else { return }
 
-        let elapsed = max(clock.now.timeIntervalSince(state.reminderStartDate), 0)
-        let remaining = max(reminderDuration - elapsed, 0)
+        let elapsed = max(clock.now.timeIntervalSince(overlayState.reminderStartDate), 0)
+        let remaining = max(overlayState.reminderDuration - elapsed, 0)
 
         guard remaining > 0 else {
             send(.autoDismiss)
@@ -336,10 +341,11 @@ final class ReminderEngine {
     }
 
     private func applyPreferences() {
+        updateReminderDuration()
         state.scheduleState = currentScheduleState(at: clock.now)
 
-        if !preferencesStore.preferences.hoverPreviewEnabled, state.presentation == .hoverPreview {
-            state.presentation = .hidden
+        if !preferencesStore.preferences.hoverPreviewEnabled, overlayState.presentation == .hoverPreview {
+            updatePresentation(.hidden)
         }
 
         if state.scheduleState.blocksAutomaticReminders {
@@ -355,14 +361,33 @@ final class ReminderEngine {
     }
 
     private func observePreferences() {
-        withObservationTracking {
-            _ = preferencesStore.preferences
-        } onChange: { [weak self] in
+        preferencesObserver = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.reminderRuntimeDidChangeNotification,
+            object: preferencesStore,
+            queue: .main
+        ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.applyPreferences()
-                self?.observePreferences()
             }
         }
+    }
+
+    private func updatePresentation(_ presentation: ReminderState.PresentationPhase) {
+        guard overlayState.presentation != presentation || state.presentation != presentation else { return }
+        state.presentation = presentation
+        overlayState.presentation = presentation
+    }
+
+    private func updateReminderStartDate(_ date: Date) {
+        guard overlayState.reminderStartDate != date || state.reminderStartDate != date else { return }
+        state.reminderStartDate = date
+        overlayState.reminderStartDate = date
+    }
+
+    private func updateReminderDuration() {
+        let duration = TimeInterval(preferencesStore.preferences.autoDismissSeconds)
+        guard overlayState.reminderDuration != duration else { return }
+        overlayState.reminderDuration = duration
     }
 
     private func currentScheduleState(at date: Date) -> SchedulePolicy.Evaluation {

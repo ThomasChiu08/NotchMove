@@ -5,6 +5,7 @@
 //  Created by Thomas Chiu on 4/21/26.
 //
 
+import CoreGraphics
 import Foundation
 
 final class AppSettings {
@@ -23,6 +24,13 @@ final class AppSettings {
         static let autoDismissEnabled = "autoDismissEnabled"
         static let autoDismissSeconds = "autoDismissSeconds"
         static let appLanguage = "appLanguage"
+        static let overlayDisplayMode = "overlayDisplayMode"
+        static let overlayDisplayID = "overlayDisplayID"
+    }
+
+    private enum OverlayDisplayModeValue {
+        static let automatic = "automatic"
+        static let display = "display"
     }
 
     let defaults: UserDefaults
@@ -47,6 +55,7 @@ final class AppSettings {
             Keys.autoDismissEnabled: Preferences.defaults.autoDismissEnabled,
             Keys.autoDismissSeconds: Preferences.defaults.autoDismissSeconds,
             Keys.appLanguage: Preferences.defaults.appLanguage,
+            Keys.overlayDisplayMode: OverlayDisplayModeValue.automatic,
         ])
     }
 
@@ -82,7 +91,8 @@ final class AppSettings {
                 forKey: Keys.autoDismissSeconds,
                 default: Preferences.defaults.autoDismissSeconds
             ),
-            appLanguage: defaults.string(forKey: Keys.appLanguage) ?? Preferences.defaults.appLanguage
+            appLanguage: defaults.string(forKey: Keys.appLanguage) ?? Preferences.defaults.appLanguage,
+            overlayDisplayMode: loadOverlayDisplayMode()
         )
     }
 
@@ -101,6 +111,29 @@ final class AppSettings {
         defaults.set(preferences.autoDismissEnabled, forKey: Keys.autoDismissEnabled)
         defaults.set(preferences.autoDismissSeconds, forKey: Keys.autoDismissSeconds)
         defaults.set(preferences.appLanguage, forKey: Keys.appLanguage)
+        save(preferences.overlayDisplayMode)
+    }
+
+    private func loadOverlayDisplayMode() -> Preferences.OverlayDisplayMode {
+        guard defaults.string(forKey: Keys.overlayDisplayMode) == OverlayDisplayModeValue.display,
+              let rawDisplayID = defaults.object(forKey: Keys.overlayDisplayID) as? Int,
+              rawDisplayID > 0
+        else {
+            return .automatic
+        }
+
+        return .display(CGDirectDisplayID(rawDisplayID))
+    }
+
+    private func save(_ mode: Preferences.OverlayDisplayMode) {
+        switch mode {
+        case .automatic:
+            defaults.set(OverlayDisplayModeValue.automatic, forKey: Keys.overlayDisplayMode)
+            defaults.removeObject(forKey: Keys.overlayDisplayID)
+        case .display(let displayID):
+            defaults.set(OverlayDisplayModeValue.display, forKey: Keys.overlayDisplayMode)
+            defaults.set(Int(displayID), forKey: Keys.overlayDisplayID)
+        }
     }
 
     private func integer(forKey key: String, default defaultValue: Int) -> Int {

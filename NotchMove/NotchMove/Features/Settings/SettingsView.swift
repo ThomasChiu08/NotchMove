@@ -5,6 +5,7 @@
 //  Created by Thomas Chiu on 4/17/26.
 //
 
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
@@ -13,7 +14,9 @@ struct SettingsView: View {
     @Bindable var breakStatsStore: BreakStatsStore
 
     @State private var showingResetConfirmation = false
+    @State private var availableScreens: [ScreenDescriptor] = []
 
+    private let screenProvider = MainScreenProvider()
     private static let intervalOptions = [15, 20, 25, 30, 45, 60]
     private static let dismissOptions = [30, 45, 60, 90, 120]
 
@@ -28,7 +31,13 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(minWidth: 420, minHeight: 520)
-        .onAppear { breakStatsStore.refresh() }
+        .onAppear {
+            breakStatsStore.refresh()
+            refreshAvailableScreens()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
+            refreshAvailableScreens()
+        }
     }
 
     // MARK: - Language
@@ -115,6 +124,24 @@ struct SettingsView: View {
 
     private var behaviorSection: some View {
         Section {
+            Picker(selection: $preferencesStore.preferences.overlayDisplayMode) {
+                Text("display_automatic")
+                    .tag(Preferences.OverlayDisplayMode.automatic)
+
+                ForEach(availableScreens, id: \.displayID) { screen in
+                    Text(displayName(for: screen))
+                        .tag(Preferences.OverlayDisplayMode.display(screen.displayID))
+                }
+
+                if let selectedUnavailableDisplayID {
+                    Text(String(format: localizedString("display_unavailable_format"), Int(selectedUnavailableDisplayID)))
+                        .tag(Preferences.OverlayDisplayMode.display(selectedUnavailableDisplayID))
+                }
+            } label: {
+                Text("overlay_display")
+            }
+            .pickerStyle(.menu)
+
             Toggle(isOn: $preferencesStore.preferences.notchExpansionEnabled) {
                 Text("expand_notch")
             }
@@ -172,7 +199,7 @@ struct SettingsView: View {
                     isPresented: $showingResetConfirmation,
                     titleVisibility: .visible
                 ) {
-                    Button(role: .destructive) { resetStatistics() } label: {
+                    Button(role: .destructive) { breakStatsStore.reset() } label: {
                         Text("reset_action")
                     }
                     Button(role: .cancel) {} label: {
@@ -183,7 +210,7 @@ struct SettingsView: View {
                 Spacer()
 
                 Button {
-                    restoreDefaults()
+                    preferencesStore.restoreDefaults()
                 } label: {
                     Text("restore_defaults")
                 }
@@ -223,6 +250,25 @@ struct SettingsView: View {
     /// format-string usage (where `LocalizedStringKey` can't be used directly).
     private func localizedString(_ key: String) -> String {
         languageManager.localizedString(key)
+    }
+
+    private func displayName(for screen: ScreenDescriptor) -> String {
+        guard screen.isBuiltIn else { return screen.localizedName }
+        return String(format: localizedString("display_builtin_format"), screen.localizedName)
+    }
+
+    private var selectedUnavailableDisplayID: CGDirectDisplayID? {
+        guard case let .display(displayID) = preferencesStore.preferences.overlayDisplayMode,
+              !availableScreens.contains(where: { $0.displayID == displayID })
+        else {
+            return nil
+        }
+
+        return displayID
+    }
+
+    private func refreshAvailableScreens() {
+        availableScreens = screenProvider.availableScreens()
     }
 
     private var currentLanguageDisplayName: String {
@@ -267,14 +313,6 @@ struct SettingsView: View {
 
     private var isValidTimeRange: Bool {
         preferencesStore.preferences.schedule.hasValidTimeRange
-    }
-
-    private func resetStatistics() {
-        breakStatsStore.reset()
-    }
-
-    private func restoreDefaults() {
-        preferencesStore.restoreDefaults()
     }
 
     private var appVersion: String {

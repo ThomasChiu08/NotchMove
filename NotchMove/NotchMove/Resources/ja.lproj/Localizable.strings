@@ -22,6 +22,10 @@
 "schedule_footer" = "設定時間外はリマインダーを停止します。";
 
 /* ─── Behavior ─── */
+"overlay_display" = "オーバーレイ表示画面";
+"display_automatic" = "自動";
+"display_builtin_format" = "%@（内蔵）";
+"display_unavailable_format" = "ディスプレイ #%d（利用不可）";
 "expand_notch" = "リマインド時にノッチを拡張";
 "show_hover_preview" = "ホバープレビューを表示";
 "play_sound" = "リマインド時にサウンドを再生";

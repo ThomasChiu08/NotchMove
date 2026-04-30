@@ -22,6 +22,10 @@
 "schedule_footer" = "Reminders are paused outside these hours.";
 
 /* ─── Behavior ─── */
+"overlay_display" = "Overlay display";
+"display_automatic" = "Automatic";
+"display_builtin_format" = "%@ (Built-in)";
+"display_unavailable_format" = "Display #%d (Unavailable)";
 "expand_notch" = "Expand notch on reminder";
 "show_hover_preview" = "Show hover preview";
 "play_sound" = "Play sound on reminder";
