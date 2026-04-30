@@ -11,6 +11,7 @@ import OSLog
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "lifecycle")
     private let settings = AppSettings()
+    private let loginItemService = LoginItemService()
     private lazy var preferencesStore = PreferencesStore(settings: settings)
     private lazy var breakStatsStore = BreakStatsStore(defaults: settings.defaults)
     private lazy var languageManager = LanguageManager(preferencesStore: preferencesStore)
@@ -23,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        reconcileLaunchAtLogin()
+
         let monitor = ActivityMonitor()
         let engine = ReminderEngine(
             activityMonitor: monitor,
@@ -38,7 +41,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settingsWindow = SettingsWindowController(
             languageManager: languageManager,
             preferencesStore: preferencesStore,
-            breakStatsStore: breakStatsStore
+            breakStatsStore: breakStatsStore,
+            loginItemManager: loginItemService
         )
 
         monitor.start()
@@ -64,5 +68,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    private func reconcileLaunchAtLogin() {
+        guard !ProcessInfo.processInfo.isRunningTests else { return }
+
+        let status = loginItemService.reconcile(
+            desiredEnabled: preferencesStore.preferences.launchAtLoginEnabled
+        )
+
+        if status == .requiresApproval {
+            logger.notice("Launch at login requires approval in System Settings")
+        }
+    }
+}
+
+private extension ProcessInfo {
+    var isRunningTests: Bool {
+        environment["XCTestConfigurationFilePath"] != nil
     }
 }

@@ -41,12 +41,12 @@ struct NotchShape: Shape {
 #Preview("Dormant") {
     NotchShape(cornerRadius: 12)
         .fill(.black)
-        .frame(width: 220, height: 38)
+        .frame(width: 208, height: 46)
         .padding(.top, 0)
 }
 
 #Preview("Expanded") {
     NotchShape(cornerRadius: 18)
         .fill(.black)
-        .frame(width: 380, height: 160)
+        .frame(width: 320, height: 96)
 }

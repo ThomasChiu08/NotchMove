@@ -5,6 +5,7 @@
 "section.statistics" = "Statistics";
 "section.about" = "About";
 "section.language" = "Language";
+"section.startup" = "Startup";
 
 /* ─── Reminders ─── */
 "remind_every" = "Remind me every";
@@ -50,6 +51,12 @@
 
 /* ─── Language ─── */
 "language_description" = "Changes take effect immediately. Some strings may require app restart.";
+
+/* ─── Startup ─── */
+"launch_at_login" = "Launch at login";
+"launch_at_login_footer" = "Starts NotchMove automatically when you sign in.";
+"launch_at_login_requires_approval" = "Allow NotchMove in System Settings to finish enabling launch at login.";
+"launch_at_login_error_format" = "Could not update launch at login: %@";
 
 /* ─── Notch ─── */
 "next_reminder_soon" = "Next reminder soon";

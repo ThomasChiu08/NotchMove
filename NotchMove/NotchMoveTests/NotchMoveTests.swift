@@ -78,6 +78,7 @@ struct PreferencesStoreTests {
         let store = PreferencesStore(settings: settings)
 
         store.preferences.soundEnabled = false
+        store.preferences.launchAtLoginEnabled = false
         store.preferences.reminderIntervalMinutes = 60
         store.preferences.appLanguage = "ja"
         store.preferences.overlayDisplayMode = .display(CGDirectDisplayID(42))
@@ -108,6 +109,27 @@ struct PreferencesStoreTests {
 
         #expect(settings.loadPreferences().overlayDisplayMode == .automatic)
         #expect(defaults.object(forKey: AppSettings.Keys.overlayDisplayID) == nil)
+    }
+
+    @Test func launchAtLoginPreferencePersists() {
+        let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let settings = AppSettings(defaults: defaults)
+        var preferences = settings.loadPreferences()
+
+        #expect(preferences.launchAtLoginEnabled)
+
+        preferences.launchAtLoginEnabled = false
+        settings.save(preferences)
+
+        #expect(!settings.loadPreferences().launchAtLoginEnabled)
+
+        preferences.launchAtLoginEnabled = true
+        settings.save(preferences)
+
+        #expect(settings.loadPreferences().launchAtLoginEnabled)
     }
 
     @Test func postsTargetedNotificationsForRelevantPreferenceChanges() async {
@@ -339,8 +361,8 @@ struct ScreenPlacementServiceTests {
         )
 
         #expect(placement.topInset == 38)
-        #expect(placement.frame.origin.x == 566)
-        #expect(placement.frame.size == CGSize(width: 380, height: 160))
+        #expect(placement.frame.origin.x == 596)
+        #expect(placement.frame.size == CGSize(width: 320, height: 96))
     }
 
     @Test func nonNotchedScreenFallsBackToScreenCenter() {
@@ -360,8 +382,48 @@ struct ScreenPlacementServiceTests {
         )
 
         #expect(placement.topInset == 24)
-        #expect(placement.frame.origin.x == 590)
-        #expect(placement.frame.size == CGSize(width: 260, height: 84))
+        #expect(placement.frame.origin.x == 596)
+        #expect(placement.frame.size == CGSize(width: 248, height: 64))
+    }
+
+    @Test func compactPresentingReminderKeepsMinimumUsableWidth() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 500, height: 800),
+            notchFrame: CGRect(x: 190, y: 762, width: 120, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .presenting,
+            on: screen,
+            notchExpansionEnabled: true
+        )
+
+        #expect(placement.frame.origin.x == 100)
+        #expect(placement.frame.size == CGSize(width: 300, height: 96))
+    }
+
+    @Test func compactPresentingReminderCapsWideNotchScreens() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 626, y: 944, width: 260, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .presenting,
+            on: screen,
+            notchExpansionEnabled: true
+        )
+
+        #expect(placement.frame.origin.x == 586)
+        #expect(placement.frame.size == CGSize(width: 340, height: 96))
     }
 }
 

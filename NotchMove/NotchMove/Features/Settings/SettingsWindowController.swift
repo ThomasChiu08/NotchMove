@@ -16,19 +16,23 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
+    private var hostingView: NSHostingView<AnyView>?
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
     private let breakStatsStore: BreakStatsStore
+    private let loginItemManager: any LoginItemManaging
     private nonisolated(unsafe) var languageObserver: NSObjectProtocol?
 
     init(
         languageManager: LanguageManager,
         preferencesStore: PreferencesStore,
-        breakStatsStore: BreakStatsStore
+        breakStatsStore: BreakStatsStore,
+        loginItemManager: any LoginItemManaging
     ) {
         self.languageManager = languageManager
         self.preferencesStore = preferencesStore
         self.breakStatsStore = breakStatsStore
+        self.loginItemManager = loginItemManager
         super.init()
 
         languageObserver = NotificationCenter.default.addObserver(
@@ -63,7 +67,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             return
         }
 
-        let hostingView = NSHostingView(rootView: settingsRootView)
+        let hostingView = NSHostingView(rootView: makeSettingsRootView())
 
         let newWindow = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 600),
@@ -81,6 +85,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         newWindow.center()
 
         window = newWindow
+        self.hostingView = hostingView
 
         // Activate first, then show — ensures the app owns the key window.
         NSApp.activate(ignoringOtherApps: true)
@@ -88,21 +93,24 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     /// Builds the SwiftUI root view with locale environment injected.
-    private var settingsRootView: some View {
-        SettingsView(
-            languageManager: languageManager,
-            preferencesStore: preferencesStore,
-            breakStatsStore: breakStatsStore
+    private func makeSettingsRootView() -> AnyView {
+        AnyView(
+            SettingsView(
+                languageManager: languageManager,
+                loginItemManager: loginItemManager,
+                preferencesStore: preferencesStore,
+                breakStatsStore: breakStatsStore
+            )
+                .environment(\.locale, languageManager.locale)
         )
-            .environment(\.locale, languageManager.locale)
     }
 
     /// Replaces the hosting view content and updates the window title
     /// when the user switches language.
     private func refreshWindowContent() {
-        guard let window else { return }
+        guard let window, let hostingView else { return }
         window.title = languageManager.localizedString("settings.title")
-        window.contentView = NSHostingView(rootView: settingsRootView)
+        hostingView.rootView = makeSettingsRootView()
     }
 
     // MARK: - NSWindowDelegate
@@ -110,6 +118,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     nonisolated func windowWillClose(_ notification: Notification) {
         Task { @MainActor in
             self.window = nil
+            self.hostingView = nil
         }
     }
 }

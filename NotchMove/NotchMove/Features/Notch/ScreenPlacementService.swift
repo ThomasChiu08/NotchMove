@@ -28,6 +28,23 @@ struct OverlayPlacement: Equatable {
 }
 
 struct ScreenPlacementService {
+    private enum Sizing {
+        static let dormantExtraWidth: CGFloat = 8
+        static let dormantExtraHeight: CGFloat = 8
+        static let previewExtraWidth: CGFloat = 48
+        static let reminderCollapsedExtraWidth: CGFloat = 88
+        static let reminderExpandedExtraWidth: CGFloat = 120
+        static let previewMinWidth: CGFloat = 240
+        static let previewMaxWidth: CGFloat = 280
+        static let reminderCollapsedMinWidth: CGFloat = 280
+        static let reminderCollapsedMaxWidth: CGFloat = 320
+        static let reminderExpandedMinWidth: CGFloat = 300
+        static let reminderExpandedMaxWidth: CGFloat = 340
+        static let previewMinHeight: CGFloat = 64
+        static let reminderCollapsedMinHeight: CGFloat = 88
+        static let reminderExpandedMinHeight: CGFloat = 96
+    }
+
     func placement(
         for presentation: ReminderState.PresentationPhase,
         on screen: ScreenDescriptor,
@@ -54,15 +71,43 @@ struct ScreenPlacementService {
 
         switch presentation {
         case .hidden, .dismissAnimating:
-            return CGSize(width: notchWidth + 8, height: baseHeight + 24)
+            return CGSize(
+                width: notchWidth + Sizing.dormantExtraWidth,
+                height: baseHeight + Sizing.dormantExtraHeight
+            )
         case .hoverPreview:
-            return CGSize(width: notchWidth + 60, height: baseHeight + 60)
+            return CGSize(
+                width: clamped(
+                    notchWidth + Sizing.previewExtraWidth,
+                    min: Sizing.previewMinWidth,
+                    max: Sizing.previewMaxWidth
+                ),
+                height: max(baseHeight + 34, Sizing.previewMinHeight)
+            )
         case .presenting:
             if notchExpansionEnabled {
-                return CGSize(width: 380, height: 160)
+                return CGSize(
+                    width: clamped(
+                        notchWidth + Sizing.reminderExpandedExtraWidth,
+                        min: Sizing.reminderExpandedMinWidth,
+                        max: Sizing.reminderExpandedMaxWidth
+                    ),
+                    height: Sizing.reminderExpandedMinHeight
+                )
             }
-            return CGSize(width: notchWidth + 60, height: baseHeight + 60)
+            return CGSize(
+                width: clamped(
+                    notchWidth + Sizing.reminderCollapsedExtraWidth,
+                    min: Sizing.reminderCollapsedMinWidth,
+                    max: Sizing.reminderCollapsedMaxWidth
+                ),
+                height: Sizing.reminderCollapsedMinHeight
+            )
         }
+    }
+
+    private func clamped(_ value: CGFloat, min minValue: CGFloat, max maxValue: CGFloat) -> CGFloat {
+        Swift.min(Swift.max(value, minValue), maxValue)
     }
 }
 

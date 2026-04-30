@@ -10,11 +10,14 @@ import SwiftUI
 
 struct SettingsView: View {
     let languageManager: LanguageManager
+    let loginItemManager: any LoginItemManaging
     @Bindable var preferencesStore: PreferencesStore
     @Bindable var breakStatsStore: BreakStatsStore
 
     @State private var showingResetConfirmation = false
     @State private var availableScreens: [ScreenDescriptor] = []
+    @State private var loginItemStatus: LoginItemStatus = .notRegistered
+    @State private var launchAtLoginErrorMessage: String?
 
     private let screenProvider = MainScreenProvider()
     private static let intervalOptions = [15, 20, 25, 30, 45, 60]
@@ -23,6 +26,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             languageSection
+            startupSection
             remindersSection
             scheduleSection
             behaviorSection
@@ -34,6 +38,7 @@ struct SettingsView: View {
         .onAppear {
             breakStatsStore.refresh()
             refreshAvailableScreens()
+            refreshLoginItemStatus()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             refreshAvailableScreens()
@@ -59,6 +64,32 @@ struct SettingsView: View {
             Text("section.language")
         } footer: {
             Text("language_description")
+        }
+    }
+
+    // MARK: - Startup
+
+    private var startupSection: some View {
+        Section {
+            Toggle(isOn: launchAtLoginBinding) {
+                Text("launch_at_login")
+            }
+        } header: {
+            Text("section.startup")
+        } footer: {
+            startupFooter
+        }
+    }
+
+    @ViewBuilder
+    private var startupFooter: some View {
+        if let launchAtLoginErrorMessage {
+            Text(launchAtLoginErrorMessage)
+                .foregroundStyle(.red)
+        } else if loginItemStatus == .requiresApproval {
+            Text("launch_at_login_requires_approval")
+        } else {
+            Text("launch_at_login_footer")
         }
     }
 
@@ -210,7 +241,7 @@ struct SettingsView: View {
                 Spacer()
 
                 Button {
-                    preferencesStore.restoreDefaults()
+                    restoreDefaults()
                 } label: {
                     Text("restore_defaults")
                 }
@@ -245,6 +276,49 @@ struct SettingsView: View {
     }
 
     // MARK: - Helpers
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { preferencesStore.preferences.launchAtLoginEnabled },
+            set: { setLaunchAtLoginEnabled($0) }
+        )
+    }
+
+    private func setLaunchAtLoginEnabled(_ isEnabled: Bool) {
+        launchAtLoginErrorMessage = nil
+
+        do {
+            try loginItemManager.setEnabled(isEnabled)
+            preferencesStore.preferences.launchAtLoginEnabled = isEnabled
+            refreshLoginItemStatus()
+        } catch {
+            refreshLoginItemStatus()
+            launchAtLoginErrorMessage = String(
+                format: localizedString("launch_at_login_error_format"),
+                error.localizedDescription
+            )
+        }
+    }
+
+    private func refreshLoginItemStatus() {
+        loginItemStatus = loginItemManager.status
+    }
+
+    private func restoreDefaults() {
+        preferencesStore.restoreDefaults()
+        launchAtLoginErrorMessage = nil
+
+        do {
+            try loginItemManager.setEnabled(preferencesStore.preferences.launchAtLoginEnabled)
+        } catch {
+            launchAtLoginErrorMessage = String(
+                format: localizedString("launch_at_login_error_format"),
+                error.localizedDescription
+            )
+        }
+
+        refreshLoginItemStatus()
+    }
 
     /// Resolves a localization key through the LanguageManager bundle for
     /// format-string usage (where `LocalizedStringKey` can't be used directly).
@@ -330,6 +404,7 @@ struct SettingsView: View {
 
     SettingsView(
         languageManager: languageManager,
+        loginItemManager: LoginItemService(),
         preferencesStore: preferencesStore,
         breakStatsStore: breakStatsStore
     )

@@ -11,6 +11,7 @@ import Foundation
 final class AppSettings {
     enum Keys {
         static let soundEnabled = "soundEnabled"
+        static let launchAtLoginEnabled = "launchAtLoginEnabled"
         static let reminderIntervalMinutes = "reminderIntervalMinutes"
         static let sitAwareEnabled = "sitAwareEnabled"
         static let scheduleEnabled = "scheduleEnabled"
@@ -42,6 +43,7 @@ final class AppSettings {
     func registerDefaults() {
         defaults.register(defaults: [
             Keys.soundEnabled: Preferences.defaults.soundEnabled,
+            Keys.launchAtLoginEnabled: Preferences.defaults.launchAtLoginEnabled,
             Keys.reminderIntervalMinutes: Preferences.defaults.reminderIntervalMinutes,
             Keys.sitAwareEnabled: Preferences.defaults.sitAwareEnabled,
             Keys.scheduleEnabled: Preferences.defaults.schedule.isEnabled,
@@ -62,6 +64,10 @@ final class AppSettings {
     func loadPreferences() -> Preferences {
         Preferences(
             soundEnabled: bool(forKey: Keys.soundEnabled, default: Preferences.defaults.soundEnabled),
+            launchAtLoginEnabled: bool(
+                forKey: Keys.launchAtLoginEnabled,
+                default: Preferences.defaults.launchAtLoginEnabled
+            ),
             reminderIntervalMinutes: integer(
                 forKey: Keys.reminderIntervalMinutes,
                 default: Preferences.defaults.reminderIntervalMinutes
@@ -98,6 +104,7 @@ final class AppSettings {
 
     func save(_ preferences: Preferences) {
         defaults.set(preferences.soundEnabled, forKey: Keys.soundEnabled)
+        defaults.set(preferences.launchAtLoginEnabled, forKey: Keys.launchAtLoginEnabled)
         defaults.set(preferences.reminderIntervalMinutes, forKey: Keys.reminderIntervalMinutes)
         defaults.set(preferences.sitAwareEnabled, forKey: Keys.sitAwareEnabled)
         defaults.set(preferences.schedule.isEnabled, forKey: Keys.scheduleEnabled)

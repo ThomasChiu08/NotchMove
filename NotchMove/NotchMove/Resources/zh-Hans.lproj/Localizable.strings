@@ -5,6 +5,7 @@
 "section.statistics" = "统计";
 "section.about" = "关于";
 "section.language" = "语言";
+"section.startup" = "启动";
 
 /* ─── Reminders ─── */
 "remind_every" = "提醒间隔";
@@ -50,6 +51,12 @@
 
 /* ─── Language ─── */
 "language_description" = "更改立即生效。部分文字可能需要重启应用。";
+
+/* ─── Startup ─── */
+"launch_at_login" = "开机自启动";
+"launch_at_login_footer" = "登录系统后自动启动 NotchMove。";
+"launch_at_login_requires_approval" = "请在系统设置中允许 NotchMove，才能完成开机自启动。";
+"launch_at_login_error_format" = "无法更新开机自启动：%@";
 
 /* ─── Notch ─── */
 "next_reminder_soon" = "即将提醒";

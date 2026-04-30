@@ -30,9 +30,9 @@ struct NotchView: View {
 
     private var cornerRadius: CGFloat {
         switch reminderEngine.overlayState.presentation {
-        case .hidden, .dismissAnimating: 12
-        case .hoverPreview: 16
-        case .presenting: 18
+        case .hidden, .dismissAnimating: 10
+        case .hoverPreview: 14
+        case .presenting: 16
         }
     }
 
@@ -77,12 +77,15 @@ private struct HoverPreviewView: View {
     let topInset: CGFloat
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Image(systemName: "figure.stand")
+                .font(.caption)
                 .foregroundStyle(.white.opacity(0.5))
             Text("next_reminder_soon")
-                .font(.caption)
+                .font(.caption2)
                 .foregroundStyle(.white.opacity(0.6))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .padding(.top, topInset + 4)
     }
@@ -95,16 +98,18 @@ private struct ReminderContentView: View {
     let onCompleteBreak: () -> Void
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 10) {
             ReminderProgressView(
                 reminderStartDate: reminderStartDate,
                 reminderDuration: reminderDuration
             )
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text("time_to_stretch")
-                    .font(.system(.subheadline, weight: .semibold))
+                    .font(.system(.caption, weight: .semibold))
                     .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
 
                 ReminderCountdownLabel(
                     reminderStartDate: reminderStartDate,
@@ -112,16 +117,18 @@ private struct ReminderContentView: View {
                 )
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
             Button(action: onCompleteBreak) {
                 Text("stand_and_move")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
             .controlSize(.small)
             .buttonStyle(.borderedProminent)
             .tint(.green)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 14)
         .padding(.top, topInset + 4)
     }
 }
@@ -138,10 +145,10 @@ private struct ReminderProgressView: View {
                 reminderDuration: reminderDuration
             )
 
-            ProgressRingView(progress: progress, size: 48, lineWidth: 4)
+            ProgressRingView(progress: progress, size: 36, lineWidth: 3)
                 .overlay {
                     Image(systemName: stretchSymbol(for: progress))
-                        .font(.title3)
+                        .font(.caption)
                         .foregroundStyle(.white)
                         .contentTransition(.symbolEffect(.replace))
                 }
@@ -156,7 +163,7 @@ private struct ReminderCountdownLabel: View {
     var body: some View {
         TimelineView(.animation) { context in
             Text("\(remainingSeconds(at: context.date, reminderStartDate: reminderStartDate, reminderDuration: reminderDuration))s")
-                .font(.caption)
+                .font(.caption2)
                 .foregroundStyle(.white.opacity(0.6))
                 .monospacedDigit()
         }

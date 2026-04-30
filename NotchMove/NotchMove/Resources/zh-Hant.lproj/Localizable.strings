@@ -5,6 +5,7 @@
 "section.statistics" = "統計";
 "section.about" = "關於";
 "section.language" = "語言";
+"section.startup" = "啟動";
 
 /* ─── Reminders ─── */
 "remind_every" = "提醒間隔";
@@ -50,6 +51,12 @@
 
 /* ─── Language ─── */
 "language_description" = "更改立即生效。部分文字可能需要重新啟動應用程式。";
+
+/* ─── Startup ─── */
+"launch_at_login" = "登入時自動啟動";
+"launch_at_login_footer" = "登入系統後自動啟動 NotchMove。";
+"launch_at_login_requires_approval" = "請在系統設定中允許 NotchMove，才能完成登入時自動啟動。";
+"launch_at_login_error_format" = "無法更新登入時自動啟動：%@";
 
 /* ─── Notch ─── */
 "next_reminder_soon" = "即將提醒";

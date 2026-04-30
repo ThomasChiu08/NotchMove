@@ -28,6 +28,7 @@ struct Preferences: Equatable {
     }
 
     var soundEnabled: Bool
+    var launchAtLoginEnabled: Bool
     var reminderIntervalMinutes: Int
     var sitAwareEnabled: Bool
     var schedule: Schedule
@@ -40,6 +41,7 @@ struct Preferences: Equatable {
 
     static let defaults = Preferences(
         soundEnabled: true,
+        launchAtLoginEnabled: true,
         reminderIntervalMinutes: 30,
         sitAwareEnabled: true,
         schedule: Schedule(
