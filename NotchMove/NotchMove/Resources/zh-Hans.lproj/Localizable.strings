@@ -44,6 +44,8 @@
 "cancel" = "取消";
 "ok" = "好";
 "restore_defaults" = "恢复默认设置";
+"restore_confirm" = "恢复所有默认设置？";
+"restore_action" = "恢复";
 
 /* ─── About ─── */
 "version" = "版本";
@@ -66,6 +68,7 @@
 "schedule_reminder_title" = "行程提醒";
 "schedule_reminder_snooze" = "稍后";
 "schedule_reminder_done" = "完成";
+"notch.later" = "稍后";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "下次提醒：%@ 分钟";
@@ -92,11 +95,47 @@
 "dashboard.unified.title" = "NotchMove 控制台";
 "dashboard.sidebar.workspace" = "工作区";
 "dashboard.sidebar.settings" = "设置";
+"dashboard.page.today" = "今天";
+"dashboard.page.schedule" = "日程";
+"dashboard.page.breaks" = "休息";
 "dashboard.title" = "日常行程";
 "dashboard.today" = "今天";
+"dashboard.today.rhythm" = "今日节奏";
+"dashboard.today.meta_format" = "%@ · 今日休息 %d 次 · %@";
+"dashboard.timeline.title" = "时间线";
+"dashboard.property.tracking_status" = "状态";
+"dashboard.property.next_stand_reminder" = "站立提醒";
+"dashboard.property.current_schedule" = "当前日程";
+"dashboard.property.next_schedule" = "下一项日程";
+"dashboard.run_state.tracking" = "追踪中";
+"dashboard.run_state.paused" = "已暂停";
+"dashboard.run_state.schedule_blocked" = "非工作时间";
+"dashboard.run_state.reminding" = "提醒中";
+"dashboard.run_state.idle" = "空闲";
+"dashboard.next_stand_soon" = "即将提醒";
+"dashboard.next_stand_minutes_format" = "%d 分钟后";
+"dashboard.schedule.summary_format" = "%@ · %@";
+"dashboard.schedule.items" = "日程项目";
+"dashboard.schedule.meta_format" = "工作日节奏 · %d 项";
+"dashboard.schedule.status.upcoming" = "即将开始";
+"dashboard.schedule.status.active" = "进行中";
+"dashboard.schedule.status.done" = "已完成";
+"dashboard.properties.title" = "属性";
+"dashboard.row.lead_minutes_format" = "提前 %d 分钟";
+"dashboard.row.no_alert" = "无提醒";
+"dashboard.add.schedule_item" = "新增日程";
+"dashboard.breaks.meta_format" = "今日 %d 次 · 本周 %d 次";
+"dashboard.breaks.today" = "今天";
+"dashboard.breaks.weekly_progress" = "本周进度";
+"dashboard.breaks.records" = "记录";
+"dashboard.breaks.records_description" = "休息记录保持轻量：只保存每日和每周总数。";
+"dashboard.danger_zone" = "危险操作";
 "dashboard.add.button" = "新增";
 "dashboard.add.title" = "新增行程";
 "dashboard.add.action" = "新增";
+"dashboard.edit.title" = "编辑行程";
+"dashboard.edit.action" = "保存";
+"dashboard.edit.button" = "编辑";
 "dashboard.import.button" = "导入";
 "dashboard.clear.button" = "清空今日";
 "dashboard.empty.title" = "今天没有行程";
@@ -113,8 +152,10 @@
 "dashboard.field.end_time" = "结束";
 "dashboard.field.reminder_enabled" = "开启提醒";
 "dashboard.field.reminder_status" = "提醒状态";
+"dashboard.field.lead_time" = "提前提醒";
 "dashboard.field.lead_minutes_format" = "提前 %d 分钟提醒";
 "dashboard.field.notes" = "备注";
+"dashboard.none" = "无";
 "dashboard.status.reminded" = "已提醒";
 "dashboard.status.snoozed_until_format" = "稍后到 %@";
 "dashboard.validation.title_required" = "请填写标题。";

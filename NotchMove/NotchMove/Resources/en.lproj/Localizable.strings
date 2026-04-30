@@ -44,6 +44,8 @@
 "cancel" = "Cancel";
 "ok" = "OK";
 "restore_defaults" = "Restore Defaults";
+"restore_confirm" = "Restore all default settings?";
+"restore_action" = "Restore";
 
 /* ─── About ─── */
 "version" = "Version";
@@ -66,6 +68,7 @@
 "schedule_reminder_title" = "Schedule reminder";
 "schedule_reminder_snooze" = "Later";
 "schedule_reminder_done" = "Done";
+"notch.later" = "Later";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "Next reminder: %@ min";
@@ -92,11 +95,47 @@
 "dashboard.unified.title" = "NotchMove Dashboard";
 "dashboard.sidebar.workspace" = "Workspace";
 "dashboard.sidebar.settings" = "Settings";
+"dashboard.page.today" = "Today";
+"dashboard.page.schedule" = "Schedule";
+"dashboard.page.breaks" = "Breaks";
 "dashboard.title" = "Daily Schedule";
 "dashboard.today" = "Today";
+"dashboard.today.rhythm" = "Today's Rhythm";
+"dashboard.today.meta_format" = "%@ · %d breaks today · %@";
+"dashboard.timeline.title" = "Timeline";
+"dashboard.property.tracking_status" = "Status";
+"dashboard.property.next_stand_reminder" = "Stand reminder";
+"dashboard.property.current_schedule" = "Current schedule";
+"dashboard.property.next_schedule" = "Next schedule";
+"dashboard.run_state.tracking" = "Tracking";
+"dashboard.run_state.paused" = "Paused";
+"dashboard.run_state.schedule_blocked" = "Outside work hours";
+"dashboard.run_state.reminding" = "Reminder active";
+"dashboard.run_state.idle" = "Idle";
+"dashboard.next_stand_soon" = "Soon";
+"dashboard.next_stand_minutes_format" = "In %d min";
+"dashboard.schedule.summary_format" = "%@ · %@";
+"dashboard.schedule.items" = "Schedule Items";
+"dashboard.schedule.meta_format" = "Weekday routine · %d items";
+"dashboard.schedule.status.upcoming" = "Upcoming";
+"dashboard.schedule.status.active" = "Active";
+"dashboard.schedule.status.done" = "Done";
+"dashboard.properties.title" = "Properties";
+"dashboard.row.lead_minutes_format" = "%d min before";
+"dashboard.row.no_alert" = "No alert";
+"dashboard.add.schedule_item" = "Add schedule item";
+"dashboard.breaks.meta_format" = "%d today · %d this week";
+"dashboard.breaks.today" = "Today";
+"dashboard.breaks.weekly_progress" = "Weekly Progress";
+"dashboard.breaks.records" = "Records";
+"dashboard.breaks.records_description" = "Break history stays lightweight: only daily and weekly totals are saved.";
+"dashboard.danger_zone" = "Danger Zone";
 "dashboard.add.button" = "Add";
 "dashboard.add.title" = "Add Schedule Item";
 "dashboard.add.action" = "Add";
+"dashboard.edit.title" = "Edit Schedule Item";
+"dashboard.edit.action" = "Save";
+"dashboard.edit.button" = "Edit";
 "dashboard.import.button" = "Import";
 "dashboard.clear.button" = "Clear Today";
 "dashboard.empty.title" = "No schedule today";
@@ -113,8 +152,10 @@
 "dashboard.field.end_time" = "End";
 "dashboard.field.reminder_enabled" = "Reminder enabled";
 "dashboard.field.reminder_status" = "Reminder status";
+"dashboard.field.lead_time" = "Advance notice";
 "dashboard.field.lead_minutes_format" = "Remind %d minutes early";
 "dashboard.field.notes" = "Notes";
+"dashboard.none" = "None";
 "dashboard.status.reminded" = "Reminded";
 "dashboard.status.snoozed_until_format" = "Snoozed until %@";
 "dashboard.validation.title_required" = "Add a title.";

@@ -13,6 +13,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private var hostingView: NSHostingView<AnyView>?
     private let languageManager: LanguageManager
+    private let reminderEngine: ReminderEngine
     private let scheduleStore: DailyScheduleStore
     private let preferencesStore: PreferencesStore
     private let breakStatsStore: BreakStatsStore
@@ -21,12 +22,14 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
 
     init(
         languageManager: LanguageManager,
+        reminderEngine: ReminderEngine,
         scheduleStore: DailyScheduleStore,
         preferencesStore: PreferencesStore,
         breakStatsStore: BreakStatsStore,
         loginItemManager: any LoginItemManaging
     ) {
         self.languageManager = languageManager
+        self.reminderEngine = reminderEngine
         self.scheduleStore = scheduleStore
         self.preferencesStore = preferencesStore
         self.breakStatsStore = breakStatsStore
@@ -90,6 +93,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
             UnifiedDashboardView(
                 languageManager: languageManager,
                 loginItemManager: loginItemManager,
+                reminderEngine: reminderEngine,
                 scheduleStore: scheduleStore,
                 preferencesStore: preferencesStore,
                 breakStatsStore: breakStatsStore

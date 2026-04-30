@@ -7,6 +7,13 @@
 
 import Foundation
 
+struct BreakDaySummary: Identifiable, Equatable {
+    let date: Date
+    let count: Int
+
+    var id: Date { date }
+}
+
 @MainActor
 @Observable
 final class BreakStatsStore {
@@ -44,6 +51,25 @@ final class BreakStatsStore {
         defaults.set(0, forKey: todayBreaksKey(for: date))
         defaults.set(0, forKey: weekBreaksKey(for: date))
         refresh()
+    }
+
+    func breaks(on date: Date) -> Int {
+        defaults.integer(forKey: todayBreaksKey(for: date))
+    }
+
+    func weekBreaksByDay(referenceDate: Date? = nil) -> [BreakDaySummary] {
+        let date = referenceDate ?? dateProvider()
+        guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: date) else {
+            return [BreakDaySummary(date: date, count: breaks(on: date))]
+        }
+
+        return (0..<7).compactMap { offset in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: weekInterval.start) else {
+                return nil
+            }
+
+            return BreakDaySummary(date: day, count: breaks(on: day))
+        }
     }
 
     private func todayBreaksKey(for date: Date) -> String {

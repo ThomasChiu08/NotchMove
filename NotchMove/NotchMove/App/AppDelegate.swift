@@ -48,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         let dashboardWindow = DashboardWindowController(
             languageManager: languageManager,
+            reminderEngine: engine,
             scheduleStore: dailyScheduleStore,
             preferencesStore: preferencesStore,
             breakStatsStore: breakStatsStore,

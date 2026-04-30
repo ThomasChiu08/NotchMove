@@ -11,13 +11,13 @@ struct NotchView: View {
     let reminderEngine: ReminderEngine
     let overlayMetrics: NotchOverlayMetrics
 
-    private let shapeAnimation = Animation.smooth(duration: 0.24, extraBounce: 0)
-    private let contentAnimation = Animation.smooth(duration: 0.2, extraBounce: 0)
+    private let shapeAnimation = Animation.smooth(duration: 0.2, extraBounce: 0)
+    private let contentAnimation = Animation.smooth(duration: 0.18, extraBounce: 0)
 
     var body: some View {
         ZStack(alignment: .top) {
             NotchShape(cornerRadius: cornerRadius)
-                .fill(.black)
+                .fill(Color(red: 0.02, green: 0.02, blue: 0.02))
                 .animation(shapeAnimation, value: reminderEngine.overlayState.presentation)
 
             contentLayer
@@ -82,6 +82,8 @@ struct NotchView: View {
                 topInset: overlayMetrics.topInset
             ) {
                 reminderEngine.send(.completeBreak)
+            } onDismiss: {
+                reminderEngine.send(.dismissReminder)
             }
         case .schedule(let content):
             ScheduleReminderContentView(
@@ -116,7 +118,6 @@ private struct ReminderPendingIndicatorView: View {
                 Capsule()
                     .fill(.green.opacity(0.86))
                     .frame(width: 42 + 24 * CGFloat(progress), height: 2)
-                    .shadow(color: .green.opacity(0.32), radius: 2)
                     .padding(.bottom, 4)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -148,6 +149,7 @@ private struct BreakReminderContentView: View {
     let reminderDuration: TimeInterval
     let topInset: CGFloat
     let onCompleteBreak: () -> Void
+    let onDismiss: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -171,13 +173,20 @@ private struct BreakReminderContentView: View {
 
             Spacer(minLength: 8)
 
+            Button(action: onDismiss) {
+                Text("notch.later")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .controlSize(.small)
+
             Button(action: onCompleteBreak) {
                 Text("stand_and_move")
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
             .controlSize(.small)
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bordered)
             .tint(.green)
         }
         .padding(.horizontal, 14)
@@ -233,7 +242,7 @@ private struct ScheduleReminderContentView: View {
                     .minimumScaleFactor(0.75)
             }
             .controlSize(.small)
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bordered)
             .tint(.green)
         }
         .padding(.horizontal, 14)
@@ -261,7 +270,7 @@ private struct ReminderProgressView: View {
                 reminderDuration: reminderDuration
             )
 
-            ProgressRingView(progress: progress, size: 36, lineWidth: 3)
+            ProgressRingView(progress: progress, size: 32, lineWidth: 2.5)
                 .overlay {
                     Image(systemName: stretchSymbol(for: progress))
                         .font(.caption)

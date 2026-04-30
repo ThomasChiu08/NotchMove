@@ -21,7 +21,6 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
         .language,
         .startup,
         .reminders,
-        .schedule,
         .behavior,
         .statistics,
         .about,
@@ -29,7 +28,6 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
 
     static let dashboardOrder: [SettingsPageSection] = [
         .reminders,
-        .schedule,
         .behavior,
         .statistics,
         .language,
@@ -92,6 +90,7 @@ struct SettingsContentView: View {
     let showsSectionHeaders: Bool
 
     @State private var showingResetConfirmation = false
+    @State private var showingRestoreConfirmation = false
     @State private var availableScreens: [ScreenDescriptor] = []
     @State private var loginItemStatus: LoginItemStatus = .notRegistered
     @State private var launchAtLoginErrorMessage: String?
@@ -123,6 +122,7 @@ struct SettingsContentView: View {
             }
         }
         .formStyle(.grouped)
+        .controlSize(.small)
         .onAppear {
             breakStatsStore.refresh()
             refreshAvailableScreens()
@@ -164,21 +164,23 @@ struct SettingsContentView: View {
 
     private var languageSection: some View {
         Section {
-            Picker(selection: Binding(
-                get: { preferencesStore.preferences.appLanguage },
-                set: { preferencesStore.preferences.appLanguage = $0 }
-            )) {
-                ForEach(LanguageManager.supportedLanguages) { lang in
-                    Text(lang.displayName).tag(lang.code)
+            SettingsPropertyRow("current_language", captionKey: "language_description") {
+                Picker(selection: Binding(
+                    get: { preferencesStore.preferences.appLanguage },
+                    set: { preferencesStore.preferences.appLanguage = $0 }
+                )) {
+                    ForEach(LanguageManager.supportedLanguages) { lang in
+                        Text(lang.displayName).tag(lang.code)
+                    }
+                } label: {
+                    Text("current_language")
                 }
-            } label: {
-                Text("current_language")
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 220, alignment: .leading)
             }
-            .pickerStyle(.menu)
         } header: {
             sectionHeader("section.language")
-        } footer: {
-            Text("language_description")
         }
     }
 
@@ -186,8 +188,11 @@ struct SettingsContentView: View {
 
     private var startupSection: some View {
         Section {
-            Toggle(isOn: launchAtLoginBinding) {
-                Text("launch_at_login")
+            SettingsPropertyRow("launch_at_login") {
+                Toggle(isOn: launchAtLoginBinding) {
+                    Text("launch_at_login")
+                }
+                .labelsHidden()
             }
         } header: {
             sectionHeader("section.startup")
@@ -212,26 +217,28 @@ struct SettingsContentView: View {
 
     private var remindersSection: some View {
         Section {
-            Picker(selection: $preferencesStore.preferences.reminderIntervalMinutes) {
-                ForEach(Self.intervalOptions, id: \.self) { minutes in
-                    Text(String(format: localizedString("minutes_format"), minutes))
-                        .tag(minutes)
+            SettingsPropertyRow("remind_every", captionKey: sitAwareCaptionKey) {
+                Picker(selection: $preferencesStore.preferences.reminderIntervalMinutes) {
+                    ForEach(Self.intervalOptions, id: \.self) { minutes in
+                        Text(String(format: localizedString("minutes_format"), minutes))
+                            .tag(minutes)
+                    }
+                } label: {
+                    Text("remind_every")
                 }
-            } label: {
-                Text("remind_every")
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 140, alignment: .leading)
             }
 
-            Toggle(isOn: $preferencesStore.preferences.sitAwareEnabled) {
-                Text("sit_aware_mode")
+            SettingsPropertyRow("sit_aware_mode") {
+                Toggle(isOn: $preferencesStore.preferences.sitAwareEnabled) {
+                    Text("sit_aware_mode")
+                }
+                .labelsHidden()
             }
         } header: {
             sectionHeader("section.reminders")
-        } footer: {
-            if preferencesStore.preferences.sitAwareEnabled {
-                Text("sit_aware_footer_on")
-            } else {
-                Text("sit_aware_footer_off")
-            }
         }
     }
 
@@ -239,30 +246,54 @@ struct SettingsContentView: View {
 
     private var scheduleSection: some View {
         Section {
-            Toggle(isOn: $preferencesStore.preferences.schedule.isEnabled) {
-                Text("work_hours_only")
-            }
-
-            if preferencesStore.preferences.schedule.isEnabled {
-                DatePicker(selection: startTimeBinding, displayedComponents: .hourAndMinute) {
-                    Text("schedule_from")
-                }
-                DatePicker(selection: endTimeBinding, displayedComponents: .hourAndMinute) {
-                    Text("schedule_to")
-                }
-                Toggle(isOn: $preferencesStore.preferences.schedule.weekdaysOnly) {
-                    Text("weekdays_only")
-                }
-            }
+            workHoursRows
         } header: {
             sectionHeader("section.schedule")
         } footer: {
-            if preferencesStore.preferences.schedule.isEnabled && !isValidTimeRange {
-                Text("schedule_invalid")
-                    .foregroundStyle(.red)
-            } else if preferencesStore.preferences.schedule.isEnabled {
-                Text("schedule_footer")
+            scheduleFooter
+        }
+    }
+
+    @ViewBuilder
+    private var workHoursRows: some View {
+        SettingsPropertyRow("work_hours_only") {
+            Toggle(isOn: $preferencesStore.preferences.schedule.isEnabled) {
+                Text("work_hours_only")
             }
+            .labelsHidden()
+        }
+
+        if preferencesStore.preferences.schedule.isEnabled {
+            SettingsPropertyRow("schedule_from") {
+                DatePicker(selection: startTimeBinding, displayedComponents: .hourAndMinute) {
+                    Text("schedule_from")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("schedule_to") {
+                DatePicker(selection: endTimeBinding, displayedComponents: .hourAndMinute) {
+                    Text("schedule_to")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("weekdays_only") {
+                Toggle(isOn: $preferencesStore.preferences.schedule.weekdaysOnly) {
+                    Text("weekdays_only")
+                }
+                .labelsHidden()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var scheduleFooter: some View {
+        if preferencesStore.preferences.schedule.isEnabled && !isValidTimeRange {
+            Text("schedule_invalid")
+                .foregroundStyle(.red)
+        } else if preferencesStore.preferences.schedule.isEnabled {
+            Text("schedule_footer")
         }
     }
 
@@ -270,51 +301,81 @@ struct SettingsContentView: View {
 
     private var behaviorSection: some View {
         Section {
-            Picker(selection: $preferencesStore.preferences.overlayDisplayMode) {
-                Text("display_automatic")
-                    .tag(Preferences.OverlayDisplayMode.automatic)
+            workHoursRows
 
-                ForEach(availableScreens, id: \.displayID) { screen in
-                    Text(displayName(for: screen))
-                        .tag(Preferences.OverlayDisplayMode.display(screen.displayID))
-                }
+            SettingsPropertyRow("overlay_display") {
+                Picker(selection: $preferencesStore.preferences.overlayDisplayMode) {
+                    Text("display_automatic")
+                        .tag(Preferences.OverlayDisplayMode.automatic)
 
-                if let selectedUnavailableDisplayID {
-                    Text(String(format: localizedString("display_unavailable_format"), Int(selectedUnavailableDisplayID)))
-                        .tag(Preferences.OverlayDisplayMode.display(selectedUnavailableDisplayID))
-                }
-            } label: {
-                Text("overlay_display")
-            }
-            .pickerStyle(.menu)
+                    ForEach(availableScreens, id: \.displayID) { screen in
+                        Text(displayName(for: screen))
+                            .tag(Preferences.OverlayDisplayMode.display(screen.displayID))
+                    }
 
-            Toggle(isOn: $preferencesStore.preferences.notchExpansionEnabled) {
-                Text("expand_notch")
-            }
-            Toggle(isOn: $preferencesStore.preferences.hoverPreviewEnabled) {
-                Text("show_hover_preview")
-            }
-            Toggle(isOn: $preferencesStore.preferences.soundEnabled) {
-                Text("play_sound")
-            }
-
-            Toggle(isOn: $preferencesStore.preferences.autoDismissEnabled) {
-                Text("auto_dismiss")
-            }
-            if preferencesStore.preferences.autoDismissEnabled {
-                Picker(selection: $preferencesStore.preferences.autoDismissSeconds) {
-                    ForEach(Self.dismissOptions, id: \.self) { seconds in
-                        Text(String(format: localizedString("seconds_format"), seconds))
-                            .tag(seconds)
+                    if let selectedUnavailableDisplayID {
+                        Text(String(format: localizedString("display_unavailable_format"), Int(selectedUnavailableDisplayID)))
+                            .tag(Preferences.OverlayDisplayMode.display(selectedUnavailableDisplayID))
                     }
                 } label: {
-                    Text("dismiss_after")
+                    Text("overlay_display")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+            }
+
+            SettingsPropertyRow("expand_notch") {
+                Toggle(isOn: $preferencesStore.preferences.notchExpansionEnabled) {
+                    Text("expand_notch")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("show_hover_preview") {
+                Toggle(isOn: $preferencesStore.preferences.hoverPreviewEnabled) {
+                    Text("show_hover_preview")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("play_sound") {
+                Toggle(isOn: $preferencesStore.preferences.soundEnabled) {
+                    Text("play_sound")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("auto_dismiss") {
+                Toggle(isOn: $preferencesStore.preferences.autoDismissEnabled) {
+                    Text("auto_dismiss")
+                }
+                .labelsHidden()
+            }
+
+            if preferencesStore.preferences.autoDismissEnabled {
+                SettingsPropertyRow("dismiss_after") {
+                    Picker(selection: $preferencesStore.preferences.autoDismissSeconds) {
+                        ForEach(Self.dismissOptions, id: \.self) { seconds in
+                            Text(String(format: localizedString("seconds_format"), seconds))
+                                .tag(seconds)
+                        }
+                    } label: {
+                        Text("dismiss_after")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 140, alignment: .leading)
                 }
             }
         } header: {
             sectionHeader("section.behavior")
         } footer: {
-            Text("behavior_footer")
+            if preferencesStore.preferences.schedule.isEnabled && !isValidTimeRange {
+                Text("schedule_invalid")
+                    .foregroundStyle(.red)
+            } else {
+                Text("behavior_footer")
+            }
         }
     }
 
@@ -322,16 +383,14 @@ struct SettingsContentView: View {
 
     private var statisticsSection: some View {
         Section {
-            LabeledContent {
+            SettingsPropertyRow("breaks_today") {
                 Text("\(breakStatsStore.todayBreaks)")
-            } label: {
-                Text("breaks_today")
+                    .monospacedDigit()
             }
 
-            LabeledContent {
+            SettingsPropertyRow("breaks_this_week") {
                 Text("\(breakStatsStore.weekBreaks)")
-            } label: {
-                Text("breaks_this_week")
+                    .monospacedDigit()
             }
 
             HStack {
@@ -356,11 +415,24 @@ struct SettingsContentView: View {
                 Spacer()
 
                 Button {
-                    restoreDefaults()
+                    showingRestoreConfirmation = true
                 } label: {
                     Text("restore_defaults")
                 }
+                .confirmationDialog(
+                    Text("restore_confirm"),
+                    isPresented: $showingRestoreConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button(role: .destructive) { restoreDefaults() } label: {
+                        Text("restore_action")
+                    }
+                    Button(role: .cancel) {} label: {
+                        Text("cancel")
+                    }
+                }
             }
+            .padding(.top, 4)
         } header: {
             sectionHeader("section.statistics")
         }
@@ -370,16 +442,12 @@ struct SettingsContentView: View {
 
     private var aboutSection: some View {
         Section {
-            LabeledContent {
+            SettingsPropertyRow("version") {
                 Text(appVersion)
-            } label: {
-                Text("version")
             }
 
-            LabeledContent {
+            SettingsPropertyRow("current_language") {
                 Text(currentLanguageDisplayName)
-            } label: {
-                Text("current_language")
             }
 
             Text("app_description")
@@ -391,6 +459,10 @@ struct SettingsContentView: View {
     }
 
     // MARK: - Helpers
+
+    private var sitAwareCaptionKey: String {
+        preferencesStore.preferences.sitAwareEnabled ? "sit_aware_footer_on" : "sit_aware_footer_off"
+    }
 
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(
@@ -508,6 +580,44 @@ struct SettingsContentView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
+    }
+}
+
+private struct SettingsPropertyRow<Content: View>: View {
+    let titleKey: String
+    let captionKey: String?
+    let content: Content
+
+    init(
+        _ titleKey: String,
+        captionKey: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.titleKey = titleKey
+        self.captionKey = captionKey
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .center, spacing: 16) {
+                Text(LocalizedStringKey(titleKey))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 168, alignment: .leading)
+
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if let captionKey {
+                Text(LocalizedStringKey(captionKey))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.leading, 184)
+            }
+        }
+        .font(.system(size: 13))
+        .padding(.vertical, 4)
     }
 }
 

@@ -44,6 +44,8 @@
 "cancel" = "キャンセル";
 "ok" = "OK";
 "restore_defaults" = "デフォルトに戻す";
+"restore_confirm" = "すべての設定をデフォルトに戻しますか？";
+"restore_action" = "戻す";
 
 /* ─── About ─── */
 "version" = "バージョン";
@@ -66,6 +68,7 @@
 "schedule_reminder_title" = "予定リマインダー";
 "schedule_reminder_snooze" = "あとで";
 "schedule_reminder_done" = "完了";
+"notch.later" = "あとで";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "次のリマインド：%@ 分";
@@ -92,11 +95,47 @@
 "dashboard.unified.title" = "NotchMove ダッシュボード";
 "dashboard.sidebar.workspace" = "ワークスペース";
 "dashboard.sidebar.settings" = "設定";
+"dashboard.page.today" = "今日";
+"dashboard.page.schedule" = "スケジュール";
+"dashboard.page.breaks" = "休憩";
 "dashboard.title" = "日次スケジュール";
 "dashboard.today" = "今日";
+"dashboard.today.rhythm" = "今日のリズム";
+"dashboard.today.meta_format" = "%@ · 今日 %d 回休憩 · %@";
+"dashboard.timeline.title" = "タイムライン";
+"dashboard.property.tracking_status" = "状態";
+"dashboard.property.next_stand_reminder" = "立ち上がり通知";
+"dashboard.property.current_schedule" = "現在の予定";
+"dashboard.property.next_schedule" = "次の予定";
+"dashboard.run_state.tracking" = "記録中";
+"dashboard.run_state.paused" = "一時停止中";
+"dashboard.run_state.schedule_blocked" = "勤務時間外";
+"dashboard.run_state.reminding" = "通知中";
+"dashboard.run_state.idle" = "アイドル";
+"dashboard.next_stand_soon" = "まもなく";
+"dashboard.next_stand_minutes_format" = "%d 分後";
+"dashboard.schedule.summary_format" = "%@ · %@";
+"dashboard.schedule.items" = "スケジュール項目";
+"dashboard.schedule.meta_format" = "平日のルーティン · %d 件";
+"dashboard.schedule.status.upcoming" = "予定";
+"dashboard.schedule.status.active" = "進行中";
+"dashboard.schedule.status.done" = "完了";
+"dashboard.properties.title" = "プロパティ";
+"dashboard.row.lead_minutes_format" = "%d 分前";
+"dashboard.row.no_alert" = "通知なし";
+"dashboard.add.schedule_item" = "予定を追加";
+"dashboard.breaks.meta_format" = "今日 %d 回 · 今週 %d 回";
+"dashboard.breaks.today" = "今日";
+"dashboard.breaks.weekly_progress" = "今週の進捗";
+"dashboard.breaks.records" = "記録";
+"dashboard.breaks.records_description" = "休憩履歴は軽量に保ち、日次と週次の合計のみ保存します。";
+"dashboard.danger_zone" = "危険な操作";
 "dashboard.add.button" = "追加";
 "dashboard.add.title" = "予定を追加";
 "dashboard.add.action" = "追加";
+"dashboard.edit.title" = "予定を編集";
+"dashboard.edit.action" = "保存";
+"dashboard.edit.button" = "編集";
 "dashboard.import.button" = "インポート";
 "dashboard.clear.button" = "今日をクリア";
 "dashboard.empty.title" = "今日の予定はありません";
@@ -113,8 +152,10 @@
 "dashboard.field.end_time" = "終了";
 "dashboard.field.reminder_enabled" = "リマインダーを有効化";
 "dashboard.field.reminder_status" = "リマインダー状態";
+"dashboard.field.lead_time" = "事前通知";
 "dashboard.field.lead_minutes_format" = "%d 分前にリマインド";
 "dashboard.field.notes" = "メモ";
+"dashboard.none" = "なし";
 "dashboard.status.reminded" = "リマインド済み";
 "dashboard.status.snoozed_until_format" = "%@ までスヌーズ";
 "dashboard.validation.title_required" = "タイトルを入力してください。";
