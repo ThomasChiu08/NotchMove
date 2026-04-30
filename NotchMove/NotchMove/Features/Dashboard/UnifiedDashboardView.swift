@@ -11,11 +11,14 @@ struct UnifiedDashboardView: View {
     let languageManager: LanguageManager
     let loginItemManager: any LoginItemManaging
     let reminderEngine: ReminderEngine
+    let aiAssistantService: AIScheduleAssistantService
     @Bindable var scheduleStore: DailyScheduleStore
     @Bindable var preferencesStore: PreferencesStore
+    @Bindable var aiProviderPreferences: AIProviderPreferences
     @Bindable var breakStatsStore: BreakStatsStore
 
     @AppStorage("unifiedDashboardSelectedPage") private var selectedPageID = UnifiedDashboardPage.today.id
+    @State private var showingAICaptureSheet = false
 
     var body: some View {
         NavigationSplitView {
@@ -24,9 +27,24 @@ struct UnifiedDashboardView: View {
             detail
         }
         .frame(minWidth: 860, minHeight: 560)
+        .sheet(isPresented: $showingAICaptureSheet) {
+            AIScheduleCaptureSheet(
+                languageManager: languageManager,
+                assistantService: aiAssistantService,
+                scheduleStore: scheduleStore,
+                aiPreferences: aiProviderPreferences
+            ) {
+                selectedPageID = UnifiedDashboardPage.settings(.aiAssistant).id
+            }
+            .environment(\.locale, languageManager.locale)
+        }
         .onAppear(perform: normalizeSelection)
         .onChange(of: selectedPageID) { _, _ in
             normalizeSelection()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: DashboardWindowController.aiCaptureRequestedNotification)) { _ in
+            selectedPageID = UnifiedDashboardPage.today.id
+            showingAICaptureSheet = true
         }
     }
 
@@ -122,12 +140,18 @@ struct UnifiedDashboardView: View {
                 scheduleStore: scheduleStore,
                 preferencesStore: preferencesStore,
                 breakStatsStore: breakStatsStore,
-                reminderEngine: reminderEngine
+                reminderEngine: reminderEngine,
+                onSpeak: {
+                    showingAICaptureSheet = true
+                }
             )
         case .schedule:
             DailyScheduleDashboardView(
                 languageManager: languageManager,
-                scheduleStore: scheduleStore
+                scheduleStore: scheduleStore,
+                onSpeak: {
+                    showingAICaptureSheet = true
+                }
             )
         case .breaks:
             BreaksDashboardView(
@@ -140,6 +164,7 @@ struct UnifiedDashboardView: View {
                 languageManager: languageManager,
                 loginItemManager: loginItemManager,
                 preferencesStore: preferencesStore,
+                aiProviderPreferences: aiProviderPreferences,
                 breakStatsStore: breakStatsStore
             )
         }
@@ -426,6 +451,7 @@ private struct DashboardSettingsPage: View {
     let languageManager: LanguageManager
     let loginItemManager: any LoginItemManaging
     let preferencesStore: PreferencesStore
+    let aiProviderPreferences: AIProviderPreferences
     let breakStatsStore: BreakStatsStore
 
     var body: some View {
@@ -438,6 +464,7 @@ private struct DashboardSettingsPage: View {
                 languageManager: languageManager,
                 loginItemManager: loginItemManager,
                 preferencesStore: preferencesStore,
+                aiProviderPreferences: aiProviderPreferences,
                 breakStatsStore: breakStatsStore,
                 sections: [section],
                 showsSectionHeaders: false
@@ -462,8 +489,12 @@ private struct DashboardSettingsPage: View {
             soundPlayer: PreviewDashboardSoundPlayer(),
             breakStatsStore: breakStatsStore
         ),
+        aiAssistantService: AIScheduleAssistantService(
+            preferences: AIProviderPreferences(defaults: settings.defaults)
+        ),
         scheduleStore: DailyScheduleStore(defaults: settings.defaults),
         preferencesStore: preferencesStore,
+        aiProviderPreferences: AIProviderPreferences(defaults: settings.defaults),
         breakStatsStore: breakStatsStore
     )
     .frame(width: 920, height: 640)

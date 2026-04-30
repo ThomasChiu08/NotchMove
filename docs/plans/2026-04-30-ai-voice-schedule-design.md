@@ -508,6 +508,8 @@ Use fake providers:
 
 ### Phase 1: OpenAI MVP
 
+Status: implemented as first-pass MVP on 2026-04-30.
+
 - Add permissions and settings.
 - Add Keychain API key storage.
 - Add audio capture and temporary recording.

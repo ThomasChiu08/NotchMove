@@ -6,6 +6,7 @@
 "section.about" = "このアプリについて";
 "section.language" = "言語";
 "section.startup" = "起動";
+"section.ai_assistant" = "AI アシスタント";
 
 /* ─── Reminders ─── */
 "remind_every" = "リマインド間隔";
@@ -81,6 +82,7 @@
 "menu.pause" = "リマインダーを停止";
 "menu.resume" = "リマインダーを再開";
 "menu.remind_now" = "今すぐリマインド";
+"menu.ai_add_schedule" = "AI で予定を追加…";
 "menu.sound" = "リマインドサウンド";
 "menu.next_schedule_format" = "次の予定：%@ · %@";
 "menu.no_schedule_today" = "今日の予定はこれ以上ありません";
@@ -174,3 +176,36 @@
 "dashboard.import.error.end_before_start" = "終了時刻は開始時刻より後にしてください。";
 "dashboard.reminder.alert_title" = "予定リマインダー";
 "dashboard.reminder.alert_message_format" = "%@ がまもなく始まります。";
+
+/* ─── AI Assistant ─── */
+"ai.settings.enabled" = "AI アシスタントを有効にする";
+"ai.settings.transcription_provider" = "文字起こしプロバイダー";
+"ai.settings.transcription_model" = "文字起こしモデル";
+"ai.settings.parser_provider" = "解析プロバイダー";
+"ai.settings.parser_model" = "解析モデル";
+"ai.settings.default_lead" = "既定の事前通知";
+"ai.settings.openai_key" = "OpenAI API キー";
+"ai.settings.openai_key_caption" = "UserDefaults ではなく macOS キーチェーンに保存します。";
+"ai.settings.save_key" = "保存";
+"ai.settings.clear_key" = "消去";
+"ai.settings.key_saved" = "API キーを保存しました。";
+"ai.settings.open" = "AI 設定";
+"ai.settings.privacy_footer" = "音声と文字起こしテキストは、選択したクラウドプロバイダーに送信される場合があります。予定は確認後に追加されます。";
+"ai.capture.title" = "AI で予定を追加";
+"ai.capture.speak" = "話す";
+"ai.capture.ready" = "準備完了";
+"ai.capture.recording" = "録音中";
+"ai.capture.transcribing" = "文字起こし中";
+"ai.capture.parsing" = "予定を解析中";
+"ai.capture.review" = "下書きを確認";
+"ai.capture.error" = "確認が必要です";
+"ai.capture.disabled" = "録音前に AI アシスタントを有効にし、API キーを保存してください。";
+"ai.capture.start_recording" = "録音開始";
+"ai.capture.stop_recording" = "停止";
+"ai.capture.transcript" = "文字起こし";
+"ai.capture.questions" = "質問";
+"ai.capture.warnings" = "警告";
+"ai.capture.drafts" = "下書き";
+"ai.capture.no_drafts" = "予定の下書きは見つかりませんでした。";
+"ai.capture.try_again" = "再試行";
+"ai.capture.add_selected" = "選択項目を追加";

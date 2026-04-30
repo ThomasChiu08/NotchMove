@@ -13,3 +13,9 @@
 - Added menu bar next-schedule status and dashboard reminder status labels.
 - Updated daily schedule tests for completion, snooze, and stale reminder windows.
 - Ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
+- Began AI voice schedule assistant Phase 1 from `docs/plans/2026-04-30-ai-voice-schedule-design.md`.
+- Added provider-agnostic AI schedule models, transcription/parser protocols, Keychain-backed OpenAI API key storage, temporary audio recording, OpenAI transcription, and OpenAI Responses structured-output parsing.
+- Added AI Assistant settings, menu bar `AI Add Schedule...`, Today/Schedule `Speak` actions, and a review sheet that lets users edit/select drafts before writing to `DailyScheduleStore`.
+- Added sandbox microphone and outgoing network entitlements plus `NSMicrophoneUsageDescription`.
+- Added AI assistant unit tests for draft conversion, schema decoding, service order, temporary audio cleanup, empty transcript handling, past-date warnings, response extraction, and API key redaction.
+- Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.

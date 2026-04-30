@@ -10,12 +10,16 @@ import SwiftUI
 
 @MainActor
 final class DashboardWindowController: NSObject, NSWindowDelegate {
+    static let aiCaptureRequestedNotification = Notification.Name("DashboardWindowControllerAICaptureRequested")
+
     private var window: NSWindow?
     private var hostingView: NSHostingView<AnyView>?
     private let languageManager: LanguageManager
     private let reminderEngine: ReminderEngine
+    private let aiAssistantService: AIScheduleAssistantService
     private let scheduleStore: DailyScheduleStore
     private let preferencesStore: PreferencesStore
+    private let aiProviderPreferences: AIProviderPreferences
     private let breakStatsStore: BreakStatsStore
     private let loginItemManager: any LoginItemManaging
     private nonisolated(unsafe) var languageObserver: NSObjectProtocol?
@@ -23,15 +27,19 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     init(
         languageManager: LanguageManager,
         reminderEngine: ReminderEngine,
+        aiAssistantService: AIScheduleAssistantService,
         scheduleStore: DailyScheduleStore,
         preferencesStore: PreferencesStore,
+        aiProviderPreferences: AIProviderPreferences,
         breakStatsStore: BreakStatsStore,
         loginItemManager: any LoginItemManaging
     ) {
         self.languageManager = languageManager
         self.reminderEngine = reminderEngine
+        self.aiAssistantService = aiAssistantService
         self.scheduleStore = scheduleStore
         self.preferencesStore = preferencesStore
+        self.aiProviderPreferences = aiProviderPreferences
         self.breakStatsStore = breakStatsStore
         self.loginItemManager = loginItemManager
         super.init()
@@ -56,6 +64,16 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     func openDashboard() {
         DispatchQueue.main.async { [weak self] in
             self?.presentWindow()
+        }
+    }
+
+    func openAICapture() {
+        DispatchQueue.main.async { [weak self] in
+            self?.presentWindow()
+            NotificationCenter.default.post(
+                name: Self.aiCaptureRequestedNotification,
+                object: self
+            )
         }
     }
 
@@ -94,8 +112,10 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
                 languageManager: languageManager,
                 loginItemManager: loginItemManager,
                 reminderEngine: reminderEngine,
+                aiAssistantService: aiAssistantService,
                 scheduleStore: scheduleStore,
                 preferencesStore: preferencesStore,
+                aiProviderPreferences: aiProviderPreferences,
                 breakStatsStore: breakStatsStore
             )
             .environment(\.locale, languageManager.locale)

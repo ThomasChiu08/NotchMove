@@ -15,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var preferencesStore = PreferencesStore(settings: settings)
     private lazy var breakStatsStore = BreakStatsStore(defaults: settings.defaults)
     private lazy var dailyScheduleStore = DailyScheduleStore(defaults: settings.defaults)
+    private lazy var aiProviderPreferences = AIProviderPreferences(defaults: settings.defaults)
+    private lazy var aiScheduleAssistantService = AIScheduleAssistantService(preferences: aiProviderPreferences)
     private lazy var languageManager = LanguageManager(preferencesStore: preferencesStore)
 
     private var activityMonitor: ActivityMonitor?
@@ -49,8 +51,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let dashboardWindow = DashboardWindowController(
             languageManager: languageManager,
             reminderEngine: engine,
+            aiAssistantService: aiScheduleAssistantService,
             scheduleStore: dailyScheduleStore,
             preferencesStore: preferencesStore,
+            aiProviderPreferences: aiProviderPreferences,
             breakStatsStore: breakStatsStore,
             loginItemManager: loginItemService
         )
@@ -73,6 +77,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferencesStore: preferencesStore,
             onOpenDashboard: { [weak dashboardWindow] in
                 dashboardWindow?.openDashboard()
+            },
+            onOpenAICapture: { [weak dashboardWindow] in
+                dashboardWindow?.openAICapture()
             }
         )
 

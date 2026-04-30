@@ -14,6 +14,7 @@ struct TodayDashboardView: View {
     @Bindable var preferencesStore: PreferencesStore
     @Bindable var breakStatsStore: BreakStatsStore
     let reminderEngine: ReminderEngine
+    let onSpeak: () -> Void
 
     @State private var showingAddSheet = false
     @State private var now = Date()
@@ -25,6 +26,13 @@ struct TodayDashboardView: View {
                 systemImage: "sun.max",
                 metaText: todayMetaText
             ) {
+                Button {
+                    onSpeak()
+                } label: {
+                    Label("ai.capture.speak", systemImage: "mic")
+                }
+                .buttonStyle(.bordered)
+
                 Button {
                     reminderEngine.send(.manualTrigger)
                 } label: {
@@ -198,6 +206,7 @@ struct TodayDashboardView: View {
 struct DailyScheduleDashboardView: View {
     let languageManager: LanguageManager
     @Bindable var scheduleStore: DailyScheduleStore
+    let onSpeak: () -> Void
 
     @State private var selectedItemID: DailyScheduleItem.ID?
     @State private var showingAddSheet = false
@@ -215,6 +224,13 @@ struct DailyScheduleDashboardView: View {
                 systemImage: "calendar",
                 metaText: scheduleMetaText
             ) {
+                Button {
+                    onSpeak()
+                } label: {
+                    Label("ai.capture.speak", systemImage: "mic")
+                }
+                .buttonStyle(.bordered)
+
                 Button {
                     showingAddSheet = true
                 } label: {
@@ -1063,6 +1079,6 @@ private enum DailyScheduleText {
         endDate: .now.addingTimeInterval(3600)
     )
 
-    return DailyScheduleDashboardView(languageManager: languageManager, scheduleStore: scheduleStore)
+    return DailyScheduleDashboardView(languageManager: languageManager, scheduleStore: scheduleStore) {}
         .frame(width: 760, height: 520)
 }

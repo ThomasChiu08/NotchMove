@@ -23,6 +23,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
     private let onOpenDashboard: () -> Void
+    private let onOpenAICapture: () -> Void
     private let menu = NSMenu()
     private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "menu-bar")
 
@@ -33,6 +34,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let pauseMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let soundMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let remindNowMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let aiCaptureMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let dashboardMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ",")
     private let quitMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "q")
 
@@ -42,7 +44,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         dailyScheduleStore: DailyScheduleStore,
         languageManager: LanguageManager,
         preferencesStore: PreferencesStore,
-        onOpenDashboard: @escaping () -> Void
+        onOpenDashboard: @escaping () -> Void,
+        onOpenAICapture: @escaping () -> Void
     ) {
         self.reminderEngine = reminderEngine
         self.breakStatsStore = breakStatsStore
@@ -50,6 +53,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.languageManager = languageManager
         self.preferencesStore = preferencesStore
         self.onOpenDashboard = onOpenDashboard
+        self.onOpenAICapture = onOpenAICapture
         super.init()
         configureStatusButton()
         buildMenu()
@@ -89,9 +93,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         remindNowMenuItem.action = #selector(remindNow)
         menu.addItem(remindNowMenuItem)
 
+        // Row 5: AI schedule capture
+        aiCaptureMenuItem.target = self
+        aiCaptureMenuItem.action = #selector(openAICapture)
+        menu.addItem(aiCaptureMenuItem)
+
         menu.addItem(.separator())
 
-        // Row 6: Sound toggle
+        // Row 7: Sound toggle
         soundMenuItem.target = self
         soundMenuItem.action = #selector(toggleSound)
         menu.addItem(soundMenuItem)
@@ -175,6 +184,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // Remind now
         remindNowMenuItem.title = L("menu.remind_now")
 
+        // AI schedule capture
+        aiCaptureMenuItem.title = L("menu.ai_add_schedule")
+
         // Sound toggle
         soundMenuItem.title = L("menu.sound")
         soundMenuItem.state = preferencesStore.preferences.soundEnabled ? .on : .off
@@ -200,6 +212,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func openDashboard() {
         logger.notice("Opening unified dashboard")
         onOpenDashboard()
+    }
+
+    @objc private func openAICapture() {
+        logger.notice("Opening AI schedule capture")
+        onOpenAICapture()
     }
 
     @objc private func toggleSound() {

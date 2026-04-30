@@ -6,6 +6,7 @@
 "section.about" = "關於";
 "section.language" = "語言";
 "section.startup" = "啟動";
+"section.ai_assistant" = "AI 助手";
 
 /* ─── Reminders ─── */
 "remind_every" = "提醒間隔";
@@ -81,6 +82,7 @@
 "menu.pause" = "暫停提醒";
 "menu.resume" = "恢復提醒";
 "menu.remind_now" = "立即提醒";
+"menu.ai_add_schedule" = "AI 新增日程…";
 "menu.sound" = "提醒聲音";
 "menu.next_schedule_format" = "下個行程：%@ · %@";
 "menu.no_schedule_today" = "今天沒有更多行程";
@@ -174,3 +176,36 @@
 "dashboard.import.error.end_before_start" = "結束時間必須晚於開始時間。";
 "dashboard.reminder.alert_title" = "行程提醒";
 "dashboard.reminder.alert_message_format" = "%@ 即將開始。";
+
+/* ─── AI Assistant ─── */
+"ai.settings.enabled" = "啟用 AI 助手";
+"ai.settings.transcription_provider" = "轉寫服務";
+"ai.settings.transcription_model" = "轉寫模型";
+"ai.settings.parser_provider" = "解析服務";
+"ai.settings.parser_model" = "解析模型";
+"ai.settings.default_lead" = "預設提前提醒";
+"ai.settings.openai_key" = "OpenAI API Key";
+"ai.settings.openai_key_caption" = "儲存在 macOS 鑰匙圈，不寫入 UserDefaults。";
+"ai.settings.save_key" = "儲存";
+"ai.settings.clear_key" = "清除";
+"ai.settings.key_saved" = "API Key 已儲存。";
+"ai.settings.open" = "AI 設定";
+"ai.settings.privacy_footer" = "音訊和轉寫文字可能會傳送給所選雲端服務。確認草稿後才會新增日程。";
+"ai.capture.title" = "AI 新增日程";
+"ai.capture.speak" = "語音";
+"ai.capture.ready" = "準備就緒";
+"ai.capture.recording" = "錄音中";
+"ai.capture.transcribing" = "正在轉寫";
+"ai.capture.parsing" = "正在解析日程";
+"ai.capture.review" = "檢查草稿";
+"ai.capture.error" = "需要處理";
+"ai.capture.disabled" = "請先啟用 AI 助手並儲存 API Key。";
+"ai.capture.start_recording" = "開始錄音";
+"ai.capture.stop_recording" = "停止";
+"ai.capture.transcript" = "轉寫文字";
+"ai.capture.questions" = "問題";
+"ai.capture.warnings" = "警告";
+"ai.capture.drafts" = "草稿";
+"ai.capture.no_drafts" = "沒有識別到日程草稿。";
+"ai.capture.try_again" = "重試";
+"ai.capture.add_selected" = "新增所選";

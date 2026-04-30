@@ -12,6 +12,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
     case language
     case startup
     case reminders
+    case aiAssistant
     case schedule
     case behavior
     case statistics
@@ -21,6 +22,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
         .language,
         .startup,
         .reminders,
+        .aiAssistant,
         .behavior,
         .statistics,
         .about,
@@ -28,6 +30,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
 
     static let dashboardOrder: [SettingsPageSection] = [
         .reminders,
+        .aiAssistant,
         .behavior,
         .statistics,
         .language,
@@ -42,6 +45,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
         case .language: "section.language"
         case .startup: "section.startup"
         case .reminders: "section.reminders"
+        case .aiAssistant: "section.ai_assistant"
         case .schedule: "section.schedule"
         case .behavior: "section.behavior"
         case .statistics: "section.statistics"
@@ -54,6 +58,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
         case .language: "globe"
         case .startup: "power"
         case .reminders: "bell"
+        case .aiAssistant: "mic"
         case .schedule: "clock"
         case .behavior: "slider.horizontal.3"
         case .statistics: "chart.bar"
@@ -66,6 +71,7 @@ struct SettingsView: View {
     let languageManager: LanguageManager
     let loginItemManager: any LoginItemManaging
     let preferencesStore: PreferencesStore
+    let aiProviderPreferences: AIProviderPreferences
     let breakStatsStore: BreakStatsStore
 
     var body: some View {
@@ -73,6 +79,7 @@ struct SettingsView: View {
             languageManager: languageManager,
             loginItemManager: loginItemManager,
             preferencesStore: preferencesStore,
+            aiProviderPreferences: aiProviderPreferences,
             breakStatsStore: breakStatsStore,
             sections: SettingsPageSection.fullSettingsOrder,
             showsSectionHeaders: true
@@ -85,6 +92,7 @@ struct SettingsContentView: View {
     let languageManager: LanguageManager
     let loginItemManager: any LoginItemManaging
     @Bindable var preferencesStore: PreferencesStore
+    @Bindable var aiProviderPreferences: AIProviderPreferences
     @Bindable var breakStatsStore: BreakStatsStore
     let sections: [SettingsPageSection]
     let showsSectionHeaders: Bool
@@ -94,6 +102,8 @@ struct SettingsContentView: View {
     @State private var availableScreens: [ScreenDescriptor] = []
     @State private var loginItemStatus: LoginItemStatus = .notRegistered
     @State private var launchAtLoginErrorMessage: String?
+    @State private var openAIAPIKey = ""
+    @State private var apiKeyStatusMessage: String?
 
     private let screenProvider = MainScreenProvider()
     private static let intervalOptions = [15, 20, 25, 30, 45, 60]
@@ -103,6 +113,7 @@ struct SettingsContentView: View {
         languageManager: LanguageManager,
         loginItemManager: any LoginItemManaging,
         preferencesStore: PreferencesStore,
+        aiProviderPreferences: AIProviderPreferences,
         breakStatsStore: BreakStatsStore,
         sections: [SettingsPageSection] = SettingsPageSection.fullSettingsOrder,
         showsSectionHeaders: Bool = true
@@ -110,6 +121,7 @@ struct SettingsContentView: View {
         self.languageManager = languageManager
         self.loginItemManager = loginItemManager
         self.preferencesStore = preferencesStore
+        self.aiProviderPreferences = aiProviderPreferences
         self.breakStatsStore = breakStatsStore
         self.sections = sections
         self.showsSectionHeaders = showsSectionHeaders
@@ -127,6 +139,7 @@ struct SettingsContentView: View {
             breakStatsStore.refresh()
             refreshAvailableScreens()
             refreshLoginItemStatus()
+            loadOpenAIAPIKey()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             refreshAvailableScreens()
@@ -142,6 +155,8 @@ struct SettingsContentView: View {
             startupSection
         case .reminders:
             remindersSection
+        case .aiAssistant:
+            aiAssistantSection
         case .schedule:
             scheduleSection
         case .behavior:
@@ -239,6 +254,110 @@ struct SettingsContentView: View {
             }
         } header: {
             sectionHeader("section.reminders")
+        }
+    }
+
+    // MARK: - AI Assistant
+
+    private var aiAssistantSection: some View {
+        Section {
+            SettingsPropertyRow("ai.settings.enabled") {
+                Toggle(isOn: $aiProviderPreferences.isEnabled) {
+                    Text("ai.settings.enabled")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("ai.settings.transcription_provider") {
+                Picker(selection: $aiProviderPreferences.transcriptionProviderID) {
+                    ForEach(AIProviderID.allCases) { provider in
+                        Text(provider.displayName).tag(provider.rawValue)
+                    }
+                } label: {
+                    Text("ai.settings.transcription_provider")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 180, alignment: .leading)
+            }
+
+            SettingsPropertyRow("ai.settings.transcription_model") {
+                Picker(selection: $aiProviderPreferences.transcriptionModel) {
+                    ForEach(AIProviderPreferences.supportedTranscriptionModels, id: \.self) { model in
+                        Text(model).tag(model)
+                    }
+                } label: {
+                    Text("ai.settings.transcription_model")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 220, alignment: .leading)
+            }
+
+            SettingsPropertyRow("ai.settings.parser_provider") {
+                Picker(selection: $aiProviderPreferences.parserProviderID) {
+                    ForEach(AIProviderID.allCases) { provider in
+                        Text(provider.displayName).tag(provider.rawValue)
+                    }
+                } label: {
+                    Text("ai.settings.parser_provider")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 180, alignment: .leading)
+            }
+
+            SettingsPropertyRow("ai.settings.parser_model") {
+                Picker(selection: $aiProviderPreferences.parserModel) {
+                    ForEach(AIProviderPreferences.supportedParserModels, id: \.self) { model in
+                        Text(model).tag(model)
+                    }
+                } label: {
+                    Text("ai.settings.parser_model")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 220, alignment: .leading)
+            }
+
+            SettingsPropertyRow("ai.settings.default_lead") {
+                Stepper(value: $aiProviderPreferences.defaultReminderLeadMinutes, in: 0...120, step: 5) {
+                    Text(String(
+                        format: localizedString("dashboard.field.lead_minutes_format"),
+                        aiProviderPreferences.defaultReminderLeadMinutes
+                    ))
+                }
+            }
+
+            SettingsPropertyRow("ai.settings.openai_key", captionKey: "ai.settings.openai_key_caption") {
+                HStack(spacing: 8) {
+                    SecureField("ai.settings.openai_key", text: $openAIAPIKey)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 260)
+
+                    Button("ai.settings.save_key") {
+                        saveOpenAIAPIKey()
+                    }
+
+                    Button(role: .destructive) {
+                        openAIAPIKey = ""
+                        saveOpenAIAPIKey()
+                    } label: {
+                        Text("ai.settings.clear_key")
+                    }
+                    .disabled(openAIAPIKey.isEmpty)
+                }
+            }
+
+            if let apiKeyStatusMessage {
+                Text(apiKeyStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            sectionHeader("section.ai_assistant")
+        } footer: {
+            Text("ai.settings.privacy_footer")
         }
     }
 
@@ -507,6 +626,24 @@ struct SettingsContentView: View {
         refreshLoginItemStatus()
     }
 
+    private func loadOpenAIAPIKey() {
+        do {
+            openAIAPIKey = try aiProviderPreferences.openAIAPIKey() ?? ""
+            apiKeyStatusMessage = nil
+        } catch {
+            apiKeyStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func saveOpenAIAPIKey() {
+        do {
+            try aiProviderPreferences.saveOpenAIAPIKey(openAIAPIKey)
+            apiKeyStatusMessage = localizedString("ai.settings.key_saved")
+        } catch {
+            apiKeyStatusMessage = error.localizedDescription
+        }
+    }
+
     /// Resolves a localization key through the LanguageManager bundle for
     /// format-string usage (where `LocalizedStringKey` can't be used directly).
     private func localizedString(_ key: String) -> String {
@@ -631,6 +768,7 @@ private struct SettingsPropertyRow<Content: View>: View {
         languageManager: languageManager,
         loginItemManager: LoginItemService(),
         preferencesStore: preferencesStore,
+        aiProviderPreferences: AIProviderPreferences(defaults: settings.defaults),
         breakStatsStore: breakStatsStore
     )
         .frame(width: 420, height: 600)
