@@ -59,10 +59,17 @@ xcodebuild -project NotchMove.xcodeproj \
 
 ### 打包 DMG
 
-发布包必须通过隐私权限校验，确保 macOS 能把 NotchMove 登记到麦克风权限列表：
+测试版发布包必须通过隐私权限校验，确保 macOS 能把 NotchMove 登记到麦克风权限列表。默认会生成带 `test` 和时间戳的新 DMG，并把中文安装/使用说明放进 DMG：
 
 ```bash
 ./script/package_dmg.sh
+```
+
+可选覆盖：
+
+```bash
+VERSION=1.0 CHANNEL=test BUILD_STAMP=20260501-2330 ./script/package_dmg.sh
+DMG_NAME=NotchMove-custom-test.dmg ./script/package_dmg.sh
 ```
 
 当前 DMG 背景图资源位于：
@@ -80,8 +87,10 @@ NotchMove/build/DerivedData/Build/Products/Release/NotchMove.app
 打包后的 DMG 输出到：
 
 ```text
-NotchMove/dist/NotchMove-1.0.dmg
+NotchMove/dist/NotchMove-1.0-test-YYYYMMDD-HHMM.dmg
 ```
+
+给朋友测试时可同时发送 [中文安装与使用说明](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md)。
 
 如果本机曾运行过缺少麦克风权限声明的旧包，退出 NotchMove 后重置权限记录，再启动新包并点击“请求权限”：
 
@@ -152,10 +161,17 @@ xcodebuild -project NotchMove.xcodeproj \
 
 ### Package
 
-Release packages must pass privacy verification so macOS can register NotchMove in the Microphone access list:
+Test release packages must pass privacy verification so macOS can register NotchMove in the Microphone access list. By default the script creates a new timestamped `test` DMG and includes the Simplified Chinese install/use guide inside the image:
 
 ```bash
 ./script/package_dmg.sh
+```
+
+Optional overrides:
+
+```bash
+VERSION=1.0 CHANNEL=test BUILD_STAMP=20260501-2330 ./script/package_dmg.sh
+DMG_NAME=NotchMove-custom-test.dmg ./script/package_dmg.sh
 ```
 
 The generated DMG background asset is stored at:
@@ -173,8 +189,10 @@ NotchMove/build/DerivedData/Build/Products/Release/NotchMove.app
 The packaged DMG is written to:
 
 ```text
-NotchMove/dist/NotchMove-1.0.dmg
+NotchMove/dist/NotchMove-1.0-test-YYYYMMDD-HHMM.dmg
 ```
+
+For friend testing, send the [Simplified Chinese install and usage guide](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md) with the DMG.
 
 If this Mac previously ran an older package without microphone privacy metadata, quit NotchMove, reset the TCC record, then launch the new package and click Request Access:
 
