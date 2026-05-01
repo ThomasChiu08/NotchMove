@@ -121,7 +121,10 @@ struct TencentCloudASRTranscriptionProvider: TranscriptionProvider {
             throw AIScheduleAssistantError.providerRequestFailed(
                 provider: displayName,
                 statusCode: 200,
-                message: "\(error.code): \(error.message)"
+                message: AIScheduleAssistantError.redactedProviderMessage(
+                    "\(error.code): \(error.message)",
+                    secrets: [secretID, secretKey]
+                )
             )
         }
 
@@ -211,7 +214,10 @@ struct BaiduSpeechTranscriptionProvider: TranscriptionProvider {
             throw AIScheduleAssistantError.providerRequestFailed(
                 provider: displayName,
                 statusCode: decoded.errNo,
-                message: decoded.errMsg
+                message: AIScheduleAssistantError.redactedProviderMessage(
+                    decoded.errMsg,
+                    secrets: [apiKey, secretKey, token]
+                )
             )
         }
 
@@ -247,7 +253,10 @@ struct BaiduSpeechTranscriptionProvider: TranscriptionProvider {
         guard let token = decoded.accessToken, !token.isEmpty else {
             throw AIScheduleAssistantError.providerResponseInvalid(
                 provider: displayName,
-                message: decoded.errorDescription ?? decoded.error ?? "Missing access token."
+                message: AIScheduleAssistantError.redactedProviderMessage(
+                    decoded.errorDescription ?? decoded.error ?? "Missing access token.",
+                    secrets: [apiKey, secretKey]
+                )
             )
         }
 
@@ -347,7 +356,10 @@ struct IFlyTekTranscriptionProvider: TranscriptionProvider {
                 throw AIScheduleAssistantError.providerRequestFailed(
                     provider: displayName,
                     statusCode: decoded.code,
-                    message: decoded.message ?? "Recognition failed."
+                    message: AIScheduleAssistantError.redactedProviderMessage(
+                        decoded.message ?? "Recognition failed.",
+                        secrets: [appID, apiKey, apiSecret]
+                    )
                 )
             }
 
@@ -441,7 +453,10 @@ struct VolcengineTranscriptionProvider: TranscriptionProvider {
             throw AIScheduleAssistantError.providerRequestFailed(
                 provider: displayName,
                 statusCode: Int(statusCode) ?? 200,
-                message: httpResponse.value(forHTTPHeaderField: "X-Api-Message") ?? "Recognition failed."
+                message: AIScheduleAssistantError.redactedProviderMessage(
+                    httpResponse.value(forHTTPHeaderField: "X-Api-Message") ?? "Recognition failed.",
+                    secrets: [apiKey, accessKey ?? ""]
+                )
             )
         }
 

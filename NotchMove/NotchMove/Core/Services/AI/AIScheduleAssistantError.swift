@@ -65,4 +65,39 @@ enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
             return redacted.replacingOccurrences(of: trimmedSecret, with: "[redacted]")
         }
     }
+
+    static func redactedProviderError(_ error: Error, secrets: [String]) -> Error {
+        guard let assistantError = error as? AIScheduleAssistantError else {
+            return error
+        }
+
+        switch assistantError {
+        case .providerRequestFailed(let provider, let statusCode, let message):
+            return AIScheduleAssistantError.providerRequestFailed(
+                provider: provider,
+                statusCode: statusCode,
+                message: redactedProviderMessage(message, secrets: secrets)
+            )
+        case .providerResponseInvalid(let provider, let message):
+            return AIScheduleAssistantError.providerResponseInvalid(
+                provider: provider,
+                message: redactedProviderMessage(message, secrets: secrets)
+            )
+        case .invalidParserJSON(let provider, let message):
+            return AIScheduleAssistantError.invalidParserJSON(
+                provider: provider,
+                message: redactedProviderMessage(message, secrets: secrets)
+            )
+        case .recordingFailed(let message):
+            return AIScheduleAssistantError.recordingFailed(
+                redactedProviderMessage(message, secrets: secrets)
+            )
+        case .keychainFailed(let message):
+            return AIScheduleAssistantError.keychainFailed(
+                redactedProviderMessage(message, secrets: secrets)
+            )
+        default:
+            return assistantError
+        }
+    }
 }

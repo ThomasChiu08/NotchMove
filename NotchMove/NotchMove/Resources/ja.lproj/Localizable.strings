@@ -194,6 +194,12 @@
 "ai.settings.test_transcription_succeeded" = "文字起こしプロバイダーの設定は有効です。";
 "ai.settings.test_parser" = "解析をテスト";
 "ai.settings.test_succeeded" = "解析プロバイダーに接続できました。";
+"ai.settings.flow_status" = "現在のフロー状態";
+"ai.settings.flow_disabled" = "AI アシスタントは無効です。";
+"ai.settings.flow_transcription" = "文字起こし";
+"ai.settings.flow_parser" = "解析";
+"ai.settings.flow_ready" = "準備完了";
+"ai.settings.flow_not_ready_format" = "未準備：%@";
 "ai.settings.open" = "AI 設定";
 "ai.settings.privacy_footer" = "音声と文字起こしテキストは、選択したクラウドプロバイダーに送信される場合があります。予定は確認後に追加されます。";
 "ai.settings.privacy_footer_local_transcription" = "音声はこの Mac 上でローカル文字起こしされます。文字起こしテキストは選択した解析プロバイダーへ送信される場合があります。";

@@ -194,6 +194,12 @@
 "ai.settings.test_transcription_succeeded" = "Transcription provider configuration is valid.";
 "ai.settings.test_parser" = "Test parser";
 "ai.settings.test_succeeded" = "Parser provider connection succeeded.";
+"ai.settings.flow_status" = "Current flow status";
+"ai.settings.flow_disabled" = "AI assistant is disabled.";
+"ai.settings.flow_transcription" = "Transcription";
+"ai.settings.flow_parser" = "Parser";
+"ai.settings.flow_ready" = "Ready";
+"ai.settings.flow_not_ready_format" = "Not ready: %@";
 "ai.settings.open" = "AI Settings";
 "ai.settings.privacy_footer" = "Audio and transcript text may be sent to the selected cloud providers. Drafts are reviewed before anything is added.";
 "ai.settings.privacy_footer_local_transcription" = "Audio stays on this Mac for local transcription. Transcript text may still be sent to the selected parser provider.";

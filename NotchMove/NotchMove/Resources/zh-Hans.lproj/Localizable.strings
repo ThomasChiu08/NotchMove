@@ -194,6 +194,12 @@
 "ai.settings.test_transcription_succeeded" = "转写服务配置有效。";
 "ai.settings.test_parser" = "测试解析服务";
 "ai.settings.test_succeeded" = "解析服务连接成功。";
+"ai.settings.flow_status" = "当前流程状态";
+"ai.settings.flow_disabled" = "AI 助手未启用。";
+"ai.settings.flow_transcription" = "转写";
+"ai.settings.flow_parser" = "解析";
+"ai.settings.flow_ready" = "已就绪";
+"ai.settings.flow_not_ready_format" = "未就绪：%@";
 "ai.settings.open" = "AI 设置";
 "ai.settings.privacy_footer" = "音频和转写文本可能会发送给所选云服务。确认草稿后才会添加日程。";
 "ai.settings.privacy_footer_local_transcription" = "音频会留在这台 Mac 上完成本地转写。转写文本仍可能发送给所选解析服务。";

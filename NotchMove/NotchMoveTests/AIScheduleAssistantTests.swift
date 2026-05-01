@@ -352,6 +352,25 @@ struct AIProviderSupportTests {
         #expect(redacted == "Invalid key [redacted]")
     }
 
+    @Test func providerErrorsCanRedactMultipleSecrets() {
+        let error = AIScheduleAssistantError.providerRequestFailed(
+            provider: "Provider",
+            statusCode: 400,
+            message: "bad secret-id and secret-key"
+        )
+
+        let redacted = AIScheduleAssistantError.redactedProviderError(
+            error,
+            secrets: ["secret-id", "secret-key"]
+        )
+
+        #expect((redacted as? AIScheduleAssistantError) == .providerRequestFailed(
+            provider: "Provider",
+            statusCode: 400,
+            message: "bad [redacted] and [redacted]"
+        ))
+    }
+
     @Test func providerRegistryIncludesOpenAICompatibleParserProviders() {
         #expect(AIProviderPreferences.supportedParserProviders.contains(.dashScope))
         #expect(AIProviderPreferences.supportedParserProviders.contains(.openAI))
@@ -493,6 +512,35 @@ struct AIProviderSupportTests {
         #expect(provider.displayName == "Local WhisperKit")
     }
 
+    @Test func readinessReportsMissingCredentialsWithoutBuildingProviders() {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveReadinessMissingCredentials-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        preferences.isEnabled = true
+
+        let readiness = AIProviderFactory.captureReadiness(preferences: preferences)
+
+        #expect(!readiness.isReady)
+        #expect(readiness.transcription.error == .missingAPIKey(provider: "DashScope"))
+        #expect(readiness.parser.error == .missingAPIKey(provider: "DashScope"))
+        #expect(readiness.firstError == .missingAPIKey(provider: "DashScope"))
+    }
+
+    @Test func readinessReportsLocalWhisperKitModelState() {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveReadinessLocalModel-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        preferences.isEnabled = true
+        preferences.selectTranscriptionProvider(.localWhisperKit)
+
+        let readiness = AIProviderFactory.transcriptionReadiness(preferences: preferences)
+
+        #expect(!readiness.isReady)
+        #expect(readiness.error == .localModelUnavailable(model: LocalSpeechModelID.base.displayName))
+    }
+
     @Test func localSpeechModelStoreReportsReadinessFromPersistedModelPath() throws {
         let defaults = UserDefaults(suiteName: "NotchMoveLocalModelStore-\(UUID().uuidString)")!
         let modelFolder = try makeLocalSpeechModelFolder()
@@ -597,6 +645,27 @@ struct AIProviderSupportTests {
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
+    }
+
+    @Test func captureReadinessRejectsCustomChatCompletionsEndpointShape() throws {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveReadinessEndpointShape-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        preferences.isEnabled = true
+        preferences.selectTranscriptionProvider(.dashScope)
+        preferences.selectParserProvider(.customOpenAICompatible)
+        preferences.customParserBaseURL = "https://example.com/v1/chat/completions"
+        preferences.parserModel = "custom-model"
+        try preferences.saveAPIKey("dashscope-test-key", for: .dashScope)
+        try preferences.saveAPIKey("custom-test-key", for: .customOpenAICompatible)
+
+        let readiness = AIProviderFactory.parserReadiness(preferences: preferences)
+
+        #expect(readiness.error == .providerResponseInvalid(
+            provider: "Custom OpenAI-Compatible",
+            message: "Use the provider root Base URL, not the /chat/completions endpoint."
+        ))
     }
 }
 

@@ -145,7 +145,7 @@ Primary files to add or modify:
 
 ## Phase 3: Provider Validation and Setup Polish
 
-Status: planned
+Status: complete
 
 Purpose: make setup less fragile before broad provider expansion.
 
@@ -168,6 +168,16 @@ Acceptance criteria:
 - Users can tell what is blocking AI capture without attempting a recording.
 - Provider errors do not expose API keys, secret keys, or tokens.
 - Settings changes continue to persist through `UserDefaults` for non-secrets and Keychain for credentials.
+
+Completion notes:
+
+- Added structured capture readiness results for transcription and parser setup, including credentials, local model readiness, model names, and OpenAI-compatible endpoint shape.
+- Changed the Settings transcriber test from factory-only construction to readiness validation; parser testing still performs its safe text-only smoke request after local readiness passes.
+- Added a Settings flow status row showing transcription/parser ready state and the current blocking reason before recording.
+- Moved provider guide access to the selected transcription/parser provider rows so providers without credentials, such as Local WhisperKit, still have setup help.
+- Added multi-secret redaction for provider errors and covered direct provider error paths that bypass generic HTTP handling.
+- Added unit tests for readiness diagnostics, custom endpoint shape validation, local-model readiness, and multi-secret redaction.
+- Verified with `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test` on 2026-05-01.
 
 ## Phase 4: Global Push-To-Talk
 

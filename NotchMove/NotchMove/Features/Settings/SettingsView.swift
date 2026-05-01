@@ -289,16 +289,20 @@ struct SettingsContentView: View {
             }
 
             SettingsPropertyRow("ai.settings.transcription_provider") {
-                Picker(selection: transcriptionProviderBinding) {
-                    ForEach(AIProviderPreferences.supportedTranscriptionProviders) { provider in
-                        Text(provider.displayName).tag(provider.rawValue)
+                HStack(spacing: 8) {
+                    Picker(selection: transcriptionProviderBinding) {
+                        ForEach(AIProviderPreferences.supportedTranscriptionProviders) { provider in
+                            Text(provider.displayName).tag(provider.rawValue)
+                        }
+                    } label: {
+                        Text("ai.settings.transcription_provider")
                     }
-                } label: {
-                    Text("ai.settings.transcription_provider")
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 180, alignment: .leading)
+
+                    providerGuideButton(for: aiProviderPreferences.selectedTranscriptionProvider)
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(maxWidth: 180, alignment: .leading)
             }
 
             SettingsPropertyRow("ai.settings.transcription_model") {
@@ -325,16 +329,20 @@ struct SettingsContentView: View {
             }
 
             SettingsPropertyRow("ai.settings.parser_provider") {
-                Picker(selection: parserProviderBinding) {
-                    ForEach(AIProviderPreferences.supportedParserProviders) { provider in
-                        Text(provider.displayName).tag(provider.rawValue)
+                HStack(spacing: 8) {
+                    Picker(selection: parserProviderBinding) {
+                        ForEach(AIProviderPreferences.supportedParserProviders) { provider in
+                            Text(provider.displayName).tag(provider.rawValue)
+                        }
+                    } label: {
+                        Text("ai.settings.parser_provider")
                     }
-                } label: {
-                    Text("ai.settings.parser_provider")
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 180, alignment: .leading)
+
+                    providerGuideButton(for: aiProviderPreferences.selectedParserProvider)
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(maxWidth: 180, alignment: .leading)
             }
 
             SettingsPropertyRow("ai.settings.parser_model") {
@@ -372,6 +380,8 @@ struct SettingsContentView: View {
                     ))
                 }
             }
+
+            aiFlowStatusRow
 
             ForEach(aiProviderPreferences.credentialRequestsForCurrentFlow) { request in
                 credentialRow(for: request)
@@ -456,6 +466,54 @@ struct SettingsContentView: View {
                     .foregroundStyle(.tertiary)
                 }
             }
+        }
+    }
+
+    private var aiFlowStatusRow: some View {
+        SettingsPropertyRow("ai.settings.flow_status") {
+            VStack(alignment: .leading, spacing: 6) {
+                if !flowReadiness.isEnabled {
+                    Label {
+                        Text("ai.settings.flow_disabled")
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                    }
+                    .foregroundStyle(.orange)
+                }
+
+                readinessLine(
+                    "ai.settings.flow_transcription",
+                    result: flowReadiness.transcription
+                )
+                readinessLine(
+                    "ai.settings.flow_parser",
+                    result: flowReadiness.parser
+                )
+            }
+            .font(.caption)
+        }
+    }
+
+    private func readinessLine(
+        _ titleKey: String,
+        result: AIProviderReadinessResult
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: result.isReady ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(result.isReady ? .green : .orange)
+
+            Text(LocalizedStringKey(titleKey))
+                .fontWeight(.medium)
+
+            Text(result.provider.displayName)
+                .foregroundStyle(.secondary)
+
+            Text("·")
+                .foregroundStyle(.tertiary)
+
+            Text(readinessStatusText(for: result))
+                .foregroundStyle(result.isReady ? .secondary : .primary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -691,6 +749,10 @@ struct SettingsContentView: View {
         LocalSpeechModelID(rawValue: aiProviderPreferences.transcriptionModel)
     }
 
+    private var flowReadiness: AICaptureReadinessResult {
+        AIProviderFactory.captureReadiness(preferences: aiProviderPreferences)
+    }
+
     private var selectedLocalModelState: LocalSpeechModelState {
         guard let selectedLocalSpeechModel else { return .notDownloaded }
         return localSpeechModelStore.state(for: selectedLocalSpeechModel)
@@ -740,6 +802,58 @@ struct SettingsContentView: View {
             return localizedString("ai.settings.local_model_status_ready")
         case .failed(let message):
             return String(format: localizedString("ai.settings.local_model_status_failed_format"), message)
+        }
+    }
+
+    private func readinessStatusText(for result: AIProviderReadinessResult) -> String {
+        guard let error = result.error else {
+            return localizedString("ai.settings.flow_ready")
+        }
+
+        return String(
+            format: localizedString("ai.settings.flow_not_ready_format"),
+            localizedAssistantErrorMessage(error)
+        )
+    }
+
+    private func localizedAssistantErrorMessage(_ error: Error) -> String {
+        let redactedError = AIProviderFactory.redactedProviderError(error, preferences: aiProviderPreferences)
+        guard let assistantError = redactedError as? AIScheduleAssistantError else {
+            return redactedError.localizedDescription
+        }
+
+        switch assistantError {
+        case .disabled:
+            return localizedString("ai.error.disabled")
+        case .missingAPIKey(let provider):
+            return String(format: localizedString("ai.error.missing_api_key_format"), provider)
+        case .missingCredential(let provider, let field):
+            return String(format: localizedString("ai.error.missing_credential_format"), provider, field)
+        case .microphoneDenied:
+            return localizedString("ai.error.microphone_denied")
+        case .recordingFailed(let message):
+            return String(format: localizedString("ai.error.recording_failed_format"), message)
+        case .emptyTranscript:
+            return localizedString("ai.error.empty_transcript")
+        case .networkUnavailable:
+            return localizedString("ai.error.network_unavailable")
+        case .providerAuthenticationFailed(let provider):
+            return String(format: localizedString("ai.error.provider_auth_failed_format"), provider)
+        case .providerRequestFailed(let provider, let statusCode, let message):
+            return String(
+                format: localizedString("ai.error.provider_request_failed_format"),
+                provider,
+                statusCode,
+                message
+            )
+        case .providerResponseInvalid(let provider, let message):
+            return String(format: localizedString("ai.error.provider_invalid_response_format"), provider, message)
+        case .invalidParserJSON(let provider, let message):
+            return String(format: localizedString("ai.error.invalid_parser_json_format"), provider, message)
+        case .localModelUnavailable(let model):
+            return String(format: localizedString("ai.error.local_model_unavailable_format"), model)
+        case .keychainFailed(let message):
+            return String(format: localizedString("ai.error.keychain_failed_format"), message)
         }
     }
 
@@ -813,17 +927,19 @@ struct SettingsContentView: View {
                     Text("ai.settings.clear_key")
                 }
                 .disabled(credentials[credentialStateKey(for: request), default: ""].isEmpty)
-
-                Button {
-                    setupGuideProvider = request.provider
-                } label: {
-                    Label("ai.settings.provider_guide", systemImage: "questionmark.circle")
-                        .labelStyle(.iconOnly)
-                }
-                .buttonStyle(.borderless)
-                .help(Text("ai.settings.provider_guide_help"))
             }
         }
+    }
+
+    private func providerGuideButton(for provider: AIProviderID) -> some View {
+        Button {
+            setupGuideProvider = provider
+        } label: {
+            Label("ai.settings.provider_guide", systemImage: "questionmark.circle")
+                .labelStyle(.iconOnly)
+        }
+        .buttonStyle(.borderless)
+        .help(Text("ai.settings.provider_guide_help"))
     }
 
     private func credentialStateKey(for request: AICredentialRequest) -> String {
@@ -935,16 +1051,16 @@ struct SettingsContentView: View {
         isTestingTranscriptionProvider = true
         apiKeyStatusMessage = nil
 
-        Task {
+        Task { @MainActor in
             defer {
                 isTestingTranscriptionProvider = false
             }
 
-            do {
-                _ = try AIProviderFactory.makeTranscriptionProvider(preferences: aiProviderPreferences)
+            let readiness = AIProviderFactory.transcriptionReadiness(preferences: aiProviderPreferences)
+            if let error = readiness.error {
+                apiKeyStatusMessage = localizedAssistantErrorMessage(error)
+            } else {
                 apiKeyStatusMessage = localizedString("ai.settings.test_transcription_succeeded")
-            } catch {
-                apiKeyStatusMessage = error.localizedDescription
             }
         }
     }
@@ -953,12 +1069,17 @@ struct SettingsContentView: View {
         isTestingParserProvider = true
         apiKeyStatusMessage = nil
 
-        Task {
+        Task { @MainActor in
             defer {
                 isTestingParserProvider = false
             }
 
             do {
+                let readiness = AIProviderFactory.parserReadiness(preferences: aiProviderPreferences)
+                if let error = readiness.error {
+                    throw error
+                }
+
                 let parserProvider = try AIProviderFactory.makeParserProvider(preferences: aiProviderPreferences)
                 _ = try await parserProvider.parseSchedule(
                     transcript: Transcript(text: "No schedule items.", language: "en", duration: nil),
@@ -973,7 +1094,7 @@ struct SettingsContentView: View {
                 )
                 apiKeyStatusMessage = localizedString("ai.settings.test_succeeded")
             } catch {
-                apiKeyStatusMessage = error.localizedDescription
+                apiKeyStatusMessage = localizedAssistantErrorMessage(error)
             }
         }
     }
