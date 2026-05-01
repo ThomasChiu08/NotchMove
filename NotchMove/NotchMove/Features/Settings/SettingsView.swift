@@ -508,7 +508,7 @@ struct SettingsContentView: View {
     }
 
     private var microphonePermissionRow: some View {
-        SettingsPropertyRow("ai.settings.microphone_permission") {
+        SettingsPropertyRow("ai.settings.microphone_permission", captionKey: microphonePermissionCaptionKey) {
             HStack(spacing: 8) {
                 permissionLabel(
                     microphonePermissionStatusText,
@@ -533,7 +533,7 @@ struct SettingsContentView: View {
     }
 
     private var appleSpeechPermissionRow: some View {
-        SettingsPropertyRow("ai.settings.apple_speech_permission") {
+        SettingsPropertyRow("ai.settings.apple_speech_permission", captionKey: appleSpeechPermissionCaptionKey) {
             HStack(spacing: 8) {
                 permissionLabel(
                     appleSpeechPermissionStatusText,
@@ -949,6 +949,17 @@ struct SettingsContentView: View {
         }
     }
 
+    private var microphonePermissionCaptionKey: String? {
+        switch microphoneAuthorizationStatus {
+        case .notDetermined:
+            "ai.settings.microphone_permission_caption_not_determined"
+        case .denied, .restricted:
+            "ai.settings.microphone_permission_caption_denied"
+        default:
+            nil
+        }
+    }
+
     private var appleSpeechPermissionStatusText: String {
         switch appleSpeechAuthorizationState {
         case .authorized:
@@ -974,6 +985,17 @@ struct SettingsContentView: View {
             .orange
         case .unknown:
             .secondary
+        }
+    }
+
+    private var appleSpeechPermissionCaptionKey: String? {
+        switch appleSpeechAuthorizationState {
+        case .notDetermined:
+            "ai.settings.apple_speech_permission_caption_not_determined"
+        case .denied, .restricted:
+            "ai.settings.apple_speech_permission_caption_denied"
+        default:
+            nil
         }
     }
 

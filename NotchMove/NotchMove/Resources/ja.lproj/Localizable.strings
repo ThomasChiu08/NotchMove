@@ -207,6 +207,10 @@
 "ai.settings.permission_unknown" = "不明";
 "ai.settings.request_permission" = "アクセスを要求";
 "ai.settings.open_macos_settings" = "macOS 設定を開く";
+"ai.settings.microphone_permission_caption_not_determined" = "先にアクセスを要求してください。NotchMove が一度要求した後でないと、macOS 設定ではマイクアクセスを変更できません。";
+"ai.settings.microphone_permission_caption_denied" = "macOS 設定に NotchMove が表示されない場合は、アプリを終了し、この Bundle ID のマイクアクセスをリセットしてから再度要求してください。";
+"ai.settings.apple_speech_permission_caption_not_determined" = "先にアクセスを要求してください。NotchMove が一度要求した後でないと、macOS 設定では音声認識アクセスを変更できません。";
+"ai.settings.apple_speech_permission_caption_denied" = "macOS 設定に NotchMove が表示されない場合は、この Bundle ID の音声認識アクセスをリセットしてから再度要求してください。";
 "ai.settings.default_lead" = "既定の事前通知";
 "ai.settings.provider_key_format" = "%@";
 "ai.settings.provider_key_caption" = "UserDefaults ではなく macOS キーチェーンに保存します。";

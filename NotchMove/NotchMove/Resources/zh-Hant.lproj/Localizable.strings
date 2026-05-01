@@ -207,6 +207,10 @@
 "ai.settings.permission_unknown" = "未知";
 "ai.settings.request_permission" = "請求權限";
 "ai.settings.open_macos_settings" = "開啟 macOS 設定";
+"ai.settings.microphone_permission_caption_not_determined" = "請先點擊請求權限。NotchMove 至少請求過一次後，macOS 設定裡才會出現可修改的麥克風權限項目。";
+"ai.settings.microphone_permission_caption_denied" = "如果 macOS 設定裡沒有 NotchMove，請退出 App，重置此 Bundle ID 的麥克風權限後再請求一次。";
+"ai.settings.apple_speech_permission_caption_not_determined" = "請先點擊請求權限。NotchMove 至少請求過一次後，macOS 設定裡才會出現可修改的語音識別權限項目。";
+"ai.settings.apple_speech_permission_caption_denied" = "如果 macOS 設定裡沒有 NotchMove，請重置此 Bundle ID 的語音識別權限後再請求一次。";
 "ai.settings.default_lead" = "預設提前提醒";
 "ai.settings.provider_key_format" = "%@";
 "ai.settings.provider_key_caption" = "儲存在 macOS 鑰匙圈，不寫入 UserDefaults。";

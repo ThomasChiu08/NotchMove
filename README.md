@@ -30,6 +30,14 @@ NotchMove 是一款原生 macOS 菜单栏应用，用于在长时间使用电脑
 
 ### 本地构建
 
+开发运行：
+
+```bash
+./script/build_and_run.sh
+```
+
+Release 构建：
+
 ```bash
 cd NotchMove
 xcodebuild -project NotchMove.xcodeproj \
@@ -51,6 +59,12 @@ xcodebuild -project NotchMove.xcodeproj \
 
 ### 打包 DMG
 
+发布包必须通过隐私权限校验，确保 macOS 能把 NotchMove 登记到麦克风权限列表：
+
+```bash
+./script/package_dmg.sh
+```
+
 当前 DMG 背景图资源位于：
 
 ```text
@@ -67,6 +81,12 @@ NotchMove/build/DerivedData/Build/Products/Release/NotchMove.app
 
 ```text
 NotchMove/dist/NotchMove-1.0.dmg
+```
+
+如果本机曾运行过缺少麦克风权限声明的旧包，退出 NotchMove 后重置权限记录，再启动新包并点击“请求权限”：
+
+```bash
+tccutil reset Microphone com.thomaschiu.developer.NotchMove
 ```
 
 ### 运行时结构
@@ -103,6 +123,14 @@ NotchMove/dist/NotchMove-1.0.dmg
 
 ### Build
 
+Development run:
+
+```bash
+./script/build_and_run.sh
+```
+
+Release build:
+
 ```bash
 cd NotchMove
 xcodebuild -project NotchMove.xcodeproj \
@@ -124,6 +152,12 @@ xcodebuild -project NotchMove.xcodeproj \
 
 ### Package
 
+Release packages must pass privacy verification so macOS can register NotchMove in the Microphone access list:
+
+```bash
+./script/package_dmg.sh
+```
+
 The generated DMG background asset is stored at:
 
 ```text
@@ -140,6 +174,12 @@ The packaged DMG is written to:
 
 ```text
 NotchMove/dist/NotchMove-1.0.dmg
+```
+
+If this Mac previously ran an older package without microphone privacy metadata, quit NotchMove, reset the TCC record, then launch the new package and click Request Access:
+
+```bash
+tccutil reset Microphone com.thomaschiu.developer.NotchMove
 ```
 
 ### Runtime Overview

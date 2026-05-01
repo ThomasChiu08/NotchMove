@@ -207,6 +207,10 @@
 "ai.settings.permission_unknown" = "Unknown";
 "ai.settings.request_permission" = "Request Access";
 "ai.settings.open_macos_settings" = "Open macOS Settings";
+"ai.settings.microphone_permission_caption_not_determined" = "Click Request Access first. macOS Settings can only change microphone access after NotchMove has requested it once.";
+"ai.settings.microphone_permission_caption_denied" = "If NotchMove is missing from macOS Settings, quit the app, reset Microphone permission for this bundle ID, then request access again.";
+"ai.settings.apple_speech_permission_caption_not_determined" = "Click Request Access first. macOS Settings can only change Speech Recognition access after NotchMove has requested it once.";
+"ai.settings.apple_speech_permission_caption_denied" = "If NotchMove is missing from macOS Settings, reset Speech Recognition permission for this bundle ID, then request access again.";
 "ai.settings.default_lead" = "Default advance notice";
 "ai.settings.provider_key_format" = "%@";
 "ai.settings.provider_key_caption" = "Stored in macOS Keychain, not UserDefaults.";
