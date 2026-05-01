@@ -73,6 +73,7 @@ struct SettingsView: View {
     let preferencesStore: PreferencesStore
     let aiProviderPreferences: AIProviderPreferences
     let breakStatsStore: BreakStatsStore
+    let globalHotkeyController: GlobalAICaptureHotkeyController
 
     var body: some View {
         SettingsContentView(
@@ -81,6 +82,7 @@ struct SettingsView: View {
             preferencesStore: preferencesStore,
             aiProviderPreferences: aiProviderPreferences,
             breakStatsStore: breakStatsStore,
+            globalHotkeyController: globalHotkeyController,
             sections: SettingsPageSection.fullSettingsOrder,
             showsSectionHeaders: true
         )
@@ -94,6 +96,7 @@ struct SettingsContentView: View {
     @Bindable var preferencesStore: PreferencesStore
     @Bindable var aiProviderPreferences: AIProviderPreferences
     @Bindable var breakStatsStore: BreakStatsStore
+    @Bindable var globalHotkeyController: GlobalAICaptureHotkeyController
     let sections: [SettingsPageSection]
     let showsSectionHeaders: Bool
 
@@ -119,6 +122,7 @@ struct SettingsContentView: View {
         preferencesStore: PreferencesStore,
         aiProviderPreferences: AIProviderPreferences,
         breakStatsStore: BreakStatsStore,
+        globalHotkeyController: GlobalAICaptureHotkeyController,
         sections: [SettingsPageSection] = SettingsPageSection.fullSettingsOrder,
         showsSectionHeaders: Bool = true
     ) {
@@ -127,6 +131,7 @@ struct SettingsContentView: View {
         self.preferencesStore = preferencesStore
         self.aiProviderPreferences = aiProviderPreferences
         self.breakStatsStore = breakStatsStore
+        self.globalHotkeyController = globalHotkeyController
         self.sections = sections
         self.showsSectionHeaders = showsSectionHeaders
         self._localSpeechModelStore = State(initialValue: LocalSpeechModelStore(defaults: aiProviderPreferences.defaults))
@@ -286,6 +291,31 @@ struct SettingsContentView: View {
                     Text("ai.settings.enabled")
                 }
                 .labelsHidden()
+            }
+
+            SettingsPropertyRow("ai.settings.global_hotkey", captionKey: "ai.settings.global_hotkey_caption") {
+                Toggle(isOn: globalHotkeyEnabledBinding) {
+                    Text("ai.settings.global_hotkey")
+                }
+                .labelsHidden()
+            }
+
+            if preferencesStore.preferences.aiGlobalHotkeyEnabled {
+                SettingsPropertyRow("ai.settings.global_hotkey_shortcut") {
+                    Picker(selection: globalHotkeyShortcutBinding) {
+                        ForEach(GlobalHotkeyShortcut.allCases) { shortcut in
+                            Text(LocalizedStringKey(shortcut.displayNameKey))
+                                .tag(shortcut.rawValue)
+                        }
+                    } label: {
+                        Text("ai.settings.global_hotkey_shortcut")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 220, alignment: .leading)
+                }
+
+                globalHotkeyStatusRow
             }
 
             SettingsPropertyRow("ai.settings.transcription_provider") {
@@ -489,6 +519,27 @@ struct SettingsContentView: View {
                     "ai.settings.flow_parser",
                     result: flowReadiness.parser
                 )
+            }
+            .font(.caption)
+        }
+    }
+
+    private var globalHotkeyStatusRow: some View {
+        SettingsPropertyRow("ai.settings.global_hotkey_status") {
+            HStack(spacing: 8) {
+                Label {
+                    Text(globalHotkeyStatusText)
+                        .fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: globalHotkeyStatusSystemImage)
+                }
+                .foregroundStyle(globalHotkeyStatusColor)
+
+                if case .failed = globalHotkeyController.registrationState {
+                    Button("ai.settings.global_hotkey_retry") {
+                        globalHotkeyController.retry(preferences: preferencesStore.preferences)
+                    }
+                }
             }
             .font(.caption)
         }
@@ -753,6 +804,50 @@ struct SettingsContentView: View {
         AIProviderFactory.captureReadiness(preferences: aiProviderPreferences)
     }
 
+    private var selectedGlobalHotkeyShortcut: GlobalHotkeyShortcut {
+        GlobalHotkeyShortcut(rawValue: preferencesStore.preferences.aiGlobalHotkeyShortcutID) ?? .default
+    }
+
+    private var globalHotkeyStatusText: String {
+        switch globalHotkeyController.registrationState {
+        case .disabled:
+            localizedString("ai.settings.global_hotkey_status_disabled")
+        case .registered(let shortcut):
+            String(
+                format: localizedString("ai.settings.global_hotkey_status_registered_format"),
+                localizedString(shortcut.displayNameKey)
+            )
+        case .failed(let shortcut, let message):
+            String(
+                format: localizedString("ai.settings.global_hotkey_status_failed_format"),
+                localizedString(shortcut.displayNameKey),
+                message
+            )
+        }
+    }
+
+    private var globalHotkeyStatusSystemImage: String {
+        switch globalHotkeyController.registrationState {
+        case .disabled:
+            "keyboard"
+        case .registered:
+            "checkmark.circle.fill"
+        case .failed:
+            "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var globalHotkeyStatusColor: Color {
+        switch globalHotkeyController.registrationState {
+        case .disabled:
+            .secondary
+        case .registered:
+            .green
+        case .failed:
+            .orange
+        }
+    }
+
     private var selectedLocalModelState: LocalSpeechModelState {
         guard let selectedLocalSpeechModel else { return .notDownloaded }
         return localSpeechModelStore.state(for: selectedLocalSpeechModel)
@@ -882,6 +977,27 @@ struct SettingsContentView: View {
                 guard let provider = AIProviderID(rawValue: providerID) else { return }
                 aiProviderPreferences.selectParserProvider(provider)
                 loadAPIKeys()
+            }
+        )
+    }
+
+    private var globalHotkeyEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { preferencesStore.preferences.aiGlobalHotkeyEnabled },
+            set: { isEnabled in
+                preferencesStore.preferences.aiGlobalHotkeyEnabled = isEnabled
+                globalHotkeyController.update(preferences: preferencesStore.preferences)
+            }
+        )
+    }
+
+    private var globalHotkeyShortcutBinding: Binding<String> {
+        Binding(
+            get: { selectedGlobalHotkeyShortcut.rawValue },
+            set: { shortcutID in
+                guard GlobalHotkeyShortcut(rawValue: shortcutID) != nil else { return }
+                preferencesStore.preferences.aiGlobalHotkeyShortcutID = shortcutID
+                globalHotkeyController.update(preferences: preferencesStore.preferences)
             }
         )
     }
@@ -1379,7 +1495,8 @@ private struct SettingsDynamicPropertyRow<Content: View>: View {
         loginItemManager: LoginItemService(),
         preferencesStore: preferencesStore,
         aiProviderPreferences: AIProviderPreferences(defaults: settings.defaults),
-        breakStatsStore: breakStatsStore
+        breakStatsStore: breakStatsStore,
+        globalHotkeyController: GlobalAICaptureHotkeyController {}
     )
         .frame(width: 420, height: 600)
 }

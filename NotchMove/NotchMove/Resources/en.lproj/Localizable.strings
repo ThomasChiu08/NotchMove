@@ -179,6 +179,17 @@
 
 /* ─── AI Assistant ─── */
 "ai.settings.enabled" = "Enable AI assistant";
+"ai.settings.global_hotkey" = "Global shortcut";
+"ai.settings.global_hotkey_caption" = "Off by default. Registers only the selected shortcut; no Accessibility or Input Monitoring permission is requested. macOS may ask for Microphone access when recording starts.";
+"ai.settings.global_hotkey_shortcut" = "Shortcut";
+"ai.settings.global_hotkey_shortcut_control_option_space" = "Control-Option-Space";
+"ai.settings.global_hotkey_shortcut_control_option_a" = "Control-Option-A";
+"ai.settings.global_hotkey_shortcut_control_option_m" = "Control-Option-M";
+"ai.settings.global_hotkey_status" = "Shortcut status";
+"ai.settings.global_hotkey_status_disabled" = "Disabled";
+"ai.settings.global_hotkey_status_registered_format" = "Registered: %@";
+"ai.settings.global_hotkey_status_failed_format" = "%@ could not be registered: %@";
+"ai.settings.global_hotkey_retry" = "Retry";
 "ai.settings.transcription_provider" = "Transcription provider";
 "ai.settings.transcription_model" = "Transcription model";
 "ai.settings.parser_provider" = "Parser provider";

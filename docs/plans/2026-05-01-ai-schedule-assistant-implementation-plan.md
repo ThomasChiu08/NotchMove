@@ -181,7 +181,7 @@ Completion notes:
 
 ## Phase 4: Global Push-To-Talk
 
-Status: planned
+Status: complete
 
 Purpose: make AI capture fast without prematurely increasing permission surface.
 
@@ -206,6 +206,16 @@ Likely reference pattern:
 
 - Pindrop's hotkey modes.
 - AudioWhisper's permission split.
+
+Completion notes:
+
+- Added opt-in global shortcut settings with selectable presets and persisted `UserDefaults` state.
+- Registered shortcuts through Carbon `RegisterEventHotKey`, avoiding Accessibility/Input Monitoring for the toggle-mode flow.
+- Added recoverable shortcut status UI with retry, conflict/failure messaging, and permission onboarding copy.
+- Routed global shortcut presses into the dashboard AI capture sheet: first press opens/starts recording, second press stops and processes.
+- Kept menu bar and dashboard capture paths independent of the shortcut setting.
+- Added regression tests for default opt-in behavior, shortcut persistence, and dedicated hotkey preference notifications.
+- Verified with `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test` on 2026-05-01.
 
 ## Phase 5: QA and Release Readiness
 

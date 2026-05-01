@@ -27,6 +27,8 @@ final class AppSettings {
         static let appLanguage = "appLanguage"
         static let overlayDisplayMode = "overlayDisplayMode"
         static let overlayDisplayID = "overlayDisplayID"
+        static let aiGlobalHotkeyEnabled = "aiGlobalHotkeyEnabled"
+        static let aiGlobalHotkeyShortcutID = "aiGlobalHotkeyShortcutID"
     }
 
     private enum OverlayDisplayModeValue {
@@ -58,6 +60,8 @@ final class AppSettings {
             Keys.autoDismissSeconds: Preferences.defaults.autoDismissSeconds,
             Keys.appLanguage: Preferences.defaults.appLanguage,
             Keys.overlayDisplayMode: OverlayDisplayModeValue.automatic,
+            Keys.aiGlobalHotkeyEnabled: Preferences.defaults.aiGlobalHotkeyEnabled,
+            Keys.aiGlobalHotkeyShortcutID: Preferences.defaults.aiGlobalHotkeyShortcutID,
         ])
     }
 
@@ -98,7 +102,12 @@ final class AppSettings {
                 default: Preferences.defaults.autoDismissSeconds
             ),
             appLanguage: defaults.string(forKey: Keys.appLanguage) ?? Preferences.defaults.appLanguage,
-            overlayDisplayMode: loadOverlayDisplayMode()
+            overlayDisplayMode: loadOverlayDisplayMode(),
+            aiGlobalHotkeyEnabled: bool(
+                forKey: Keys.aiGlobalHotkeyEnabled,
+                default: Preferences.defaults.aiGlobalHotkeyEnabled
+            ),
+            aiGlobalHotkeyShortcutID: loadGlobalHotkeyShortcutID()
         )
     }
 
@@ -119,6 +128,8 @@ final class AppSettings {
         defaults.set(preferences.autoDismissSeconds, forKey: Keys.autoDismissSeconds)
         defaults.set(preferences.appLanguage, forKey: Keys.appLanguage)
         save(preferences.overlayDisplayMode)
+        defaults.set(preferences.aiGlobalHotkeyEnabled, forKey: Keys.aiGlobalHotkeyEnabled)
+        defaults.set(normalizedGlobalHotkeyShortcutID(preferences.aiGlobalHotkeyShortcutID), forKey: Keys.aiGlobalHotkeyShortcutID)
     }
 
     private func loadOverlayDisplayMode() -> Preferences.OverlayDisplayMode {
@@ -141,6 +152,16 @@ final class AppSettings {
             defaults.set(OverlayDisplayModeValue.display, forKey: Keys.overlayDisplayMode)
             defaults.set(Int(displayID), forKey: Keys.overlayDisplayID)
         }
+    }
+
+    private func loadGlobalHotkeyShortcutID() -> String {
+        normalizedGlobalHotkeyShortcutID(
+            defaults.string(forKey: Keys.aiGlobalHotkeyShortcutID) ?? Preferences.defaults.aiGlobalHotkeyShortcutID
+        )
+    }
+
+    private func normalizedGlobalHotkeyShortcutID(_ shortcutID: String) -> String {
+        GlobalHotkeyShortcut(rawValue: shortcutID)?.rawValue ?? Preferences.defaults.aiGlobalHotkeyShortcutID
     }
 
     private func integer(forKey key: String, default defaultValue: Int) -> Int {

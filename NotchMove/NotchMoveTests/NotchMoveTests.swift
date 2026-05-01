@@ -132,6 +132,26 @@ struct PreferencesStoreTests {
         #expect(settings.loadPreferences().launchAtLoginEnabled)
     }
 
+    @Test func globalHotkeyPreferenceIsOptInAndPersistsShortcut() {
+        let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let settings = AppSettings(defaults: defaults)
+        var preferences = settings.loadPreferences()
+
+        #expect(!preferences.aiGlobalHotkeyEnabled)
+        #expect(preferences.aiGlobalHotkeyShortcutID == GlobalHotkeyShortcut.default.rawValue)
+
+        preferences.aiGlobalHotkeyEnabled = true
+        preferences.aiGlobalHotkeyShortcutID = GlobalHotkeyShortcut.controlOptionA.rawValue
+        settings.save(preferences)
+
+        let loaded = settings.loadPreferences()
+        #expect(loaded.aiGlobalHotkeyEnabled)
+        #expect(loaded.aiGlobalHotkeyShortcutID == GlobalHotkeyShortcut.controlOptionA.rawValue)
+    }
+
     @Test func postsTargetedNotificationsForRelevantPreferenceChanges() async {
         let suiteName = "NotchMoveTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -174,6 +194,36 @@ struct PreferencesStoreTests {
 
         #expect(notchLayoutNotifications.count == 1)
         #expect(reminderRuntimeNotifications.count == 1)
+    }
+
+    @Test func globalHotkeyPreferenceChangesPostDedicatedNotification() async {
+        let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = PreferencesStore(settings: AppSettings(defaults: defaults))
+        let globalHotkeyNotifications = NotificationCounter()
+
+        let observer = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.aiGlobalHotkeyDidChangeNotification,
+            object: store,
+            queue: nil
+        ) { _ in
+            Task { @MainActor in
+                globalHotkeyNotifications.increment()
+            }
+        }
+
+        defer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        store.preferences.aiGlobalHotkeyEnabled = true
+        store.preferences.aiGlobalHotkeyShortcutID = GlobalHotkeyShortcut.controlOptionA.rawValue
+
+        await flushAsyncWork()
+
+        #expect(globalHotkeyNotifications.count == 2)
     }
 
     @Test func intervalAndSitAwareChangesPostReminderRuntimeNotifications() async {

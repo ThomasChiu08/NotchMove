@@ -179,6 +179,17 @@
 
 /* ─── AI Assistant ─── */
 "ai.settings.enabled" = "啟用 AI 助手";
+"ai.settings.global_hotkey" = "全域快捷鍵";
+"ai.settings.global_hotkey_caption" = "預設關閉。啟用後只註冊所選快捷鍵；不會要求輔助使用或輸入監控權限。開始錄音時，macOS 可能會要求麥克風權限。";
+"ai.settings.global_hotkey_shortcut" = "快捷鍵";
+"ai.settings.global_hotkey_shortcut_control_option_space" = "Control-Option-Space";
+"ai.settings.global_hotkey_shortcut_control_option_a" = "Control-Option-A";
+"ai.settings.global_hotkey_shortcut_control_option_m" = "Control-Option-M";
+"ai.settings.global_hotkey_status" = "快捷鍵狀態";
+"ai.settings.global_hotkey_status_disabled" = "未啟用";
+"ai.settings.global_hotkey_status_registered_format" = "已註冊：%@";
+"ai.settings.global_hotkey_status_failed_format" = "%@ 無法註冊：%@";
+"ai.settings.global_hotkey_retry" = "重試";
 "ai.settings.transcription_provider" = "轉寫服務";
 "ai.settings.transcription_model" = "轉寫模型";
 "ai.settings.parser_provider" = "解析服務";

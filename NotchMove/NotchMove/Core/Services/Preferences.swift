@@ -38,6 +38,8 @@ struct Preferences: Equatable {
     var autoDismissSeconds: Int
     var appLanguage: String
     var overlayDisplayMode: OverlayDisplayMode
+    var aiGlobalHotkeyEnabled: Bool
+    var aiGlobalHotkeyShortcutID: String
 
     static let defaults = Preferences(
         soundEnabled: true,
@@ -57,6 +59,8 @@ struct Preferences: Equatable {
         autoDismissEnabled: true,
         autoDismissSeconds: 60,
         appLanguage: "en",
-        overlayDisplayMode: .automatic
+        overlayDisplayMode: .automatic,
+        aiGlobalHotkeyEnabled: false,
+        aiGlobalHotkeyShortcutID: GlobalHotkeyShortcut.default.rawValue
     )
 }

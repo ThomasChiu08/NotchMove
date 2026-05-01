@@ -13,11 +13,14 @@ struct AIScheduleCaptureSheet: View {
     let assistantService: AIScheduleAssistantService
     @Bindable var scheduleStore: DailyScheduleStore
     @Bindable var aiPreferences: AIProviderPreferences
+    let globalToggleRequestID: UUID?
     let onOpenSettings: () -> Void
+    let onGlobalToggleRequestHandled: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var captureService = AudioCaptureService()
     @State private var phase: Phase = .ready
+    @State private var handledGlobalToggleRequestID: UUID?
     @State private var recordingStartedAt: Date?
     @State private var elapsedSeconds: Int = 0
     @State private var transcriptText = ""
@@ -46,6 +49,12 @@ struct AIScheduleCaptureSheet: View {
         }
         .onDisappear {
             captureService.cancelRecording()
+        }
+        .onAppear {
+            handleGlobalToggleRequestIfNeeded(globalToggleRequestID)
+        }
+        .onChange(of: globalToggleRequestID) { _, requestID in
+            handleGlobalToggleRequestIfNeeded(requestID)
         }
     }
 
@@ -402,6 +411,7 @@ struct AIScheduleCaptureSheet: View {
         Task {
             do {
                 let recording = try captureService.stopRecording()
+                phase = .transcribing
                 let result = try await assistantService.createDrafts(
                     from: recording,
                     existingScheduleItems: scheduleStore.items,
@@ -446,6 +456,24 @@ struct AIScheduleCaptureSheet: View {
         elapsedSeconds = 0
         recordingStartedAt = nil
         phase = .ready
+    }
+
+    private func handleGlobalToggleRequestIfNeeded(_ requestID: UUID?) {
+        guard let requestID, handledGlobalToggleRequestID != requestID else { return }
+        handledGlobalToggleRequestID = requestID
+        onGlobalToggleRequestHandled()
+
+        switch phase {
+        case .ready:
+            startRecording()
+        case .recording:
+            stopRecordingAndProcess()
+        case .review, .error:
+            reset()
+            startRecording()
+        case .transcribing, .parsing:
+            break
+        }
     }
 
     private func timeString(_ seconds: Int) -> String {

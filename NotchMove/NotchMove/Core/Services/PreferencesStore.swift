@@ -12,6 +12,7 @@ import Foundation
 final class PreferencesStore {
     static let notchLayoutDidChangeNotification = Notification.Name("PreferencesStoreNotchLayoutDidChange")
     static let reminderRuntimeDidChangeNotification = Notification.Name("PreferencesStoreReminderRuntimeDidChange")
+    static let aiGlobalHotkeyDidChangeNotification = Notification.Name("PreferencesStoreAIGlobalHotkeyDidChange")
 
     private let settings: AppSettings
 
@@ -46,6 +47,11 @@ final class PreferencesStore {
             oldValue.autoDismissEnabled != newValue.autoDismissEnabled ||
             oldValue.autoDismissSeconds != newValue.autoDismissSeconds {
             NotificationCenter.default.post(name: Self.reminderRuntimeDidChangeNotification, object: self)
+        }
+
+        if oldValue.aiGlobalHotkeyEnabled != newValue.aiGlobalHotkeyEnabled ||
+            oldValue.aiGlobalHotkeyShortcutID != newValue.aiGlobalHotkeyShortcutID {
+            NotificationCenter.default.post(name: Self.aiGlobalHotkeyDidChangeNotification, object: self)
         }
     }
 }

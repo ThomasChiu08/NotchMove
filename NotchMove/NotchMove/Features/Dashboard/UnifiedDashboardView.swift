@@ -16,9 +16,11 @@ struct UnifiedDashboardView: View {
     @Bindable var preferencesStore: PreferencesStore
     @Bindable var aiProviderPreferences: AIProviderPreferences
     @Bindable var breakStatsStore: BreakStatsStore
+    @Bindable var globalHotkeyController: GlobalAICaptureHotkeyController
 
     @AppStorage("unifiedDashboardSelectedPage") private var selectedPageID = UnifiedDashboardPage.today.id
     @State private var showingAICaptureSheet = false
+    @State private var aiCaptureGlobalToggleRequestID: UUID?
 
     var body: some View {
         NavigationSplitView {
@@ -32,9 +34,12 @@ struct UnifiedDashboardView: View {
                 languageManager: languageManager,
                 assistantService: aiAssistantService,
                 scheduleStore: scheduleStore,
-                aiPreferences: aiProviderPreferences
+                aiPreferences: aiProviderPreferences,
+                globalToggleRequestID: aiCaptureGlobalToggleRequestID
             ) {
                 selectedPageID = UnifiedDashboardPage.settings(.aiAssistant).id
+            } onGlobalToggleRequestHandled: {
+                aiCaptureGlobalToggleRequestID = nil
             }
             .environment(\.locale, languageManager.locale)
         }
@@ -44,6 +49,15 @@ struct UnifiedDashboardView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: DashboardWindowController.aiCaptureRequestedNotification)) { _ in
             selectedPageID = UnifiedDashboardPage.today.id
+            showingAICaptureSheet = true
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: DashboardWindowController.aiCaptureGlobalToggleRequestedNotification
+            )
+        ) { _ in
+            selectedPageID = UnifiedDashboardPage.today.id
+            aiCaptureGlobalToggleRequestID = UUID()
             showingAICaptureSheet = true
         }
     }
@@ -165,7 +179,8 @@ struct UnifiedDashboardView: View {
                 loginItemManager: loginItemManager,
                 preferencesStore: preferencesStore,
                 aiProviderPreferences: aiProviderPreferences,
-                breakStatsStore: breakStatsStore
+                breakStatsStore: breakStatsStore,
+                globalHotkeyController: globalHotkeyController
             )
         }
     }
@@ -453,6 +468,7 @@ private struct DashboardSettingsPage: View {
     let preferencesStore: PreferencesStore
     let aiProviderPreferences: AIProviderPreferences
     let breakStatsStore: BreakStatsStore
+    let globalHotkeyController: GlobalAICaptureHotkeyController
 
     var body: some View {
         VStack(spacing: 0) {
@@ -466,6 +482,7 @@ private struct DashboardSettingsPage: View {
                 preferencesStore: preferencesStore,
                 aiProviderPreferences: aiProviderPreferences,
                 breakStatsStore: breakStatsStore,
+                globalHotkeyController: globalHotkeyController,
                 sections: [section],
                 showsSectionHeaders: false
             )
@@ -495,7 +512,8 @@ private struct DashboardSettingsPage: View {
         scheduleStore: DailyScheduleStore(defaults: settings.defaults),
         preferencesStore: preferencesStore,
         aiProviderPreferences: AIProviderPreferences(defaults: settings.defaults),
-        breakStatsStore: breakStatsStore
+        breakStatsStore: breakStatsStore,
+        globalHotkeyController: GlobalAICaptureHotkeyController {}
     )
     .frame(width: 920, height: 640)
 }

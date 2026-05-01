@@ -179,6 +179,17 @@
 
 /* ─── AI Assistant ─── */
 "ai.settings.enabled" = "AI アシスタントを有効にする";
+"ai.settings.global_hotkey" = "グローバルショートカット";
+"ai.settings.global_hotkey_caption" = "デフォルトではオフです。有効にすると選択したショートカットだけを登録します。アクセシビリティや入力監視の権限は要求しません。録音開始時に macOS がマイク権限を求める場合があります。";
+"ai.settings.global_hotkey_shortcut" = "ショートカット";
+"ai.settings.global_hotkey_shortcut_control_option_space" = "Control-Option-Space";
+"ai.settings.global_hotkey_shortcut_control_option_a" = "Control-Option-A";
+"ai.settings.global_hotkey_shortcut_control_option_m" = "Control-Option-M";
+"ai.settings.global_hotkey_status" = "ショートカット状態";
+"ai.settings.global_hotkey_status_disabled" = "無効";
+"ai.settings.global_hotkey_status_registered_format" = "登録済み：%@";
+"ai.settings.global_hotkey_status_failed_format" = "%@ を登録できませんでした：%@";
+"ai.settings.global_hotkey_retry" = "再試行";
 "ai.settings.transcription_provider" = "文字起こしプロバイダー";
 "ai.settings.transcription_model" = "文字起こしモデル";
 "ai.settings.parser_provider" = "解析プロバイダー";

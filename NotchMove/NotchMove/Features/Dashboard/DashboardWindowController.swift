@@ -11,6 +11,9 @@ import SwiftUI
 @MainActor
 final class DashboardWindowController: NSObject, NSWindowDelegate {
     static let aiCaptureRequestedNotification = Notification.Name("DashboardWindowControllerAICaptureRequested")
+    static let aiCaptureGlobalToggleRequestedNotification = Notification.Name(
+        "DashboardWindowControllerAICaptureGlobalToggleRequested"
+    )
 
     private var window: NSWindow?
     private var hostingView: NSHostingView<AnyView>?
@@ -22,6 +25,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     private let aiProviderPreferences: AIProviderPreferences
     private let breakStatsStore: BreakStatsStore
     private let loginItemManager: any LoginItemManaging
+    private let globalHotkeyController: GlobalAICaptureHotkeyController
     private nonisolated(unsafe) var languageObserver: NSObjectProtocol?
 
     init(
@@ -32,7 +36,8 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         preferencesStore: PreferencesStore,
         aiProviderPreferences: AIProviderPreferences,
         breakStatsStore: BreakStatsStore,
-        loginItemManager: any LoginItemManaging
+        loginItemManager: any LoginItemManaging,
+        globalHotkeyController: GlobalAICaptureHotkeyController
     ) {
         self.languageManager = languageManager
         self.reminderEngine = reminderEngine
@@ -42,6 +47,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         self.aiProviderPreferences = aiProviderPreferences
         self.breakStatsStore = breakStatsStore
         self.loginItemManager = loginItemManager
+        self.globalHotkeyController = globalHotkeyController
         super.init()
 
         languageObserver = NotificationCenter.default.addObserver(
@@ -72,6 +78,16 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
             self?.presentWindow()
             NotificationCenter.default.post(
                 name: Self.aiCaptureRequestedNotification,
+                object: self
+            )
+        }
+    }
+
+    func toggleAICaptureFromGlobalHotkey() {
+        DispatchQueue.main.async { [weak self] in
+            self?.presentWindow()
+            NotificationCenter.default.post(
+                name: Self.aiCaptureGlobalToggleRequestedNotification,
                 object: self
             )
         }
@@ -116,7 +132,8 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
                 scheduleStore: scheduleStore,
                 preferencesStore: preferencesStore,
                 aiProviderPreferences: aiProviderPreferences,
-                breakStatsStore: breakStatsStore
+                breakStatsStore: breakStatsStore,
+                globalHotkeyController: globalHotkeyController
             )
             .environment(\.locale, languageManager.locale)
         )

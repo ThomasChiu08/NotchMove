@@ -25,6 +25,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notchWindowController: NotchWindowController?
     private var menuBarController: MenuBarController?
     private var dashboardWindowController: DashboardWindowController?
+    private var globalHotkeyController: GlobalAICaptureHotkeyController?
+    private nonisolated(unsafe) var globalHotkeyPreferenceObserver: NSObjectProtocol?
+
+    deinit {
+        if let globalHotkeyPreferenceObserver {
+            NotificationCenter.default.removeObserver(globalHotkeyPreferenceObserver)
+        }
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -38,6 +46,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             soundPlayer: soundPlayer,
             breakStatsStore: breakStatsStore
         )
+        let globalHotkeyController = GlobalAICaptureHotkeyController { [weak self] in
+            self?.dashboardWindowController?.toggleAICaptureFromGlobalHotkey()
+        }
         let scheduleReminderEngine = DailyScheduleReminderEngine(
             scheduleStore: dailyScheduleStore,
             soundPlayer: soundPlayer,
@@ -56,7 +67,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferencesStore: preferencesStore,
             aiProviderPreferences: aiProviderPreferences,
             breakStatsStore: breakStatsStore,
-            loginItemManager: loginItemService
+            loginItemManager: loginItemService,
+            globalHotkeyController: globalHotkeyController
         )
 
         monitor.start()
@@ -69,6 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.dailyScheduleReminderEngine = scheduleReminderEngine
         self.notchWindowController = controller
         self.dashboardWindowController = dashboardWindow
+        self.globalHotkeyController = globalHotkeyController
         self.menuBarController = MenuBarController(
             reminderEngine: engine,
             breakStatsStore: breakStatsStore,
@@ -82,6 +95,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 dashboardWindow?.openAICapture()
             }
         )
+        self.globalHotkeyPreferenceObserver = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.aiGlobalHotkeyDidChangeNotification,
+            object: preferencesStore,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.globalHotkeyController?.update(preferences: self.preferencesStore.preferences)
+            }
+        }
+        globalHotkeyController.update(preferences: preferencesStore.preferences)
 
         logger.notice("NotchMove launched — monitoring activity, reminder every \(engine.reminderInterval)s")
     }
