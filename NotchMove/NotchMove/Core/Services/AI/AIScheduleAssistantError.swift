@@ -18,6 +18,7 @@ enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
     case providerAuthenticationFailed(provider: String)
     case providerRequestFailed(provider: String, statusCode: Int, message: String)
     case providerResponseInvalid(provider: String, message: String)
+    case invalidParserJSON(provider: String, message: String)
     case keychainFailed(String)
 
     var errorDescription: String? {
@@ -42,6 +43,8 @@ enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
             return "\(provider) request failed (\(statusCode)): \(message)"
         case .providerResponseInvalid(let provider, let message):
             return "\(provider) returned an invalid response: \(message)"
+        case .invalidParserJSON(let provider, let message):
+            return "\(provider) returned invalid schedule JSON: \(message)"
         case .keychainFailed(let message):
             return "Keychain failed: \(message)"
         }

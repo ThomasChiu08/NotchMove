@@ -62,9 +62,9 @@ enum ScheduleParserPrompt {
                 from: Data(jsonText.utf8)
             )
         } catch {
-            throw AIScheduleAssistantError.providerResponseInvalid(
+            throw AIScheduleAssistantError.invalidParserJSON(
                 provider: provider,
-                message: "Provider returned invalid schedule JSON: \(error.localizedDescription)"
+                message: error.localizedDescription
             )
         }
     }

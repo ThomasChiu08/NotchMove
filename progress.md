@@ -27,3 +27,5 @@
 - Ran `xcodebuild -project NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test` from `NotchMove/`; result: passed.
 - Saved AI research notes to `docs/plans/2026-05-01-ai-schedule-assistant-research.md`.
 - Saved staged implementation plan to `docs/plans/2026-05-01-ai-schedule-assistant-implementation-plan.md`.
+- Completed AI schedule assistant implementation Phase 1: pre-recording readiness validation, localized capture errors, provider/privacy status in review, stricter selected-draft title validation, non-today warnings, and additional AI assistant regression tests.
+- Ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.

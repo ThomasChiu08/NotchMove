@@ -26,7 +26,7 @@ Do not build a general chatbot. Keep AI scoped to structured schedule capture.
 
 ## Phase 1: Harden Current Cloud Capture
 
-Status: planned
+Status: complete
 
 Purpose: make the existing batch upload flow dependable enough to use daily.
 
@@ -55,6 +55,16 @@ Acceptance criteria:
 - Empty transcripts do not call the parser.
 - Parser output remains schema validated.
 - `xcodebuild test` passes.
+
+Completion notes:
+
+- Added pre-recording capture readiness validation for enabled state, required credentials, parser provider setup, and custom OpenAI-compatible Base URL shape.
+- Added localized capture errors for disabled AI, missing credentials, microphone denial, empty transcripts, provider failures, invalid parser JSON, and Keychain failures.
+- Added provider and privacy status to the capture/review sheet.
+- Kept drafts selected by default, tightened selected-draft title validation, and made draft editing controls more compact.
+- Chose the version 1 future-date policy: future/non-today drafts are allowed but receive a warning because current dashboard views are today-centric.
+- Added focused tests for parser failure cleanup, empty transcript cleanup, invalid parser JSON, invalid custom Base URL readiness, past-date warnings, and non-today warnings.
+- Verified with `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test` on 2026-05-01.
 
 Primary files:
 

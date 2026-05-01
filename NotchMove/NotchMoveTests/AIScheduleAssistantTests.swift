@@ -57,9 +57,61 @@ struct AIScheduleDraftTests {
 
         let validated = result.validatedAgainstContext(context)
 
-        #expect(validated.drafts[0].warning == "Parsed date is in the past.")
-        #expect(validated.warnings == ["Parsed date is in the past."])
+        #expect(validated.drafts[0].warning == ScheduleParseResult.pastDateWarning)
+        #expect(validated.warnings == [ScheduleParseResult.pastDateWarning])
         #expect(validated.drafts[0].sourceTranscript == "old item")
+    }
+
+    @Test func futureDraftDatesProduceNotTodayWarning() {
+        let result = ScheduleParseResult(
+            drafts: [
+                AIScheduleDraft(
+                    title: "Future item",
+                    startDate: makeAIDate(month: 5, day: 1, hour: 8, minute: 0),
+                    confidence: .medium
+                ),
+            ],
+            transcriptText: "future item"
+        )
+        let context = ScheduleParseContext(
+            currentDate: makeAIDate(hour: 9, minute: 0),
+            timeZone: TimeZone(secondsFromGMT: 0)!,
+            localeIdentifier: "en",
+            appLanguage: "en",
+            defaultReminderLeadMinutes: 10,
+            existingScheduleItems: []
+        )
+
+        let validated = result.validatedAgainstContext(context)
+
+        #expect(validated.drafts[0].warning == ScheduleParseResult.notTodayWarning)
+        #expect(validated.warnings == [ScheduleParseResult.notTodayWarning])
+    }
+
+    @Test func validationPreservesProviderWarningTextOnDraft() {
+        let result = ScheduleParseResult(
+            drafts: [
+                AIScheduleDraft(
+                    title: "Needs review",
+                    startDate: makeAIDate(hour: 8, minute: 0),
+                    confidence: .low,
+                    warning: "Provider-specific warning"
+                ),
+            ]
+        )
+        let context = ScheduleParseContext(
+            currentDate: makeAIDate(hour: 9, minute: 0),
+            timeZone: TimeZone(secondsFromGMT: 0)!,
+            localeIdentifier: "en",
+            appLanguage: "en",
+            defaultReminderLeadMinutes: 10,
+            existingScheduleItems: []
+        )
+
+        let validated = result.validatedAgainstContext(context)
+
+        #expect(validated.drafts[0].warning == "Provider-specific warning")
+        #expect(validated.warnings == [ScheduleParseResult.pastDateWarning])
     }
 
     @Test func parserDecoderRequiresSchemaFields() throws {
@@ -166,6 +218,71 @@ struct AIScheduleAssistantServiceTests {
             Issue.record("Expected networkUnavailable.")
         } catch let error as AIScheduleAssistantError {
             #expect(error == .networkUnavailable)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        #expect(!FileManager.default.fileExists(atPath: recording.url.path))
+    }
+
+    @Test func serviceDeletesTemporaryAudioWhenParserFails() async throws {
+        let context = makeAIServiceContext()
+        defer { context.cleanup() }
+
+        let recording = try makeTemporaryRecordingFile()
+        let service = AIScheduleAssistantService(
+            preferences: context.preferences,
+            transcriptionProvider: FakeTranscriptionProvider(
+                callLog: AICallLog(),
+                result: Transcript(text: "meet at three")
+            ),
+            parserProvider: FakeScheduleParserProvider(
+                callLog: AICallLog(),
+                result: ScheduleParseResult(),
+                error: AIScheduleAssistantError.invalidParserJSON(provider: "Fake Parser", message: "bad json")
+            )
+        )
+
+        do {
+            _ = try await service.createDrafts(
+                from: recording,
+                existingScheduleItems: [],
+                localeIdentifier: "en",
+                appLanguage: "en"
+            )
+            Issue.record("Expected invalidParserJSON.")
+        } catch let error as AIScheduleAssistantError {
+            #expect(error == .invalidParserJSON(provider: "Fake Parser", message: "bad json"))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        #expect(!FileManager.default.fileExists(atPath: recording.url.path))
+    }
+
+    @Test func emptyTranscriptDeletesTemporaryAudio() async throws {
+        let context = makeAIServiceContext()
+        defer { context.cleanup() }
+
+        let callLog = AICallLog()
+        let recording = try makeTemporaryRecordingFile()
+        let service = AIScheduleAssistantService(
+            preferences: context.preferences,
+            transcriptionProvider: FakeTranscriptionProvider(
+                callLog: callLog,
+                result: Transcript(text: "   ")
+            ),
+            parserProvider: FakeScheduleParserProvider(callLog: callLog, result: ScheduleParseResult())
+        )
+
+        do {
+            _ = try await service.createDrafts(
+                from: recording,
+                existingScheduleItems: [],
+                localeIdentifier: "en",
+                appLanguage: "en"
+            )
+            Issue.record("Expected emptyTranscript.")
+        } catch let error as AIScheduleAssistantError {
+            #expect(error == .emptyTranscript)
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
@@ -377,6 +494,47 @@ struct AIProviderSupportTests {
         #expect(result.questions.isEmpty)
         #expect(result.warnings.isEmpty)
     }
+
+    @Test func scheduleParserPromptReportsInvalidJSONSeparately() {
+        do {
+            _ = try ScheduleParserPrompt.decodeResult(from: #"{"items":[]}"#, provider: "Parser")
+            Issue.record("Expected invalidParserJSON.")
+        } catch let error as AIScheduleAssistantError {
+            guard case .invalidParserJSON(let provider, let message) = error else {
+                Issue.record("Unexpected assistant error: \(error)")
+                return
+            }
+            #expect(provider == "Parser")
+            #expect(!message.isEmpty)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test func captureReadinessRejectsInvalidCustomParserBaseURLBeforeRecording() throws {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveReadiness-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        preferences.isEnabled = true
+        preferences.selectTranscriptionProvider(.dashScope)
+        preferences.selectParserProvider(.customOpenAICompatible)
+        preferences.customParserBaseURL = "http:"
+        try preferences.saveAPIKey("dashscope-test-key", for: .dashScope)
+        try preferences.saveAPIKey("custom-test-key", for: .customOpenAICompatible)
+
+        do {
+            try AIProviderFactory.validateCaptureReadiness(preferences: preferences)
+            Issue.record("Expected invalid custom base URL.")
+        } catch let error as AIScheduleAssistantError {
+            #expect(error == .providerResponseInvalid(
+                provider: "Custom OpenAI-Compatible",
+                message: "Custom provider base URL is invalid."
+            ))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
 }
 
 @MainActor
@@ -391,13 +549,13 @@ private func makeAIServiceContext() -> AIServiceTestContext {
     return AIServiceTestContext(suiteName: suiteName, defaults: defaults, preferences: preferences)
 }
 
-private func makeAIDate(hour: Int, minute: Int) -> Date {
+private func makeAIDate(month: Int = 4, day: Int = 30, hour: Int, minute: Int) -> Date {
     var components = DateComponents()
     components.calendar = Calendar(identifier: .gregorian)
     components.timeZone = TimeZone(secondsFromGMT: 0)
     components.year = 2026
-    components.month = 4
-    components.day = 30
+    components.month = month
+    components.day = day
     components.hour = hour
     components.minute = minute
     return components.date!
@@ -459,14 +617,19 @@ private final class FakeScheduleParserProvider: ScheduleParserProvider {
     let displayName = "Fake Parser"
     private let callLog: AICallLog
     private let result: ScheduleParseResult
+    private let error: Error?
 
-    init(callLog: AICallLog, result: ScheduleParseResult) {
+    init(callLog: AICallLog, result: ScheduleParseResult, error: Error? = nil) {
         self.callLog = callLog
         self.result = result
+        self.error = error
     }
 
     func parseSchedule(transcript: Transcript, context: ScheduleParseContext) async throws -> ScheduleParseResult {
         callLog.values.append("parse")
+        if let error {
+            throw error
+        }
         return result
     }
 }

@@ -119,6 +119,9 @@ struct AIScheduleDraft: Identifiable, Codable, Equatable {
 }
 
 struct ScheduleParseResult: Codable, Equatable {
+    static let pastDateWarning = "Parsed date is in the past."
+    static let notTodayWarning = "Parsed date is not today."
+
     var drafts: [AIScheduleDraft]
     var questions: [String]
     var warnings: [String]
@@ -159,6 +162,10 @@ struct ScheduleParseResult: Codable, Equatable {
 
     func validatedAgainstContext(_ context: ScheduleParseContext) -> ScheduleParseResult {
         var copy = self
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = context.timeZone
+
+        var warnings = copy.warnings
         copy.drafts = drafts.map { draft in
             var draft = draft
 
@@ -167,17 +174,29 @@ struct ScheduleParseResult: Codable, Equatable {
             }
 
             if draft.startDate < context.currentDate {
-                let warning = "Parsed date is in the past."
-                draft.warning = draft.warning?.isEmpty == false ? draft.warning : warning
-
-                if !copy.warnings.contains(warning) {
-                    copy.warnings.append(warning)
-                }
+                Self.addWarning(Self.pastDateWarning, to: &draft, warnings: &warnings)
+            } else if !calendar.isDate(draft.startDate, inSameDayAs: context.currentDate) {
+                Self.addWarning(Self.notTodayWarning, to: &draft, warnings: &warnings)
             }
 
             return draft
         }
+        copy.warnings = warnings
         return copy
+    }
+
+    private static func addWarning(
+        _ warning: String,
+        to draft: inout AIScheduleDraft,
+        warnings: inout [String]
+    ) {
+        if draft.warning?.isEmpty != false {
+            draft.warning = warning
+        }
+
+        if !warnings.contains(warning) {
+            warnings.append(warning)
+        }
     }
 }
 

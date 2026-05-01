@@ -9,6 +9,16 @@ import Foundation
 
 enum AIProviderFactory {
     @MainActor
+    static func validateCaptureReadiness(preferences: AIProviderPreferences) throws {
+        guard preferences.isEnabled else {
+            throw AIScheduleAssistantError.disabled
+        }
+
+        _ = try makeTranscriptionProvider(preferences: preferences)
+        _ = try makeParserProvider(preferences: preferences)
+    }
+
+    @MainActor
     static func makeTranscriptionProvider(
         preferences: AIProviderPreferences,
         urlSession: URLSession = .shared
@@ -99,7 +109,12 @@ enum AIProviderFactory {
             )
         case .customOpenAICompatibleChat:
             let baseURLText = preferences.customParserBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let baseURL = URL(string: baseURLText), baseURL.scheme?.hasPrefix("http") == true else {
+            let components = URLComponents(string: baseURLText)
+            guard let scheme = components?.scheme?.lowercased(),
+                  ["http", "https"].contains(scheme),
+                  components?.host?.isEmpty == false,
+                  let baseURL = components?.url
+            else {
                 throw AIScheduleAssistantError.providerResponseInvalid(
                     provider: providerID.displayName,
                     message: "Custom provider base URL is invalid."

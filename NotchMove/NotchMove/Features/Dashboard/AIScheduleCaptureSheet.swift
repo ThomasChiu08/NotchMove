@@ -87,6 +87,8 @@ struct AIScheduleCaptureSheet: View {
 
     private var readyContent: some View {
         VStack(alignment: .leading, spacing: 14) {
+            providerStatusBlock
+
             Button {
                 startRecording()
             } label: {
@@ -144,6 +146,12 @@ struct AIScheduleCaptureSheet: View {
     private var reviewContent: some View {
         Form {
             Section {
+                providerStatusBlock
+            } header: {
+                Text("ai.capture.flow_status")
+            }
+
+            Section {
                 Text(transcriptText)
                     .font(.callout)
                     .textSelection(.enabled)
@@ -165,7 +173,7 @@ struct AIScheduleCaptureSheet: View {
             if !warnings.isEmpty {
                 Section {
                     ForEach(warnings, id: \.self) { warning in
-                        Text(warning)
+                        Text(displayWarning(warning))
                             .foregroundStyle(.red)
                     }
                 } header: {
@@ -190,34 +198,36 @@ struct AIScheduleCaptureSheet: View {
     }
 
     private func draftRow(_ draft: Binding<AIScheduleDraft>) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Toggle(isOn: selectedBinding(for: draft.wrappedValue.id)) {
                 TextField("dashboard.field.title", text: draft.title)
                     .textFieldStyle(.roundedBorder)
             }
 
-            DatePicker(
-                "dashboard.field.start_time",
-                selection: draft.startDate,
-                displayedComponents: [.date, .hourAndMinute]
-            )
+            HStack(spacing: 12) {
+                compactDatePicker(
+                    "dashboard.field.start_time",
+                    selection: draft.startDate
+                )
 
-            DatePicker(
-                "dashboard.field.end_time",
-                selection: Binding(
-                    get: { draft.wrappedValue.endDate ?? draft.wrappedValue.startDate.addingTimeInterval(60 * 60) },
-                    set: { draft.wrappedValue.endDate = $0 }
-                ),
-                displayedComponents: [.date, .hourAndMinute]
-            )
+                compactDatePicker(
+                    "dashboard.field.end_time",
+                    selection: Binding(
+                        get: { draft.wrappedValue.endDate ?? draft.wrappedValue.startDate.addingTimeInterval(60 * 60) },
+                        set: { draft.wrappedValue.endDate = $0 }
+                    )
+                )
+            }
 
-            Toggle("dashboard.field.reminder_enabled", isOn: draft.isReminderEnabled)
+            HStack(spacing: 16) {
+                Toggle("dashboard.field.reminder_enabled", isOn: draft.isReminderEnabled)
 
-            Stepper(value: draft.reminderLeadMinutes, in: 0...120, step: 5) {
-                Text(String(
-                    format: languageManager.localizedString("dashboard.field.lead_minutes_format"),
-                    draft.wrappedValue.reminderLeadMinutes
-                ))
+                Stepper(value: draft.reminderLeadMinutes, in: 0...120, step: 5) {
+                    Text(String(
+                        format: languageManager.localizedString("dashboard.field.lead_minutes_format"),
+                        draft.wrappedValue.reminderLeadMinutes
+                    ))
+                }
             }
 
             TextField("dashboard.field.notes", text: Binding(
@@ -227,12 +237,39 @@ struct AIScheduleCaptureSheet: View {
             .lineLimit(2...3)
 
             if let warning = draft.wrappedValue.warning, !warning.isEmpty {
-                Text(warning)
+                Text(displayWarning(warning))
                     .font(.caption)
                     .foregroundStyle(.red)
             }
         }
         .padding(.vertical, 8)
+    }
+
+    private func compactDatePicker(_ titleKey: LocalizedStringKey, selection: Binding<Date>) -> some View {
+        HStack(spacing: 6) {
+            Text(titleKey)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            DatePicker(
+                titleKey,
+                selection: selection,
+                displayedComponents: [.date, .hourAndMinute]
+            )
+            .labelsHidden()
+        }
+    }
+
+    private var providerStatusBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(providerStatusText, systemImage: "point.3.connected.trianglepath.dotted")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Label(privacyStatusText, systemImage: "lock")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func errorContent(_ message: String) -> some View {
@@ -292,10 +329,39 @@ struct AIScheduleCaptureSheet: View {
 
     private var canAddSelectedDrafts: Bool {
         guard case .review = phase else { return false }
-        return drafts.contains { draft in
-            selectedDraftIDs.contains(draft.id) &&
-                !draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let selected = selectedDrafts
+        guard !selected.isEmpty else { return false }
+        return selected.allSatisfy { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    private var selectedDrafts: [AIScheduleDraft] {
+        drafts.filter { selectedDraftIDs.contains($0.id) }
+    }
+
+    private var providerStatusText: String {
+        String(
+            format: localizedString("ai.capture.providers_format"),
+            aiPreferences.selectedTranscriptionProvider.displayName,
+            aiPreferences.selectedParserProvider.displayName
+        )
+    }
+
+    private var privacyStatusText: String {
+        let transcriptionProvider = aiPreferences.selectedTranscriptionProvider.displayName
+        let parserProvider = aiPreferences.selectedParserProvider.displayName
+
+        if transcriptionProvider == parserProvider {
+            return String(
+                format: localizedString("ai.capture.privacy_same_provider_format"),
+                transcriptionProvider
+            )
         }
+
+        return String(
+            format: localizedString("ai.capture.privacy_split_provider_format"),
+            transcriptionProvider,
+            parserProvider
+        )
     }
 
     private func selectedBinding(for id: AIScheduleDraft.ID) -> Binding<Bool> {
@@ -314,26 +380,13 @@ struct AIScheduleCaptureSheet: View {
     private func startRecording() {
         Task {
             do {
-                guard aiPreferences.isEnabled else {
-                    throw AIScheduleAssistantError.disabled
-                }
-
-                if let missingCredential = try aiPreferences.firstMissingCredentialForCurrentFlow() {
-                    if missingCredential.field == .apiKey {
-                        throw AIScheduleAssistantError.missingAPIKey(provider: missingCredential.provider.displayName)
-                    }
-                    throw AIScheduleAssistantError.missingCredential(
-                        provider: missingCredential.provider.displayName,
-                        field: missingCredential.field.displayName
-                    )
-                }
-
+                try AIProviderFactory.validateCaptureReadiness(preferences: aiPreferences)
                 try await captureService.startRecording()
                 recordingStartedAt = .now
                 elapsedSeconds = 0
                 phase = .recording
             } catch {
-                phase = .error(error.localizedDescription)
+                phase = .error(errorMessage(for: error))
             }
         }
     }
@@ -364,13 +417,13 @@ struct AIScheduleCaptureSheet: View {
                 warnings = result.warnings
                 phase = .review
             } catch {
-                phase = .error(error.localizedDescription)
+                phase = .error(errorMessage(for: error))
             }
         }
     }
 
     private func addSelectedDrafts() {
-        for draft in drafts where selectedDraftIDs.contains(draft.id) {
+        for draft in selectedDrafts {
             scheduleStore.add(draft.scheduleItem())
         }
         dismiss()
@@ -392,6 +445,59 @@ struct AIScheduleCaptureSheet: View {
         let minutes = seconds / 60
         let remainingSeconds = seconds % 60
         return String(format: "%02d:%02d", minutes, remainingSeconds)
+    }
+
+    private func displayWarning(_ warning: String) -> String {
+        switch warning {
+        case ScheduleParseResult.pastDateWarning:
+            localizedString("ai.warning.past_date")
+        case ScheduleParseResult.notTodayWarning:
+            localizedString("ai.warning.not_today")
+        default:
+            warning
+        }
+    }
+
+    private func errorMessage(for error: Error) -> String {
+        guard let assistantError = error as? AIScheduleAssistantError else {
+            return error.localizedDescription
+        }
+
+        switch assistantError {
+        case .disabled:
+            return localizedString("ai.error.disabled")
+        case .missingAPIKey(let provider):
+            return String(format: localizedString("ai.error.missing_api_key_format"), provider)
+        case .missingCredential(let provider, let field):
+            return String(format: localizedString("ai.error.missing_credential_format"), provider, field)
+        case .microphoneDenied:
+            return localizedString("ai.error.microphone_denied")
+        case .recordingFailed(let message):
+            return String(format: localizedString("ai.error.recording_failed_format"), message)
+        case .emptyTranscript:
+            return localizedString("ai.error.empty_transcript")
+        case .networkUnavailable:
+            return localizedString("ai.error.network_unavailable")
+        case .providerAuthenticationFailed(let provider):
+            return String(format: localizedString("ai.error.provider_auth_failed_format"), provider)
+        case .providerRequestFailed(let provider, let statusCode, let message):
+            return String(
+                format: localizedString("ai.error.provider_request_failed_format"),
+                provider,
+                statusCode,
+                message
+            )
+        case .providerResponseInvalid(let provider, let message):
+            return String(format: localizedString("ai.error.provider_invalid_response_format"), provider, message)
+        case .invalidParserJSON(let provider, let message):
+            return String(format: localizedString("ai.error.invalid_parser_json_format"), provider, message)
+        case .keychainFailed(let message):
+            return String(format: localizedString("ai.error.keychain_failed_format"), message)
+        }
+    }
+
+    private func localizedString(_ key: String) -> String {
+        languageManager.localizedString(key)
     }
 }
 
