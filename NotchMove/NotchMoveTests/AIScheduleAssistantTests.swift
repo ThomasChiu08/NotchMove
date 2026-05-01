@@ -534,6 +534,7 @@ struct AIProviderSupportTests {
         #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.baiduSpeech))
         #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.iFlyTek))
         #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.volcengine))
+        #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.appleSpeech))
         #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.localWhisperKit))
         #expect(AIProviderID.dashScope.definition.openAICompatibleBaseURL?.absoluteString == "https://dashscope.aliyuncs.com/compatible-mode/v1")
         #expect(AIProviderID.deepSeek.definition.openAICompatibleBaseURL?.absoluteString == "https://api.deepseek.com")
@@ -584,6 +585,20 @@ struct AIProviderSupportTests {
         #expect(preferences.credentialRequestsForCurrentFlow.allSatisfy { $0.provider != .localWhisperKit })
     }
 
+    @Test func appleSpeechSelectionUsesAutomaticLocaleAndNoCredentials() {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveAppleSpeechSelection-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+
+        preferences.selectTranscriptionProvider(.appleSpeech)
+
+        #expect(preferences.selectedTranscriptionProvider == .appleSpeech)
+        #expect(preferences.transcriptionModel == AppleSpeechTranscriptionProvider.automaticLocaleID)
+        #expect(preferences.credentialRequestsForCurrentFlow.allSatisfy { $0.provider != .appleSpeech })
+        #expect(AppleSpeechTranscriptionProvider.configuredLocaleIdentifiers().map(\.id).contains("zh-CN"))
+    }
+
     @Test func parserProviderSelectionFallsBackToProviderDefaultModel() {
         let preferences = AIProviderPreferences(
             defaults: UserDefaults(suiteName: "NotchMoveProviderSelection-\(UUID().uuidString)")!,
@@ -623,6 +638,18 @@ struct AIProviderSupportTests {
         let provider = try AIProviderFactory.makeTranscriptionProvider(preferences: preferences)
 
         #expect(provider.displayName == "Tencent Cloud ASR")
+    }
+
+    @Test func providerFactoryBuildsAppleSpeechProviderWithoutCredentials() throws {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveAppleSpeechProviderFactory-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        preferences.selectTranscriptionProvider(.appleSpeech)
+
+        let provider = try AIProviderFactory.makeTranscriptionProvider(preferences: preferences)
+
+        #expect(provider.displayName == "Apple Speech")
     }
 
     @Test func providerFactoryRejectsMissingLocalWhisperKitModelBeforeCapture() {

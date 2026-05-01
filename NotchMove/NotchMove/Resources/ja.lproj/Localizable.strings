@@ -179,6 +179,10 @@
 
 /* ─── AI Assistant ─── */
 "ai.settings.enabled" = "AI アシスタントを有効にする";
+"ai.settings.section_input" = "入力";
+"ai.settings.section_parser" = "解析";
+"ai.settings.section_credentials" = "認証情報";
+"ai.settings.section_diagnostics" = "診断";
 "ai.settings.global_hotkey" = "グローバルショートカット";
 "ai.settings.global_hotkey_caption" = "デフォルトではオフです。有効にすると選択したショートカットだけを登録します。アクセシビリティや入力監視の権限は要求しません。録音開始時に macOS がマイク権限を求める場合があります。";
 "ai.settings.global_hotkey_shortcut" = "ショートカット";
@@ -194,6 +198,15 @@
 "ai.settings.transcription_model" = "文字起こしモデル";
 "ai.settings.parser_provider" = "解析プロバイダー";
 "ai.settings.parser_model" = "解析モデル";
+"ai.settings.microphone_permission" = "マイクアクセス";
+"ai.settings.apple_speech_permission" = "音声認識アクセス";
+"ai.settings.permission_authorized" = "許可済み";
+"ai.settings.permission_not_determined" = "未要求";
+"ai.settings.permission_denied" = "拒否済み";
+"ai.settings.permission_restricted" = "制限あり";
+"ai.settings.permission_unknown" = "不明";
+"ai.settings.request_permission" = "アクセスを要求";
+"ai.settings.open_macos_settings" = "macOS 設定を開く";
 "ai.settings.default_lead" = "既定の事前通知";
 "ai.settings.provider_key_format" = "%@";
 "ai.settings.provider_key_caption" = "UserDefaults ではなく macOS キーチェーンに保存します。";
@@ -213,6 +226,7 @@
 "ai.settings.flow_not_ready_format" = "未準備：%@";
 "ai.settings.open" = "AI 設定";
 "ai.settings.privacy_footer" = "音声と文字起こしテキストは、選択したクラウドプロバイダーに送信される場合があります。予定は確認後に追加されます。";
+"ai.settings.privacy_footer_apple_speech" = "Apple Speech は macOS 経由で文字起こしを行います。文字起こしテキストは選択した解析プロバイダーへ送信される場合があります。";
 "ai.settings.privacy_footer_local_transcription" = "音声はこの Mac 上でローカル文字起こしされます。文字起こしテキストは選択した解析プロバイダーへ送信される場合があります。";
 "ai.settings.provider_guide" = "ガイド";
 "ai.settings.provider_guide_help" = "申請と入力のガイド";
@@ -267,6 +281,8 @@
 "ai.guide.iflytek.steps" = "1. iFlyTek Voice Dictation ドキュメントまたはコンソールを開いてログインします。\n2. WebAPI アプリを作成し、ストリーミング Voice Dictation サービスを追加します。\n3. サービス認証エリアから AppID、APIKey、APISecret をコピーします。\n4. NotchMove に戻り、iFlyTek App ID、API Key、API Secret 欄に貼り付けて保存します。\n5. 文字起こしをテストで設定を確認します。";
 "ai.guide.volcengine.overview" = "Volcengine ASR は Doubao Speech 大規模モデル認識の App Key を使用します。古いコンソールでは Access Key も必要な場合があります。";
 "ai.guide.volcengine.steps" = "1. Volcengine の大規模モデル録音認識ドキュメントを開き、コンソールにログインします。\n2. Doubao Speech で対応する音声認識機能を有効化します。\n3. appKey をコピーします。コンソールに accessKey も表示される場合は、それもコピーします。\n4. NotchMove に戻り、appKey を Volcengine ASR API Key に、accessKey を Access Key に入力して保存します。\n5. 文字起こしをテストで設定を確認します。";
+"ai.guide.apple_speech.overview" = "Apple Speech は macOS の音声認識アクセスを使用し、API Key は不要です。";
+"ai.guide.apple_speech.steps" = "1. 文字起こしプロバイダーに Apple Speech を選択します。\n2. 音声認識アクセスが未要求の場合は、アクセスを要求をクリックします。\n3. 以前に拒否した場合は、macOS 設定で NotchMove を許可します。\n4. Apple Speech は文字起こしのみを行うため、解析プロバイダーも選択したままにします。\n5. 文字起こしをテストして、アクセス権と言語設定を確認します。";
 "ai.capture.title" = "AI で予定を追加";
 "ai.capture.speak" = "話す";
 "ai.capture.ready" = "準備完了";
@@ -289,6 +305,7 @@
 "ai.capture.providers_format" = "文字起こし：%@ · 解析：%@";
 "ai.capture.privacy_same_provider_format" = "このクラウドフローでは、音声と文字起こしテキストを %@ に送信します。";
 "ai.capture.privacy_split_provider_format" = "音声は %@ に、文字起こしテキストは %@ に送信します。";
+"ai.capture.privacy_apple_speech_format" = "Apple Speech は macOS 経由で文字起こしを行い、文字起こしテキストは解析のため %@ に送信されます。";
 "ai.capture.privacy_local_transcription_format" = "音声はこの Mac 上で文字起こしされ、文字起こしテキストは解析のため %@ に送信されます。";
 "ai.warning.past_date" = "この下書きの時刻は過去です。";
 "ai.warning.not_today" = "この下書きは今日の予定ではありません。保存はできますが、今日中心のビューにはその日まで表示されません。";
@@ -304,4 +321,8 @@
 "ai.error.provider_invalid_response_format" = "%@ から無効な応答が返されました：%@";
 "ai.error.invalid_parser_json_format" = "%@ から返された予定データが NotchMove のスキーマと一致しません：%@";
 "ai.error.local_model_unavailable_format" = "録音前に AI 設定でローカル WhisperKit %@ モデルをダウンロードして検証してください。";
+"ai.error.speech_recognition_denied" = "音声認識アクセスが拒否されています。macOS 設定で NotchMove を許可してください。";
+"ai.error.speech_recognition_restricted" = "この Mac では音声認識が制限されています。";
+"ai.error.speech_recognition_unavailable_format" = "Apple Speech は %@ で利用できません。";
+"ai.error.speech_recognition_failed_format" = "Apple Speech の認識に失敗しました：%@";
 "ai.error.keychain_failed_format" = "キーチェーンへのアクセスに失敗しました：%@";

@@ -15,6 +15,7 @@ enum AIProviderCapability: Hashable {
 
 enum TranscriptionAdapterKind: Equatable {
     case openAI
+    case appleSpeech
     case localWhisperKit
     case dashScopeOpenAICompatibleAudio
     case tencentSentenceRecognition
@@ -74,6 +75,7 @@ enum AIProviderID: String, CaseIterable, Identifiable {
     case baiduSpeech = "baidu-speech"
     case iFlyTek = "iflytek"
     case volcengine = "volcengine"
+    case appleSpeech = "apple-speech"
     case localWhisperKit = "local-whisperkit"
     case anthropic = "anthropic"
     case gemini = "gemini"
@@ -124,6 +126,8 @@ struct AIProviderSetupGuide: Identifiable, Equatable {
         switch providerID {
         case .customOpenAICompatible:
             self.extraRequiredFieldNames = ["Base URL", "Model"]
+        case .appleSpeech:
+            self.extraRequiredFieldNames = ["Speech Recognition permission"]
         case .localWhisperKit:
             self.extraRequiredFieldNames = ["Downloaded model"]
         default:
@@ -208,6 +212,11 @@ struct AIProviderSetupGuide: Identifiable, Equatable {
         case .volcengine:
             return (
                 URL(string: "https://www.volcengine.com/docs/6561/1631584"),
+                nil
+            )
+        case .appleSpeech:
+            return (
+                URL(string: "https://developer.apple.com/documentation/speech/sfspeechrecognizer"),
                 nil
             )
         case .localWhisperKit:
@@ -533,6 +542,20 @@ struct AIProviderDefinition: Identifiable, Equatable {
             defaultParserModel: nil,
             openAICompatibleBaseURL: nil,
             transcriptionAdapter: .volcengineFlash,
+            scheduleParserAdapter: nil,
+            usesJSONResponseFormat: false
+        ),
+        AIProviderDefinition(
+            providerID: .appleSpeech,
+            displayName: AppleSpeechTranscriptionProvider.providerDisplayName,
+            capabilities: [.transcription],
+            credentialFields: [],
+            transcriptionModels: AppleSpeechTranscriptionProvider.configuredLocaleIdentifiers(),
+            parserModels: [],
+            defaultTranscriptionModel: AppleSpeechTranscriptionProvider.automaticLocaleID,
+            defaultParserModel: nil,
+            openAICompatibleBaseURL: nil,
+            transcriptionAdapter: .appleSpeech,
             scheduleParserAdapter: nil,
             usesJSONResponseFormat: false
         ),

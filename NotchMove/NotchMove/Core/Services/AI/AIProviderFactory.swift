@@ -122,6 +122,10 @@ enum AIProviderFactory {
                 model: preferences.transcriptionModel,
                 urlSession: urlSession
             )
+        case .appleSpeech:
+            return AppleSpeechTranscriptionProvider(
+                preferredLocaleIdentifier: preferences.transcriptionModel
+            )
         case .localWhisperKit:
             let model = LocalSpeechModelID(rawValue: preferences.transcriptionModel) ?? .base
             let modelStore = LocalSpeechModelStore(defaults: preferences.defaults)
@@ -256,6 +260,21 @@ enum AIProviderFactory {
         let definition = providerID.definition
 
         switch definition.transcriptionAdapter {
+        case .appleSpeech:
+            switch AppleSpeechTranscriptionProvider.authorizationState() {
+            case .authorized, .notDetermined:
+                try validateModelName(
+                    preferences.transcriptionModel,
+                    provider: providerID,
+                    missingMessage: "Apple Speech recognition language is missing."
+                )
+            case .denied:
+                throw AIScheduleAssistantError.speechRecognitionDenied
+            case .restricted:
+                throw AIScheduleAssistantError.speechRecognitionRestricted
+            case .unknown:
+                throw AIScheduleAssistantError.speechRecognitionUnavailable(locale: "system")
+            }
         case .localWhisperKit:
             guard let model = LocalSpeechModelID(rawValue: preferences.transcriptionModel) else {
                 throw AIScheduleAssistantError.providerResponseInvalid(

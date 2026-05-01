@@ -179,6 +179,10 @@
 
 /* ─── AI Assistant ─── */
 "ai.settings.enabled" = "啟用 AI 助手";
+"ai.settings.section_input" = "輸入";
+"ai.settings.section_parser" = "解析";
+"ai.settings.section_credentials" = "憑證";
+"ai.settings.section_diagnostics" = "診斷";
 "ai.settings.global_hotkey" = "全域快捷鍵";
 "ai.settings.global_hotkey_caption" = "預設關閉。啟用後只註冊所選快捷鍵；不會要求輔助使用或輸入監控權限。開始錄音時，macOS 可能會要求麥克風權限。";
 "ai.settings.global_hotkey_shortcut" = "快捷鍵";
@@ -194,6 +198,15 @@
 "ai.settings.transcription_model" = "轉寫模型";
 "ai.settings.parser_provider" = "解析服務";
 "ai.settings.parser_model" = "解析模型";
+"ai.settings.microphone_permission" = "麥克風權限";
+"ai.settings.apple_speech_permission" = "語音識別權限";
+"ai.settings.permission_authorized" = "已允許";
+"ai.settings.permission_not_determined" = "未請求";
+"ai.settings.permission_denied" = "已拒絕";
+"ai.settings.permission_restricted" = "受限制";
+"ai.settings.permission_unknown" = "未知";
+"ai.settings.request_permission" = "請求權限";
+"ai.settings.open_macos_settings" = "開啟 macOS 設定";
 "ai.settings.default_lead" = "預設提前提醒";
 "ai.settings.provider_key_format" = "%@";
 "ai.settings.provider_key_caption" = "儲存在 macOS 鑰匙圈，不寫入 UserDefaults。";
@@ -213,6 +226,7 @@
 "ai.settings.flow_not_ready_format" = "未就緒：%@";
 "ai.settings.open" = "AI 設定";
 "ai.settings.privacy_footer" = "音訊和轉寫文字可能會傳送給所選雲端服務。確認草稿後才會新增日程。";
+"ai.settings.privacy_footer_apple_speech" = "Apple Speech 會透過 macOS 完成轉寫。轉寫文字仍可能傳送給所選解析服務。";
 "ai.settings.privacy_footer_local_transcription" = "音訊會留在這台 Mac 上完成本地轉寫。轉寫文字仍可能傳送給所選解析服務。";
 "ai.settings.provider_guide" = "指南";
 "ai.settings.provider_guide_help" = "申請與填寫指南";
@@ -267,6 +281,8 @@
 "ai.guide.iflytek.steps" = "1. 開啟訊飛語音聽寫文件或訊飛開放平台控制台並登入。\n2. 建立 WebAPI 應用，並加入語音聽寫（流式版）服務。\n3. 在服務鑑權區域複製 AppID、APIKey 和 APISecret。\n4. 回到 NotchMove，分別貼到 iFlyTek App ID、API Key 和 API Secret 欄位並儲存。\n5. 點擊測試轉寫服務確認設定有效。";
 "ai.guide.volcengine.overview" = "Volcengine ASR 使用豆包語音大模型識別的 App Key；舊控制台可能還需要 Access Key。";
 "ai.guide.volcengine.steps" = "1. 開啟火山引擎大模型錄音檔識別文件並登入控制台。\n2. 在豆包語音控制台開通對應語音識別能力。\n3. 複製 appKey；如果你的控制台同時提供 accessKey，也一併複製。\n4. 回到 NotchMove，將 appKey 填入 Volcengine ASR API Key，將 accessKey 填入 Access Key 欄位並儲存。\n5. 點擊測試轉寫服務確認設定有效。";
+"ai.guide.apple_speech.overview" = "Apple Speech 使用 macOS 語音識別權限，不需要 API Key。";
+"ai.guide.apple_speech.steps" = "1. 將轉寫服務選為 Apple Speech。\n2. 如果語音識別權限尚未請求，點擊請求權限。\n3. 如果先前拒絕過，請在 macOS 設定中允許 NotchMove。\n4. 繼續選擇一個解析服務，因為 Apple Speech 只產生轉寫文字。\n5. 點擊測試轉寫服務確認權限與語言設定。";
 "ai.capture.title" = "AI 新增日程";
 "ai.capture.speak" = "語音";
 "ai.capture.ready" = "準備就緒";
@@ -289,6 +305,7 @@
 "ai.capture.providers_format" = "轉寫：%@ · 解析：%@";
 "ai.capture.privacy_same_provider_format" = "此雲端流程會將音訊和轉寫文字傳送給 %@。";
 "ai.capture.privacy_split_provider_format" = "音訊會傳送給 %@；轉寫文字會傳送給 %@。";
+"ai.capture.privacy_apple_speech_format" = "Apple Speech 會透過 macOS 完成轉寫；轉寫文字會傳送給 %@ 用於解析。";
 "ai.capture.privacy_local_transcription_format" = "音訊會留在這台 Mac 上完成轉寫；轉寫文字會傳送給 %@ 用於解析。";
 "ai.warning.past_date" = "這個草稿的時間已經過去。";
 "ai.warning.not_today" = "這個草稿不是今天的日程。可以儲存，但以今天為中心的檢視要到對應日期才會顯示。";
@@ -304,4 +321,8 @@
 "ai.error.provider_invalid_response_format" = "%@ 傳回了無效回應：%@";
 "ai.error.invalid_parser_json_format" = "%@ 傳回的日程資料不符合 NotchMove 結構：%@";
 "ai.error.local_model_unavailable_format" = "請先在 AI 設定中下載並校驗本地 WhisperKit %@ 模型再錄音。";
+"ai.error.speech_recognition_denied" = "語音識別權限被拒絕。請在 macOS 設定中允許 NotchMove。";
+"ai.error.speech_recognition_restricted" = "這台 Mac 上的語音識別受限制。";
+"ai.error.speech_recognition_unavailable_format" = "Apple Speech 暫不支援 %@。";
+"ai.error.speech_recognition_failed_format" = "Apple Speech 識別失敗：%@";
 "ai.error.keychain_failed_format" = "鑰匙圈存取失敗：%@";

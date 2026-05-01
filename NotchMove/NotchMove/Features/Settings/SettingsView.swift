@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import AVFoundation
 import SwiftUI
 
 enum SettingsPageSection: String, CaseIterable, Identifiable {
@@ -111,6 +112,8 @@ struct SettingsContentView: View {
     @State private var isTestingParserProvider = false
     @State private var setupGuideProvider: AIProviderID?
     @State private var localSpeechModelStore: LocalSpeechModelStore
+    @State private var microphoneAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+    @State private var appleSpeechAuthorizationState: AppleSpeechAuthorizationState = .unknown
 
     private let screenProvider = MainScreenProvider()
     private static let intervalOptions = [15, 20, 25, 30, 45, 60]
@@ -151,9 +154,11 @@ struct SettingsContentView: View {
             refreshLoginItemStatus()
             loadAPIKeys()
             refreshLocalModelState()
+            refreshSystemPermissionState()
         }
         .onChange(of: aiProviderPreferences.transcriptionProviderID) {
             refreshLocalModelState()
+            refreshSystemPermissionState()
         }
         .onChange(of: aiProviderPreferences.transcriptionModel) {
             refreshLocalModelState()
@@ -285,6 +290,16 @@ struct SettingsContentView: View {
     // MARK: - AI Assistant
 
     private var aiAssistantSection: some View {
+        Group {
+            aiAssistantOverviewSection
+            aiInputSection
+            aiParserSection
+            aiCredentialsSection
+            aiDiagnosticsSection
+        }
+    }
+
+    private var aiAssistantOverviewSection: some View {
         Section {
             SettingsPropertyRow("ai.settings.enabled") {
                 Toggle(isOn: $aiProviderPreferences.isEnabled) {
@@ -318,6 +333,18 @@ struct SettingsContentView: View {
                 globalHotkeyStatusRow
             }
 
+            aiFlowStatusRow
+        } header: {
+            sectionHeader("section.ai_assistant")
+        } footer: {
+            Text(LocalizedStringKey(aiSettingsPrivacyFooterKey))
+        }
+    }
+
+    private var aiInputSection: some View {
+        Section {
+            microphonePermissionRow
+
             SettingsPropertyRow("ai.settings.transcription_provider") {
                 HStack(spacing: 8) {
                     Picker(selection: transcriptionProviderBinding) {
@@ -336,14 +363,15 @@ struct SettingsContentView: View {
             }
 
             SettingsPropertyRow("ai.settings.transcription_model") {
-                if aiProviderPreferences.availableTranscriptionModels.isEmpty {
+                let models = aiProviderPreferences.selectedTranscriptionProvider.definition.transcriptionModels
+                if models.isEmpty {
                     TextField("ai.settings.transcription_model", text: $aiProviderPreferences.transcriptionModel)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 220, alignment: .leading)
                 } else {
                     Picker(selection: $aiProviderPreferences.transcriptionModel) {
-                        ForEach(aiProviderPreferences.availableTranscriptionModels, id: \.self) { model in
-                            Text(model).tag(model)
+                        ForEach(models) { model in
+                            Text(model.displayName).tag(model.id)
                         }
                     } label: {
                         Text("ai.settings.transcription_model")
@@ -354,10 +382,20 @@ struct SettingsContentView: View {
                 }
             }
 
+            if aiProviderPreferences.selectedTranscriptionProvider == .appleSpeech {
+                appleSpeechPermissionRow
+            }
+
             if aiProviderPreferences.selectedTranscriptionProvider == .localWhisperKit {
                 localModelControls
             }
+        } header: {
+            Text("ai.settings.section_input")
+        }
+    }
 
+    private var aiParserSection: some View {
+        Section {
             SettingsPropertyRow("ai.settings.parser_provider") {
                 HStack(spacing: 8) {
                     Picker(selection: parserProviderBinding) {
@@ -376,14 +414,15 @@ struct SettingsContentView: View {
             }
 
             SettingsPropertyRow("ai.settings.parser_model") {
-                if aiProviderPreferences.availableParserModels.isEmpty {
+                let models = aiProviderPreferences.selectedParserProvider.definition.parserModels
+                if models.isEmpty {
                     TextField("ai.settings.parser_model", text: $aiProviderPreferences.parserModel)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 260, alignment: .leading)
                 } else {
                     Picker(selection: $aiProviderPreferences.parserModel) {
-                        ForEach(aiProviderPreferences.availableParserModels, id: \.self) { model in
-                            Text(model).tag(model)
+                        ForEach(models) { model in
+                            Text(model.displayName).tag(model.id)
                         }
                     } label: {
                         Text("ai.settings.parser_model")
@@ -401,7 +440,13 @@ struct SettingsContentView: View {
                         .frame(maxWidth: 320, alignment: .leading)
                 }
             }
+        } header: {
+            Text("ai.settings.section_parser")
+        }
+    }
 
+    private var aiDiagnosticsSection: some View {
+        Section {
             SettingsPropertyRow("ai.settings.default_lead") {
                 Stepper(value: $aiProviderPreferences.defaultReminderLeadMinutes, in: 0...120, step: 5) {
                     Text(String(
@@ -409,12 +454,6 @@ struct SettingsContentView: View {
                         aiProviderPreferences.defaultReminderLeadMinutes
                     ))
                 }
-            }
-
-            aiFlowStatusRow
-
-            ForEach(aiProviderPreferences.credentialRequestsForCurrentFlow) { request in
-                credentialRow(for: request)
             }
 
             SettingsPropertyRow("ai.settings.test_transcription") {
@@ -451,12 +490,81 @@ struct SettingsContentView: View {
                     .foregroundStyle(.secondary)
             }
         } header: {
-            sectionHeader("section.ai_assistant")
-        } footer: {
-            Text(LocalizedStringKey(aiSettingsPrivacyFooterKey))
+            Text("ai.settings.section_diagnostics")
         }
     }
 
+    @ViewBuilder
+    private var aiCredentialsSection: some View {
+        if !aiProviderPreferences.credentialRequestsForCurrentFlow.isEmpty {
+            Section {
+                ForEach(aiProviderPreferences.credentialRequestsForCurrentFlow) { request in
+                    credentialRow(for: request)
+                }
+            } header: {
+                Text("ai.settings.section_credentials")
+            }
+        }
+    }
+
+    private var microphonePermissionRow: some View {
+        SettingsPropertyRow("ai.settings.microphone_permission") {
+            HStack(spacing: 8) {
+                permissionLabel(
+                    microphonePermissionStatusText,
+                    color: microphonePermissionStatusColor,
+                    isReady: microphoneAuthorizationStatus == .authorized
+                )
+
+                if microphoneAuthorizationStatus == .notDetermined {
+                    Button("ai.settings.request_permission") {
+                        requestMicrophonePermission()
+                    }
+                }
+
+                if microphoneAuthorizationStatus == .denied || microphoneAuthorizationStatus == .restricted {
+                    Button("ai.settings.open_macos_settings") {
+                        SystemPrivacySettings.openMicrophone()
+                    }
+                }
+            }
+            .font(.caption)
+        }
+    }
+
+    private var appleSpeechPermissionRow: some View {
+        SettingsPropertyRow("ai.settings.apple_speech_permission") {
+            HStack(spacing: 8) {
+                permissionLabel(
+                    appleSpeechPermissionStatusText,
+                    color: appleSpeechPermissionStatusColor,
+                    isReady: appleSpeechAuthorizationState == .authorized
+                )
+
+                if appleSpeechAuthorizationState == .notDetermined {
+                    Button("ai.settings.request_permission") {
+                        requestAppleSpeechPermission()
+                    }
+                }
+
+                if appleSpeechAuthorizationState == .denied || appleSpeechAuthorizationState == .restricted {
+                    Button("ai.settings.open_macos_settings") {
+                        SystemPrivacySettings.openSpeechRecognition()
+                    }
+                }
+            }
+            .font(.caption)
+        }
+    }
+
+    private func permissionLabel(_ title: String, color: Color, isReady: Bool) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: isReady ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+        }
+        .foregroundStyle(color)
+    }
     private var localModelControls: some View {
         SettingsPropertyRow("ai.settings.local_model") {
             VStack(alignment: .leading, spacing: 6) {
@@ -791,9 +899,14 @@ struct SettingsContentView: View {
     }
 
     private var aiSettingsPrivacyFooterKey: String {
-        aiProviderPreferences.selectedTranscriptionProvider == .localWhisperKit
-            ? "ai.settings.privacy_footer_local_transcription"
-            : "ai.settings.privacy_footer"
+        switch aiProviderPreferences.selectedTranscriptionProvider {
+        case .appleSpeech:
+            "ai.settings.privacy_footer_apple_speech"
+        case .localWhisperKit:
+            "ai.settings.privacy_footer_local_transcription"
+        default:
+            "ai.settings.privacy_footer"
+        }
     }
 
     private var selectedLocalSpeechModel: LocalSpeechModelID? {
@@ -806,6 +919,62 @@ struct SettingsContentView: View {
 
     private var selectedGlobalHotkeyShortcut: GlobalHotkeyShortcut {
         GlobalHotkeyShortcut(rawValue: preferencesStore.preferences.aiGlobalHotkeyShortcutID) ?? .default
+    }
+
+    private var microphonePermissionStatusText: String {
+        switch microphoneAuthorizationStatus {
+        case .authorized:
+            localizedString("ai.settings.permission_authorized")
+        case .notDetermined:
+            localizedString("ai.settings.permission_not_determined")
+        case .denied:
+            localizedString("ai.settings.permission_denied")
+        case .restricted:
+            localizedString("ai.settings.permission_restricted")
+        @unknown default:
+            localizedString("ai.settings.permission_unknown")
+        }
+    }
+
+    private var microphonePermissionStatusColor: Color {
+        switch microphoneAuthorizationStatus {
+        case .authorized:
+            .green
+        case .notDetermined:
+            .secondary
+        case .denied, .restricted:
+            .orange
+        @unknown default:
+            .secondary
+        }
+    }
+
+    private var appleSpeechPermissionStatusText: String {
+        switch appleSpeechAuthorizationState {
+        case .authorized:
+            localizedString("ai.settings.permission_authorized")
+        case .notDetermined:
+            localizedString("ai.settings.permission_not_determined")
+        case .denied:
+            localizedString("ai.settings.permission_denied")
+        case .restricted:
+            localizedString("ai.settings.permission_restricted")
+        case .unknown:
+            localizedString("ai.settings.permission_unknown")
+        }
+    }
+
+    private var appleSpeechPermissionStatusColor: Color {
+        switch appleSpeechAuthorizationState {
+        case .authorized:
+            .green
+        case .notDetermined:
+            .secondary
+        case .denied, .restricted:
+            .orange
+        case .unknown:
+            .secondary
+        }
     }
 
     private var globalHotkeyStatusText: String {
@@ -947,6 +1116,14 @@ struct SettingsContentView: View {
             return String(format: localizedString("ai.error.invalid_parser_json_format"), provider, message)
         case .localModelUnavailable(let model):
             return String(format: localizedString("ai.error.local_model_unavailable_format"), model)
+        case .speechRecognitionDenied:
+            return localizedString("ai.error.speech_recognition_denied")
+        case .speechRecognitionRestricted:
+            return localizedString("ai.error.speech_recognition_restricted")
+        case .speechRecognitionUnavailable(let locale):
+            return String(format: localizedString("ai.error.speech_recognition_unavailable_format"), locale)
+        case .speechRecognitionFailed(let message):
+            return String(format: localizedString("ai.error.speech_recognition_failed_format"), message)
         case .keychainFailed(let message):
             return String(format: localizedString("ai.error.keychain_failed_format"), message)
         }
@@ -1136,6 +1313,25 @@ struct SettingsContentView: View {
         }
 
         localSpeechModelStore.refreshState(for: selectedLocalSpeechModel)
+    }
+
+    private func refreshSystemPermissionState() {
+        microphoneAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        appleSpeechAuthorizationState = AppleSpeechTranscriptionProvider.authorizationState()
+    }
+
+    private func requestMicrophonePermission() {
+        AVCaptureDevice.requestAccess(for: .audio) { _ in
+            Task { @MainActor in
+                refreshSystemPermissionState()
+            }
+        }
+    }
+
+    private func requestAppleSpeechPermission() {
+        Task { @MainActor in
+            appleSpeechAuthorizationState = await AppleSpeechTranscriptionProvider.requestAuthorizationState()
+        }
     }
 
     private func downloadLocalModel() {

@@ -179,6 +179,10 @@
 
 /* ─── AI Assistant ─── */
 "ai.settings.enabled" = "Enable AI assistant";
+"ai.settings.section_input" = "Input";
+"ai.settings.section_parser" = "Parser";
+"ai.settings.section_credentials" = "Credentials";
+"ai.settings.section_diagnostics" = "Diagnostics";
 "ai.settings.global_hotkey" = "Global shortcut";
 "ai.settings.global_hotkey_caption" = "Off by default. Registers only the selected shortcut; no Accessibility or Input Monitoring permission is requested. macOS may ask for Microphone access when recording starts.";
 "ai.settings.global_hotkey_shortcut" = "Shortcut";
@@ -194,6 +198,15 @@
 "ai.settings.transcription_model" = "Transcription model";
 "ai.settings.parser_provider" = "Parser provider";
 "ai.settings.parser_model" = "Parser model";
+"ai.settings.microphone_permission" = "Microphone access";
+"ai.settings.apple_speech_permission" = "Speech Recognition access";
+"ai.settings.permission_authorized" = "Allowed";
+"ai.settings.permission_not_determined" = "Not requested";
+"ai.settings.permission_denied" = "Denied";
+"ai.settings.permission_restricted" = "Restricted";
+"ai.settings.permission_unknown" = "Unknown";
+"ai.settings.request_permission" = "Request Access";
+"ai.settings.open_macos_settings" = "Open macOS Settings";
 "ai.settings.default_lead" = "Default advance notice";
 "ai.settings.provider_key_format" = "%@";
 "ai.settings.provider_key_caption" = "Stored in macOS Keychain, not UserDefaults.";
@@ -213,6 +226,7 @@
 "ai.settings.flow_not_ready_format" = "Not ready: %@";
 "ai.settings.open" = "AI Settings";
 "ai.settings.privacy_footer" = "Audio and transcript text may be sent to the selected cloud providers. Drafts are reviewed before anything is added.";
+"ai.settings.privacy_footer_apple_speech" = "Apple Speech handles transcription through macOS. Transcript text may still be sent to the selected parser provider.";
 "ai.settings.privacy_footer_local_transcription" = "Audio stays on this Mac for local transcription. Transcript text may still be sent to the selected parser provider.";
 "ai.settings.provider_guide" = "Guide";
 "ai.settings.provider_guide_help" = "Application and setup guide";
@@ -267,6 +281,8 @@
 "ai.guide.iflytek.steps" = "1. Open the iFlyTek Voice Dictation docs or console and sign in.\n2. Create a WebAPI app and add the streaming Voice Dictation service.\n3. Copy AppID, APIKey, and APISecret from the service authentication area.\n4. Return to NotchMove, paste them into the iFlyTek App ID, API Key, and API Secret fields, and save.\n5. Use Test transcriber to confirm the setup.";
 "ai.guide.volcengine.overview" = "Volcengine ASR uses the App Key from Doubao Speech large-model recognition; older consoles may also require Access Key.";
 "ai.guide.volcengine.steps" = "1. Open the Volcengine large-model recording recognition docs and sign in to the console.\n2. Enable the matching speech recognition capability in Doubao Speech.\n3. Copy appKey; if your console also provides accessKey, copy that too.\n4. Return to NotchMove, put appKey in Volcengine ASR API Key and accessKey in Access Key, then save.\n5. Use Test transcriber to confirm the setup.";
+"ai.guide.apple_speech.overview" = "Apple Speech uses macOS Speech Recognition permission and does not need an API key.";
+"ai.guide.apple_speech.steps" = "1. Choose Apple Speech as the transcription provider.\n2. Click Request Access if Speech Recognition has not been requested yet.\n3. Allow NotchMove in macOS Settings if permission was previously denied.\n4. Keep a parser provider selected because Apple Speech only creates transcript text.\n5. Use Test transcriber to confirm permission and language setup.";
 "ai.capture.title" = "AI Add Schedule";
 "ai.capture.speak" = "Speak";
 "ai.capture.ready" = "Ready";
@@ -289,6 +305,7 @@
 "ai.capture.providers_format" = "Transcription: %@ · Parser: %@";
 "ai.capture.privacy_same_provider_format" = "Audio and transcript are sent to %@ for this cloud flow.";
 "ai.capture.privacy_split_provider_format" = "Audio is sent to %@; transcript text is sent to %@.";
+"ai.capture.privacy_apple_speech_format" = "Apple Speech handles transcription through macOS; transcript text is sent to %@ for parsing.";
 "ai.capture.privacy_local_transcription_format" = "Audio stays on this Mac for transcription; transcript text is sent to %@ for parsing.";
 "ai.warning.past_date" = "This draft is in the past.";
 "ai.warning.not_today" = "This draft is not for today. It can be saved, but today-focused views will not show it until that date.";
@@ -304,4 +321,8 @@
 "ai.error.provider_invalid_response_format" = "%@ returned an invalid response: %@";
 "ai.error.invalid_parser_json_format" = "%@ returned schedule data that did not match NotchMove's schema: %@";
 "ai.error.local_model_unavailable_format" = "Download and verify the local WhisperKit %@ model in AI Settings before recording.";
+"ai.error.speech_recognition_denied" = "Speech Recognition access is denied. Allow NotchMove in macOS Settings.";
+"ai.error.speech_recognition_restricted" = "Speech Recognition is restricted on this Mac.";
+"ai.error.speech_recognition_unavailable_format" = "Apple Speech recognition is unavailable for %@.";
+"ai.error.speech_recognition_failed_format" = "Apple Speech recognition failed: %@";
 "ai.error.keychain_failed_format" = "Keychain access failed: %@";

@@ -6,6 +6,7 @@
 //
 
 import Combine
+import AppKit
 import SwiftUI
 
 struct AIScheduleCaptureSheet: View {
@@ -28,6 +29,7 @@ struct AIScheduleCaptureSheet: View {
     @State private var selectedDraftIDs = Set<AIScheduleDraft.ID>()
     @State private var questions: [String] = []
     @State private var warnings: [String] = []
+    @State private var lastAssistantError: AIScheduleAssistantError?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -104,12 +106,19 @@ struct AIScheduleCaptureSheet: View {
                 Label("ai.capture.start_recording", systemImage: "record.circle")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(!aiPreferences.isEnabled)
+            .disabled(!captureReadiness.isReady)
 
-            if !aiPreferences.isEnabled {
-                Text("ai.capture.disabled")
+            if let readinessErrorMessage {
+                Text(readinessErrorMessage)
                     .font(.callout)
                     .foregroundStyle(.secondary)
+
+                if shouldShowSettingsButtonForReadiness {
+                    Button("ai.settings.open") {
+                        onOpenSettings()
+                        dismiss()
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -299,6 +308,12 @@ struct AIScheduleCaptureSheet: View {
                     Text("ai.capture.try_again")
                 }
 
+                if shouldShowSystemSettingsButton {
+                    Button("ai.settings.open_macos_settings") {
+                        openSystemSettingsForLastError()
+                    }
+                }
+
                 Button {
                     onOpenSettings()
                     dismiss()
@@ -343,6 +358,35 @@ struct AIScheduleCaptureSheet: View {
         return selected.allSatisfy { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
+    private var captureReadiness: AICaptureReadinessResult {
+        AIProviderFactory.captureReadiness(preferences: aiPreferences)
+    }
+
+    private var readinessErrorMessage: String? {
+        guard let error = captureReadiness.firstError else { return nil }
+        return errorMessage(for: error)
+    }
+
+    private var shouldShowSettingsButtonForReadiness: Bool {
+        guard let error = captureReadiness.firstError else { return false }
+        switch error {
+        case .speechRecognitionDenied, .speechRecognitionRestricted, .microphoneDenied:
+            return false
+        default:
+            return true
+        }
+    }
+
+    private var shouldShowSystemSettingsButton: Bool {
+        guard let lastAssistantError else { return false }
+        switch lastAssistantError {
+        case .microphoneDenied, .speechRecognitionDenied, .speechRecognitionRestricted:
+            return true
+        default:
+            return false
+        }
+    }
+
     private var selectedDrafts: [AIScheduleDraft] {
         drafts.filter { selectedDraftIDs.contains($0.id) }
     }
@@ -358,6 +402,13 @@ struct AIScheduleCaptureSheet: View {
     private var privacyStatusText: String {
         let transcriptionProvider = aiPreferences.selectedTranscriptionProvider.displayName
         let parserProvider = aiPreferences.selectedParserProvider.displayName
+
+        if aiPreferences.selectedTranscriptionProvider == .appleSpeech {
+            return String(
+                format: localizedString("ai.capture.privacy_apple_speech_format"),
+                parserProvider
+            )
+        }
 
         if aiPreferences.selectedTranscriptionProvider == .localWhisperKit {
             return String(
@@ -402,6 +453,7 @@ struct AIScheduleCaptureSheet: View {
                 elapsedSeconds = 0
                 phase = .recording
             } catch {
+                lastAssistantError = error as? AIScheduleAssistantError
                 phase = .error(errorMessage(for: error))
             }
         }
@@ -434,6 +486,7 @@ struct AIScheduleCaptureSheet: View {
                 warnings = result.warnings
                 phase = .review
             } catch {
+                lastAssistantError = error as? AIScheduleAssistantError
                 phase = .error(errorMessage(for: error))
             }
         }
@@ -453,6 +506,7 @@ struct AIScheduleCaptureSheet: View {
         selectedDraftIDs = []
         questions = []
         warnings = []
+        lastAssistantError = nil
         elapsedSeconds = 0
         recordingStartedAt = nil
         phase = .ready
@@ -528,8 +582,27 @@ struct AIScheduleCaptureSheet: View {
             return String(format: localizedString("ai.error.invalid_parser_json_format"), provider, message)
         case .localModelUnavailable(let model):
             return String(format: localizedString("ai.error.local_model_unavailable_format"), model)
+        case .speechRecognitionDenied:
+            return localizedString("ai.error.speech_recognition_denied")
+        case .speechRecognitionRestricted:
+            return localizedString("ai.error.speech_recognition_restricted")
+        case .speechRecognitionUnavailable(let locale):
+            return String(format: localizedString("ai.error.speech_recognition_unavailable_format"), locale)
+        case .speechRecognitionFailed(let message):
+            return String(format: localizedString("ai.error.speech_recognition_failed_format"), message)
         case .keychainFailed(let message):
             return String(format: localizedString("ai.error.keychain_failed_format"), message)
+        }
+    }
+
+    private func openSystemSettingsForLastError() {
+        switch lastAssistantError {
+        case .microphoneDenied:
+            SystemPrivacySettings.openMicrophone()
+        case .speechRecognitionDenied, .speechRecognitionRestricted:
+            SystemPrivacySettings.openSpeechRecognition()
+        default:
+            SystemPrivacySettings.openPrivacyAndSecurity()
         }
     }
 

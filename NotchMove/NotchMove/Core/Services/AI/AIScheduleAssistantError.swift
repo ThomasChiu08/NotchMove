@@ -20,6 +20,10 @@ enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
     case providerResponseInvalid(provider: String, message: String)
     case invalidParserJSON(provider: String, message: String)
     case localModelUnavailable(model: String)
+    case speechRecognitionDenied
+    case speechRecognitionRestricted
+    case speechRecognitionUnavailable(locale: String)
+    case speechRecognitionFailed(String)
     case keychainFailed(String)
 
     var errorDescription: String? {
@@ -48,6 +52,14 @@ enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
             return "\(provider) returned invalid schedule JSON: \(message)"
         case .localModelUnavailable(let model):
             return "Local WhisperKit model \(model) is not downloaded."
+        case .speechRecognitionDenied:
+            return "Speech recognition access is denied."
+        case .speechRecognitionRestricted:
+            return "Speech recognition is restricted on this Mac."
+        case .speechRecognitionUnavailable(let locale):
+            return "Apple Speech recognition is unavailable for \(locale)."
+        case .speechRecognitionFailed(let message):
+            return "Apple Speech recognition failed: \(message)"
         case .keychainFailed(let message):
             return "Keychain failed: \(message)"
         }
@@ -94,6 +106,10 @@ enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
             )
         case .keychainFailed(let message):
             return AIScheduleAssistantError.keychainFailed(
+                redactedProviderMessage(message, secrets: secrets)
+            )
+        case .speechRecognitionFailed(let message):
+            return AIScheduleAssistantError.speechRecognitionFailed(
                 redactedProviderMessage(message, secrets: secrets)
             )
         default:
