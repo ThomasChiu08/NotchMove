@@ -107,6 +107,7 @@ struct SettingsContentView: View {
     @State private var isTestingTranscriptionProvider = false
     @State private var isTestingParserProvider = false
     @State private var setupGuideProvider: AIProviderID?
+    @State private var localSpeechModelStore: LocalSpeechModelStore
 
     private let screenProvider = MainScreenProvider()
     private static let intervalOptions = [15, 20, 25, 30, 45, 60]
@@ -128,6 +129,7 @@ struct SettingsContentView: View {
         self.breakStatsStore = breakStatsStore
         self.sections = sections
         self.showsSectionHeaders = showsSectionHeaders
+        self._localSpeechModelStore = State(initialValue: LocalSpeechModelStore(defaults: aiProviderPreferences.defaults))
     }
 
     var body: some View {
@@ -143,6 +145,13 @@ struct SettingsContentView: View {
             refreshAvailableScreens()
             refreshLoginItemStatus()
             loadAPIKeys()
+            refreshLocalModelState()
+        }
+        .onChange(of: aiProviderPreferences.transcriptionProviderID) {
+            refreshLocalModelState()
+        }
+        .onChange(of: aiProviderPreferences.transcriptionModel) {
+            refreshLocalModelState()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             refreshAvailableScreens()
@@ -311,6 +320,10 @@ struct SettingsContentView: View {
                 }
             }
 
+            if aiProviderPreferences.selectedTranscriptionProvider == .localWhisperKit {
+                localModelControls
+            }
+
             SettingsPropertyRow("ai.settings.parser_provider") {
                 Picker(selection: parserProviderBinding) {
                     ForEach(AIProviderPreferences.supportedParserProviders) { provider in
@@ -400,7 +413,49 @@ struct SettingsContentView: View {
         } header: {
             sectionHeader("section.ai_assistant")
         } footer: {
-            Text("ai.settings.privacy_footer")
+            Text(LocalizedStringKey(aiSettingsPrivacyFooterKey))
+        }
+    }
+
+    private var localModelControls: some View {
+        SettingsPropertyRow("ai.settings.local_model") {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(localModelStatusText)
+                        .foregroundStyle(localModelStatusColor)
+
+                    if isLocalModelBusy {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    Button("ai.settings.local_model_download") {
+                        downloadLocalModel()
+                    }
+                    .disabled(isLocalModelBusy || selectedLocalSpeechModel == nil)
+
+                    Button("ai.settings.local_model_verify") {
+                        verifyLocalModel()
+                    }
+                    .disabled(isLocalModelBusy || selectedLocalSpeechModel == nil)
+
+                    Button(role: .destructive) {
+                        deleteLocalModel()
+                    } label: {
+                        Text("ai.settings.local_model_delete")
+                    }
+                    .disabled(!canDeleteLocalModel)
+                }
+
+                if let selectedLocalSpeechModel {
+                    Text(String(
+                        format: localizedString("ai.settings.local_model_disk_usage_format"),
+                        selectedLocalSpeechModel.approximateDiskUsage
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                }
+            }
         }
     }
 
@@ -626,6 +681,68 @@ struct SettingsContentView: View {
         preferencesStore.preferences.sitAwareEnabled ? "sit_aware_footer_on" : "sit_aware_footer_off"
     }
 
+    private var aiSettingsPrivacyFooterKey: String {
+        aiProviderPreferences.selectedTranscriptionProvider == .localWhisperKit
+            ? "ai.settings.privacy_footer_local_transcription"
+            : "ai.settings.privacy_footer"
+    }
+
+    private var selectedLocalSpeechModel: LocalSpeechModelID? {
+        LocalSpeechModelID(rawValue: aiProviderPreferences.transcriptionModel)
+    }
+
+    private var selectedLocalModelState: LocalSpeechModelState {
+        guard let selectedLocalSpeechModel else { return .notDownloaded }
+        return localSpeechModelStore.state(for: selectedLocalSpeechModel)
+    }
+
+    private var isLocalModelBusy: Bool {
+        selectedLocalModelState.isBusy
+    }
+
+    private var canDeleteLocalModel: Bool {
+        guard selectedLocalSpeechModel != nil else { return false }
+
+        switch selectedLocalModelState {
+        case .notDownloaded, .downloading, .verifying:
+            return false
+        case .ready, .failed:
+            return true
+        }
+    }
+
+    private var localModelStatusColor: Color {
+        switch selectedLocalModelState {
+        case .ready:
+            .green
+        case .failed:
+            .red
+        case .notDownloaded, .downloading, .verifying:
+            .secondary
+        }
+    }
+
+    private var localModelStatusText: String {
+        switch selectedLocalModelState {
+        case .notDownloaded:
+            return localizedString("ai.settings.local_model_status_not_downloaded")
+        case .downloading(let progress):
+            if let progress {
+                return String(
+                    format: localizedString("ai.settings.local_model_status_downloading_format"),
+                    Int(progress * 100)
+                )
+            }
+            return localizedString("ai.settings.local_model_status_downloading")
+        case .verifying:
+            return localizedString("ai.settings.local_model_status_verifying")
+        case .ready:
+            return localizedString("ai.settings.local_model_status_ready")
+        case .failed(let message):
+            return String(format: localizedString("ai.settings.local_model_status_failed_format"), message)
+        }
+    }
+
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(
             get: { preferencesStore.preferences.launchAtLoginEnabled },
@@ -774,6 +891,41 @@ struct SettingsContentView: View {
                 format: localizedString("ai.settings.key_saved_format"),
                 "\(request.provider.displayName) \(request.field.displayName)"
             )
+        } catch {
+            apiKeyStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func refreshLocalModelState() {
+        guard aiProviderPreferences.selectedTranscriptionProvider == .localWhisperKit,
+              let selectedLocalSpeechModel
+        else {
+            return
+        }
+
+        localSpeechModelStore.refreshState(for: selectedLocalSpeechModel)
+    }
+
+    private func downloadLocalModel() {
+        guard let selectedLocalSpeechModel else { return }
+        apiKeyStatusMessage = nil
+
+        Task {
+            await localSpeechModelStore.download(selectedLocalSpeechModel)
+        }
+    }
+
+    private func verifyLocalModel() {
+        guard let selectedLocalSpeechModel else { return }
+        localSpeechModelStore.verify(selectedLocalSpeechModel)
+    }
+
+    private func deleteLocalModel() {
+        guard let selectedLocalSpeechModel else { return }
+
+        do {
+            try localSpeechModelStore.delete(selectedLocalSpeechModel)
+            apiKeyStatusMessage = localizedString("ai.settings.local_model_deleted")
         } catch {
             apiKeyStatusMessage = error.localizedDescription
         }

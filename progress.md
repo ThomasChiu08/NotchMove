@@ -29,3 +29,5 @@
 - Saved staged implementation plan to `docs/plans/2026-05-01-ai-schedule-assistant-implementation-plan.md`.
 - Completed AI schedule assistant implementation Phase 1: pre-recording readiness validation, localized capture errors, provider/privacy status in review, stricter selected-draft title validation, non-today warnings, and additional AI assistant regression tests.
 - Ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
+- Completed AI schedule assistant implementation Phase 2: added local WhisperKit transcription through `argmaxinc/argmax-oss-swift`, local speech model download/verify/delete management, Settings model controls, local STT privacy copy, missing-model capture errors, and local provider regression tests.
+- Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.

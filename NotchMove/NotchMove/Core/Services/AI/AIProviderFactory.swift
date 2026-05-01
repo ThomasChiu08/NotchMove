@@ -33,6 +33,13 @@ enum AIProviderFactory {
                 model: preferences.transcriptionModel,
                 urlSession: urlSession
             )
+        case .localWhisperKit:
+            let model = LocalSpeechModelID(rawValue: preferences.transcriptionModel) ?? .base
+            let modelStore = LocalSpeechModelStore(defaults: preferences.defaults)
+            return WhisperKitTranscriptionProvider(
+                model: model,
+                modelFolderURL: try modelStore.readyModelFolderURL(for: model)
+            )
         case .dashScopeOpenAICompatibleAudio:
             return DashScopeTranscriptionProvider(
                 apiKey: try requiredCredential(.apiKey, for: providerID, preferences: preferences),

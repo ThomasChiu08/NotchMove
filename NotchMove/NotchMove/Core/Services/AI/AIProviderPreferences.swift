@@ -15,6 +15,7 @@ enum AIProviderCapability: Hashable {
 
 enum TranscriptionAdapterKind: Equatable {
     case openAI
+    case localWhisperKit
     case dashScopeOpenAICompatibleAudio
     case tencentSentenceRecognition
     case baiduShortSpeech
@@ -73,6 +74,7 @@ enum AIProviderID: String, CaseIterable, Identifiable {
     case baiduSpeech = "baidu-speech"
     case iFlyTek = "iflytek"
     case volcengine = "volcengine"
+    case localWhisperKit = "local-whisperkit"
     case anthropic = "anthropic"
     case gemini = "gemini"
 
@@ -119,7 +121,14 @@ struct AIProviderSetupGuide: Identifiable, Equatable {
         let urls = Self.urls(for: providerID)
         self.documentationURL = urls.documentation
         self.consoleURL = urls.console
-        self.extraRequiredFieldNames = providerID == .customOpenAICompatible ? ["Base URL", "Model"] : []
+        switch providerID {
+        case .customOpenAICompatible:
+            self.extraRequiredFieldNames = ["Base URL", "Model"]
+        case .localWhisperKit:
+            self.extraRequiredFieldNames = ["Downloaded model"]
+        default:
+            self.extraRequiredFieldNames = []
+        }
     }
 
     private static func urls(for providerID: AIProviderID) -> (documentation: URL?, console: URL?) {
@@ -199,6 +208,11 @@ struct AIProviderSetupGuide: Identifiable, Equatable {
         case .volcengine:
             return (
                 URL(string: "https://www.volcengine.com/docs/6561/1631584"),
+                nil
+            )
+        case .localWhisperKit:
+            return (
+                URL(string: "https://github.com/argmaxinc/argmax-oss-swift"),
                 nil
             )
         case .anthropic, .gemini:
@@ -519,6 +533,22 @@ struct AIProviderDefinition: Identifiable, Equatable {
             defaultParserModel: nil,
             openAICompatibleBaseURL: nil,
             transcriptionAdapter: .volcengineFlash,
+            scheduleParserAdapter: nil,
+            usesJSONResponseFormat: false
+        ),
+        AIProviderDefinition(
+            providerID: .localWhisperKit,
+            displayName: "Local WhisperKit",
+            capabilities: [.transcription],
+            credentialFields: [],
+            transcriptionModels: LocalSpeechModelID.allCases.map {
+                AIModelDefinition(id: $0.rawValue, displayName: $0.displayName)
+            },
+            parserModels: [],
+            defaultTranscriptionModel: LocalSpeechModelID.base.rawValue,
+            defaultParserModel: nil,
+            openAICompatibleBaseURL: nil,
+            transcriptionAdapter: .localWhisperKit,
             scheduleParserAdapter: nil,
             usesJSONResponseFormat: false
         ),

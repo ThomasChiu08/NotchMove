@@ -79,7 +79,7 @@ Primary files:
 
 ## Phase 2: Add Local WhisperKit Transcription
 
-Status: planned
+Status: complete
 
 Purpose: give privacy-sensitive users a path where audio stays on the Mac.
 
@@ -121,6 +121,18 @@ Acceptance criteria:
 - If the model is missing, capture explains exactly what to do.
 - Cloud parser privacy copy remains visible when parser is still cloud-based.
 - Unit tests cover provider selection, missing model behavior, and local provider factory wiring.
+
+Completion notes:
+
+- Added WhisperKit through Swift Package Manager using `argmaxinc/argmax-oss-swift` and linked the `WhisperKit` product to the app target.
+- Added `LocalSpeechModelStore` with tiny/base/small model choices, persisted readiness, download, verify, delete, and missing-model error handling.
+- Added `WhisperKitTranscriptionProvider` as a `TranscriptionProvider` implementation that transcribes existing capture audio files without triggering surprise downloads.
+- Added the `Local WhisperKit` transcription provider, kept parser selection separate, and defaulted the local model to `base`.
+- Added Settings controls for local model status, download, verify, delete, and approximate disk usage.
+- Updated capture privacy copy so local STT is distinguished from the selected parser provider.
+- Added localized model-management, privacy, and missing-model strings for English, Simplified Chinese, Traditional Chinese, and Japanese.
+- Added tests for local provider selection, missing-model behavior, ready-model factory wiring, and persisted model readiness.
+- Verified with `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test` on 2026-05-01.
 
 Primary files to add or modify:
 

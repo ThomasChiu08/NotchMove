@@ -368,6 +368,7 @@ struct AIProviderSupportTests {
         #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.baiduSpeech))
         #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.iFlyTek))
         #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.volcengine))
+        #expect(AIProviderPreferences.supportedTranscriptionProviders.contains(.localWhisperKit))
         #expect(AIProviderID.dashScope.definition.openAICompatibleBaseURL?.absoluteString == "https://dashscope.aliyuncs.com/compatible-mode/v1")
         #expect(AIProviderID.deepSeek.definition.openAICompatibleBaseURL?.absoluteString == "https://api.deepseek.com")
         #expect(AIProviderID.zhipu.definition.defaultParserModel == "glm-5.1")
@@ -402,6 +403,19 @@ struct AIProviderSupportTests {
         #expect(preferences.selectedParserProvider == .dashScope)
         #expect(preferences.transcriptionModel == "qwen3-asr-flash")
         #expect(preferences.parserModel == "qwen-plus")
+    }
+
+    @Test func localWhisperKitSelectionUsesBaseModelAndNoCredentials() {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveLocalSelection-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+
+        preferences.selectTranscriptionProvider(.localWhisperKit)
+
+        #expect(preferences.selectedTranscriptionProvider == .localWhisperKit)
+        #expect(preferences.transcriptionModel == LocalSpeechModelID.base.rawValue)
+        #expect(preferences.credentialRequestsForCurrentFlow.allSatisfy { $0.provider != .localWhisperKit })
     }
 
     @Test func parserProviderSelectionFallsBackToProviderDefaultModel() {
@@ -443,6 +457,55 @@ struct AIProviderSupportTests {
         let provider = try AIProviderFactory.makeTranscriptionProvider(preferences: preferences)
 
         #expect(provider.displayName == "Tencent Cloud ASR")
+    }
+
+    @Test func providerFactoryRejectsMissingLocalWhisperKitModelBeforeCapture() {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveMissingLocalModel-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        preferences.selectTranscriptionProvider(.localWhisperKit)
+
+        do {
+            _ = try AIProviderFactory.makeTranscriptionProvider(preferences: preferences)
+            Issue.record("Expected missing local model.")
+        } catch let error as AIScheduleAssistantError {
+            #expect(error == .localModelUnavailable(model: LocalSpeechModelID.base.displayName))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test func providerFactoryBuildsLocalWhisperKitProviderWhenModelIsReady() throws {
+        let defaults = UserDefaults(suiteName: "NotchMoveReadyLocalModel-\(UUID().uuidString)")!
+        let preferences = AIProviderPreferences(
+            defaults: defaults,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        let modelFolder = try makeLocalSpeechModelFolder()
+        defer { try? FileManager.default.removeItem(at: modelFolder) }
+
+        preferences.selectTranscriptionProvider(.localWhisperKit)
+        storeLocalSpeechModelPath(modelFolder, model: .base, defaults: defaults)
+
+        let provider = try AIProviderFactory.makeTranscriptionProvider(preferences: preferences)
+
+        #expect(provider.displayName == "Local WhisperKit")
+    }
+
+    @Test func localSpeechModelStoreReportsReadinessFromPersistedModelPath() throws {
+        let defaults = UserDefaults(suiteName: "NotchMoveLocalModelStore-\(UUID().uuidString)")!
+        let modelFolder = try makeLocalSpeechModelFolder()
+        defer { try? FileManager.default.removeItem(at: modelFolder) }
+        storeLocalSpeechModelPath(modelFolder, model: .small, defaults: defaults)
+
+        let store = LocalSpeechModelStore(defaults: defaults)
+
+        guard case .ready(let readyURL) = store.state(for: .small) else {
+            Issue.record("Expected ready local model.")
+            return
+        }
+        #expect(readyURL.resolvingSymlinksInPath().path == modelFolder.resolvingSymlinksInPath().path)
     }
 
     @Test func missingProviderCredentialReportsFieldName() {
@@ -572,6 +635,29 @@ private func makeTemporaryRecordingFile() throws -> AudioRecordingFile {
         duration: 1,
         mimeType: "audio/wav"
     )
+}
+
+private func makeLocalSpeechModelFolder() throws -> URL {
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent("notchmove-local-whisperkit-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+
+    for component in ["MelSpectrogram", "AudioEncoder", "TextDecoder"] {
+        try FileManager.default.createDirectory(
+            at: url.appendingPathComponent("\(component).mlmodelc"),
+            withIntermediateDirectories: true
+        )
+    }
+
+    return url
+}
+
+private func storeLocalSpeechModelPath(
+    _ url: URL,
+    model: LocalSpeechModelID,
+    defaults: UserDefaults
+) {
+    defaults.set(url.path, forKey: "aiAssistant.localSpeechModelPath.\(model.rawValue)")
 }
 
 @MainActor

@@ -19,6 +19,7 @@ enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
     case providerRequestFailed(provider: String, statusCode: Int, message: String)
     case providerResponseInvalid(provider: String, message: String)
     case invalidParserJSON(provider: String, message: String)
+    case localModelUnavailable(model: String)
     case keychainFailed(String)
 
     var errorDescription: String? {
@@ -45,6 +46,8 @@ enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
             return "\(provider) returned an invalid response: \(message)"
         case .invalidParserJSON(let provider, let message):
             return "\(provider) returned invalid schedule JSON: \(message)"
+        case .localModelUnavailable(let model):
+            return "Local WhisperKit model \(model) is not downloaded."
         case .keychainFailed(let message):
             return "Keychain failed: \(message)"
         }

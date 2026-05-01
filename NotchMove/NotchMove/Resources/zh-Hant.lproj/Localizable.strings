@@ -196,8 +196,21 @@
 "ai.settings.test_succeeded" = "解析服務連線成功。";
 "ai.settings.open" = "AI 設定";
 "ai.settings.privacy_footer" = "音訊和轉寫文字可能會傳送給所選雲端服務。確認草稿後才會新增日程。";
+"ai.settings.privacy_footer_local_transcription" = "音訊會留在這台 Mac 上完成本地轉寫。轉寫文字仍可能傳送給所選解析服務。";
 "ai.settings.provider_guide" = "指南";
 "ai.settings.provider_guide_help" = "申請與填寫指南";
+"ai.settings.local_model" = "本地模型";
+"ai.settings.local_model_download" = "下載";
+"ai.settings.local_model_verify" = "校驗";
+"ai.settings.local_model_delete" = "刪除";
+"ai.settings.local_model_deleted" = "本地模型已刪除。";
+"ai.settings.local_model_disk_usage_format" = "預計佔用：%@。";
+"ai.settings.local_model_status_not_downloaded" = "未下載";
+"ai.settings.local_model_status_downloading" = "正在下載";
+"ai.settings.local_model_status_downloading_format" = "正在下載 %d%%";
+"ai.settings.local_model_status_verifying" = "正在校驗";
+"ai.settings.local_model_status_ready" = "已就緒";
+"ai.settings.local_model_status_failed_format" = "失敗：%@";
 "ai.guide.title_format" = "%@ 申請與填寫指南";
 "ai.guide.required_fields" = "需要填寫";
 "ai.guide.official_docs" = "官方文件";
@@ -259,6 +272,7 @@
 "ai.capture.providers_format" = "轉寫：%@ · 解析：%@";
 "ai.capture.privacy_same_provider_format" = "此雲端流程會將音訊和轉寫文字傳送給 %@。";
 "ai.capture.privacy_split_provider_format" = "音訊會傳送給 %@；轉寫文字會傳送給 %@。";
+"ai.capture.privacy_local_transcription_format" = "音訊會留在這台 Mac 上完成轉寫；轉寫文字會傳送給 %@ 用於解析。";
 "ai.warning.past_date" = "這個草稿的時間已經過去。";
 "ai.warning.not_today" = "這個草稿不是今天的日程。可以儲存，但以今天為中心的檢視要到對應日期才會顯示。";
 "ai.error.disabled" = "請先在設定中啟用 AI 助手再錄音。";
@@ -272,4 +286,5 @@
 "ai.error.provider_request_failed_format" = "%@ 請求失敗（%d）：%@";
 "ai.error.provider_invalid_response_format" = "%@ 傳回了無效回應：%@";
 "ai.error.invalid_parser_json_format" = "%@ 傳回的日程資料不符合 NotchMove 結構：%@";
+"ai.error.local_model_unavailable_format" = "請先在 AI 設定中下載並校驗本地 WhisperKit %@ 模型再錄音。";
 "ai.error.keychain_failed_format" = "鑰匙圈存取失敗：%@";

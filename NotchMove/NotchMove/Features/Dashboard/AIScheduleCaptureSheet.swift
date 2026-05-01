@@ -350,6 +350,13 @@ struct AIScheduleCaptureSheet: View {
         let transcriptionProvider = aiPreferences.selectedTranscriptionProvider.displayName
         let parserProvider = aiPreferences.selectedParserProvider.displayName
 
+        if aiPreferences.selectedTranscriptionProvider == .localWhisperKit {
+            return String(
+                format: localizedString("ai.capture.privacy_local_transcription_format"),
+                parserProvider
+            )
+        }
+
         if transcriptionProvider == parserProvider {
             return String(
                 format: localizedString("ai.capture.privacy_same_provider_format"),
@@ -491,6 +498,8 @@ struct AIScheduleCaptureSheet: View {
             return String(format: localizedString("ai.error.provider_invalid_response_format"), provider, message)
         case .invalidParserJSON(let provider, let message):
             return String(format: localizedString("ai.error.invalid_parser_json_format"), provider, message)
+        case .localModelUnavailable(let model):
+            return String(format: localizedString("ai.error.local_model_unavailable_format"), model)
         case .keychainFailed(let message):
             return String(format: localizedString("ai.error.keychain_failed_format"), message)
         }
