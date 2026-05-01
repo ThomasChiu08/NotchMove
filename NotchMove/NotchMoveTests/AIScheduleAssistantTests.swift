@@ -146,6 +146,153 @@ struct AIScheduleDraftTests {
             try JSONDecoder().decode(ScheduleParseResult.self, from: Data(invalidJSON.utf8))
         }
     }
+
+    @Test func parserFixturesDecodeExpectedDraftsAcrossSupportedLanguages() throws {
+        struct ParserFixture {
+            let provider: String
+            let providerText: String
+            let expectedTitle: String
+            let expectedStartDate: Date
+            let expectedEndDate: Date?
+            let expectedNotes: String?
+            let expectedReminderLeadMinutes: Int
+            let expectedConfidence: AIScheduleConfidence
+        }
+
+        let fixtures = [
+            ParserFixture(
+                provider: "English",
+                providerText: """
+                {
+                  "items": [
+                    {
+                      "title": "Product sync",
+                      "startDate": "2026-04-30T15:00:00Z",
+                      "endDate": "2026-04-30T15:30:00Z",
+                      "notes": "Discuss launch blockers",
+                      "reminderLeadMinutes": 10,
+                      "isReminderEnabled": true,
+                      "confidence": "high",
+                      "warning": null
+                    }
+                  ],
+                  "questions": [],
+                  "warnings": []
+                }
+                """,
+                expectedTitle: "Product sync",
+                expectedStartDate: makeAIDate(hour: 15, minute: 0),
+                expectedEndDate: makeAIDate(hour: 15, minute: 30),
+                expectedNotes: "Discuss launch blockers",
+                expectedReminderLeadMinutes: 10,
+                expectedConfidence: .high
+            ),
+            ParserFixture(
+                provider: "Simplified Chinese",
+                providerText: """
+                ```json
+                {
+                  "items": [
+                    {
+                      "title": "产品评审",
+                      "startDate": "2026-04-30T16:00:00Z",
+                      "endDate": null,
+                      "notes": "准备路线图",
+                      "reminderLeadMinutes": 15,
+                      "isReminderEnabled": true,
+                      "confidence": "high",
+                      "warning": null
+                    }
+                  ],
+                  "questions": [],
+                  "warnings": []
+                }
+                ```
+                """,
+                expectedTitle: "产品评审",
+                expectedStartDate: makeAIDate(hour: 16, minute: 0),
+                expectedEndDate: nil,
+                expectedNotes: "准备路线图",
+                expectedReminderLeadMinutes: 15,
+                expectedConfidence: .high
+            ),
+            ParserFixture(
+                provider: "Traditional Chinese",
+                providerText: """
+                {
+                  "items": [
+                    {
+                      "title": "客戶會議",
+                      "startDate": "2026-04-30T11:00:00Z",
+                      "endDate": "2026-04-30T12:00:00Z",
+                      "notes": "確認合約",
+                      "reminderLeadMinutes": 5,
+                      "isReminderEnabled": true,
+                      "confidence": "medium",
+                      "warning": null
+                    }
+                  ],
+                  "questions": [],
+                  "warnings": []
+                }
+                """,
+                expectedTitle: "客戶會議",
+                expectedStartDate: makeAIDate(hour: 11, minute: 0),
+                expectedEndDate: makeAIDate(hour: 12, minute: 0),
+                expectedNotes: "確認合約",
+                expectedReminderLeadMinutes: 5,
+                expectedConfidence: .medium
+            ),
+            ParserFixture(
+                provider: "Japanese",
+                providerText: """
+                <think>ignore parser reasoning</think>
+                {
+                  "items": [
+                    {
+                      "title": "デザインレビュー",
+                      "startDate": "2026-04-30T09:30:00Z",
+                      "endDate": null,
+                      "notes": "資料を確認",
+                      "reminderLeadMinutes": 20,
+                      "isReminderEnabled": true,
+                      "confidence": "high",
+                      "warning": null
+                    }
+                  ],
+                  "questions": [],
+                  "warnings": []
+                }
+                """,
+                expectedTitle: "デザインレビュー",
+                expectedStartDate: makeAIDate(hour: 9, minute: 30),
+                expectedEndDate: nil,
+                expectedNotes: "資料を確認",
+                expectedReminderLeadMinutes: 20,
+                expectedConfidence: .high
+            ),
+        ]
+
+        for fixture in fixtures {
+            let result = try ScheduleParserPrompt.decodeResult(
+                from: fixture.providerText,
+                provider: fixture.provider
+            )
+
+            #expect(result.drafts.count == 1)
+            #expect(result.questions.isEmpty)
+            #expect(result.warnings.isEmpty)
+
+            let draft = try #require(result.drafts.first)
+            #expect(draft.title == fixture.expectedTitle)
+            #expect(draft.startDate == fixture.expectedStartDate)
+            #expect(draft.endDate == fixture.expectedEndDate)
+            #expect(draft.notes == fixture.expectedNotes)
+            #expect(draft.reminderLeadMinutes == fixture.expectedReminderLeadMinutes)
+            #expect(draft.isReminderEnabled)
+            #expect(draft.confidence == fixture.expectedConfidence)
+        }
+    }
 }
 
 @MainActor

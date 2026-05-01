@@ -35,3 +35,5 @@
 - Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
 - Completed AI schedule assistant implementation Phase 4: added opt-in Carbon global shortcut registration, Settings shortcut/status controls, dashboard capture toggle routing, permission onboarding copy, and shortcut preference regression tests.
 - Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
+- Completed AI schedule assistant implementation Phase 5 automated QA: added English, Simplified Chinese, Traditional Chinese, and Japanese parser fixture tests; confirmed existing Phase 5 regression coverage for credentials, Base URL validation, invalid parser JSON, date warnings, draft conversion, and temporary audio cleanup.
+- Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed. Live microphone/provider manual QA remains to run on a configured machine.

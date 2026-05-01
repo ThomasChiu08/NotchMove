@@ -219,7 +219,7 @@ Completion notes:
 
 ## Phase 5: QA and Release Readiness
 
-Status: planned
+Status: complete for automated QA; live manual QA pending
 
 Scope:
 
@@ -248,6 +248,13 @@ xcodebuild -project NotchMove.xcodeproj -scheme NotchMove -destination 'platform
   - cancel review sheet
   - cloud parser failure
   - local model missing
+
+Completion notes:
+
+- Added parser fixture tests for English, Simplified Chinese, Traditional Chinese, and Japanese provider outputs.
+- Confirmed existing regression tests cover missing credentials, invalid custom Base URL, invalid parser JSON, past-date warning, future/non-today warning, draft-to-schedule conversion, and temporary audio cleanup on success and failure.
+- Verified with `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test` on 2026-05-01.
+- Live manual QA still needs a local signed run with microphone permission and real provider credentials for recording and cloud failure scenarios.
 
 ## Risks
 
