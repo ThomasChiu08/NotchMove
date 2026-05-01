@@ -19,3 +19,11 @@
 - Added sandbox microphone and outgoing network entitlements plus `NSMicrophoneUsageDescription`.
 - Added AI assistant unit tests for draft conversion, schema decoding, service order, temporary audio cleanup, empty transcript handling, past-date warnings, response extraction, and API key redaction.
 - Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
+
+## 2026-05-01
+
+- Analyzed the existing AI assistant implementation and confirmed the current path is already provider-agnostic and draft-confirmed.
+- Researched GitHub references: Pindrop, AudioWhisper, AssisChat, and argmaxinc/argmax-oss-swift.
+- Ran `xcodebuild -project NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test` from `NotchMove/`; result: passed.
+- Saved AI research notes to `docs/plans/2026-05-01-ai-schedule-assistant-research.md`.
+- Saved staged implementation plan to `docs/plans/2026-05-01-ai-schedule-assistant-implementation-plan.md`.

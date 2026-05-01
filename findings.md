@@ -19,3 +19,12 @@
 ## Product Decision
 
 First pass should not add EventKit. The local import path already exists and directly addresses the user's current pain. EventKit can be added later as an additional source once the reminder loop is stable.
+
+## AI Schedule Assistant Research - 2026-05-01
+
+- Local analysis confirmed NotchMove already has an AI schedule capture skeleton: audio recording, transcription provider, parser provider, draft review, Keychain credentials, and `DailyScheduleStore` insertion.
+- `Pindrop` is the best conceptual reference for a native macOS menu bar voice feature: local-first STT, protocol-backed transcription engines, optional AI enhancement, Keychain secrets, and delayed/global hotkey permissions.
+- `AudioWhisper` is the best reference for a provider dashboard: local and cloud engines, model download/verify/delete flows, explicit privacy copy, and per-feature permissions.
+- `AssisChat` is useful for BYOK provider setup: adapter-based providers, user-supplied key/base URL, and validation before activation.
+- `argmaxinc/argmax-oss-swift` / WhisperKit is the best technical reference for a future local transcription provider.
+- Recommended direction: harden the current cloud batch flow first, add local WhisperKit transcription second, then add global push-to-talk as an opt-in feature.

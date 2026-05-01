@@ -1,0 +1,234 @@
+# NotchMove AI Schedule Assistant Implementation Plan
+
+Date: 2026-05-01
+
+## Goal
+
+Turn the existing AI schedule assistant skeleton into a reliable, privacy-aware product feature. The first shipped experience should let users speak a schedule command, review parsed drafts, edit mistakes, and add confirmed items to NotchMove's existing daily schedule reminder loop.
+
+## Recommendation
+
+Use a staged plan:
+
+1. Harden the current cloud batch capture flow.
+2. Add local WhisperKit transcription as a privacy-first transcription provider.
+3. Add global push-to-talk only after onboarding and permission handling are solid.
+
+Do not build a general chatbot. Keep AI scoped to structured schedule capture.
+
+## Non-Goals
+
+- No automatic reminder creation without review.
+- No general chat window.
+- No transcription history or analytics in the first pass.
+- No EventKit calendar sync as part of this AI feature.
+- No global key monitoring before explicit user opt-in.
+
+## Phase 1: Harden Current Cloud Capture
+
+Status: planned
+
+Purpose: make the existing batch upload flow dependable enough to use daily.
+
+Scope:
+
+- Keep `AIScheduleAssistantService` as the orchestrator.
+- Keep `TranscriptionProvider` and `ScheduleParserProvider` as the provider seams.
+- Keep confirmed drafts flowing into `DailyScheduleStore`.
+- Improve provider readiness checks before recording starts.
+- Add clearer localized errors for disabled AI, missing credentials, microphone denial, empty transcript, provider failure, invalid parser JSON, and past-date drafts.
+- Improve review sheet ergonomics:
+  - show provider and privacy status
+  - show transcript
+  - keep all drafts selected by default
+  - require non-empty titles
+  - preserve warning text per draft
+  - keep edit controls compact enough for multiple drafts
+- Decide future-date behavior:
+  - either allow future items and add a future schedule view later
+  - or in version 1 warn when a parsed item is not today
+
+Acceptance criteria:
+
+- A user can enable AI, save credentials, record a short schedule command, review drafts, and add selected items.
+- Failed provider calls leave no temporary audio file behind.
+- Empty transcripts do not call the parser.
+- Parser output remains schema validated.
+- `xcodebuild test` passes.
+
+Primary files:
+
+- `Core/Services/AI/AIScheduleAssistantService.swift`
+- `Core/Services/AI/AIProviderPreferences.swift`
+- `Core/Services/AI/AIProviderFactory.swift`
+- `Core/Services/AI/ScheduleParserPrompt.swift`
+- `Features/Dashboard/AIScheduleCaptureSheet.swift`
+- `Features/Settings/SettingsView.swift`
+- `Resources/*/Localizable.strings`
+- `NotchMoveTests/AIScheduleAssistantTests.swift`
+
+## Phase 2: Add Local WhisperKit Transcription
+
+Status: planned
+
+Purpose: give privacy-sensitive users a path where audio stays on the Mac.
+
+Architecture:
+
+```text
+WhisperKitTranscriptionProvider: TranscriptionProvider
+  -> LocalSpeechModelStore
+  -> model download/verify/delete
+  -> transcribe local audio file
+  -> Transcript
+```
+
+Scope:
+
+- Add WhisperKit through Swift Package Manager when implementation begins.
+- Add a new provider ID such as `localWhisperKit`.
+- Add a model catalog with a small set of practical choices:
+  - tiny: fastest debug path
+  - base: default daily-use path
+  - small: better accuracy
+- Add model readiness states:
+  - not downloaded
+  - downloading
+  - verifying
+  - ready
+  - failed
+- Add settings controls:
+  - choose local transcription provider
+  - choose model
+  - download/verify/delete model
+  - show approximate disk usage
+- Ensure capture does not trigger surprise model downloads.
+- Keep parser provider separate. Local transcription does not automatically mean local parsing.
+
+Acceptance criteria:
+
+- If the local model is ready, AI capture can transcribe without sending audio to cloud STT.
+- If the model is missing, capture explains exactly what to do.
+- Cloud parser privacy copy remains visible when parser is still cloud-based.
+- Unit tests cover provider selection, missing model behavior, and local provider factory wiring.
+
+Primary files to add or modify:
+
+- `Core/Services/AI/WhisperKitTranscriptionProvider.swift`
+- `Core/Services/AI/LocalSpeechModelStore.swift`
+- `Core/Services/AI/AIProviderPreferences.swift`
+- `Core/Services/AI/AIProviderFactory.swift`
+- `Features/Settings/SettingsView.swift`
+- `NotchMoveTests/AIScheduleAssistantTests.swift`
+
+## Phase 3: Provider Validation and Setup Polish
+
+Status: planned
+
+Purpose: make setup less fragile before broad provider expansion.
+
+Scope:
+
+- Replace "test transcription provider" factory-only success with a real readiness result:
+  - credential present
+  - endpoint shape valid
+  - optional network smoke test when safe
+  - model local readiness for local providers
+- Keep secrets redacted in all provider error messages.
+- Add a single setup guide sheet per selected provider.
+- Add a "current flow status" row:
+  - transcription ready/not ready
+  - parser ready/not ready
+  - missing credential or model reason
+
+Acceptance criteria:
+
+- Users can tell what is blocking AI capture without attempting a recording.
+- Provider errors do not expose API keys, secret keys, or tokens.
+- Settings changes continue to persist through `UserDefaults` for non-secrets and Keychain for credentials.
+
+## Phase 4: Global Push-To-Talk
+
+Status: planned
+
+Purpose: make AI capture fast without prematurely increasing permission surface.
+
+Scope:
+
+- Add optional global hotkey setting.
+- Start with toggle mode:
+  - press once to open/start capture
+  - press again or click stop to process
+- Add push-to-talk only if the chosen hotkey approach can reliably observe key-up.
+- Add explicit onboarding for any required macOS permission.
+- Do not request Accessibility/Input Monitoring until the user enables this feature.
+
+Acceptance criteria:
+
+- Menu bar and dashboard capture still work with no extra permissions.
+- Global shortcut is opt-in.
+- The app clearly explains why a permission is needed.
+- Shortcut registration failure has a recoverable UI state.
+
+Likely reference pattern:
+
+- Pindrop's hotkey modes.
+- AudioWhisper's permission split.
+
+## Phase 5: QA and Release Readiness
+
+Status: planned
+
+Scope:
+
+- Add parser fixture tests for English, Simplified Chinese, Traditional Chinese, and Japanese.
+- Add tests for:
+  - missing credentials
+  - invalid custom base URL
+  - invalid parser JSON
+  - past-date warning
+  - future-date warning or acceptance
+  - draft-to-schedule conversion
+  - temporary audio cleanup on success and failure
+- Run:
+
+```bash
+xcodebuild -project NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test
+```
+
+- Manual QA:
+  - first-run AI disabled state
+  - microphone permission denied
+  - provider credential missing
+  - record short Chinese command
+  - record short English command
+  - add one selected draft
+  - cancel review sheet
+  - cloud parser failure
+  - local model missing
+
+## Risks
+
+- Provider model names and API behavior change over time. Keep provider definitions easy to update and avoid hard-coding too much UI copy around one model.
+- Local STT adds package size, model management, disk-space UI, and memory pressure concerns. Keep it phase 2.
+- Global hotkeys can create trust friction on macOS. Keep them opt-in and avoid asking for permissions until the user chooses the feature.
+- Future-dated schedule items are already storable, but the current dashboard is today-centric. Decide the UI policy before relying on future reminders heavily.
+
+## Implementation Order
+
+1. Finish Phase 1 and ship a reliable cloud MVP.
+2. Add provider readiness polish from Phase 3 where it reduces support burden.
+3. Add Phase 2 local WhisperKit STT.
+4. Add Phase 4 global shortcut.
+5. Expand to richer schedule views only after the capture loop is stable.
+
+## Definition of Done
+
+The AI schedule assistant is done for the first release when:
+
+- AI capture has clear entry points in menu bar and dashboard.
+- Users can configure providers without guessing what is missing.
+- AI output is always reviewed before saving.
+- Confirmed drafts become normal `DailyScheduleItem` values.
+- Existing schedule reminders handle saved AI items.
+- Tests pass and privacy copy accurately reflects selected providers.
