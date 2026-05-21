@@ -22,6 +22,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let dailyScheduleStore: DailyScheduleStore
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
+    private let voiceInputSession: VoiceInputSessionController
     private let onOpenDashboard: () -> Void
     private let onOpenAICapture: () -> Void
     private let menu = NSMenu()
@@ -34,6 +35,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let pauseMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let soundMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let remindNowMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let voiceInputMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let aiCaptureMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let dashboardMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ",")
     private let quitMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "q")
@@ -44,6 +46,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         dailyScheduleStore: DailyScheduleStore,
         languageManager: LanguageManager,
         preferencesStore: PreferencesStore,
+        voiceInputSession: VoiceInputSessionController,
         onOpenDashboard: @escaping () -> Void,
         onOpenAICapture: @escaping () -> Void
     ) {
@@ -52,6 +55,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.dailyScheduleStore = dailyScheduleStore
         self.languageManager = languageManager
         self.preferencesStore = preferencesStore
+        self.voiceInputSession = voiceInputSession
         self.onOpenDashboard = onOpenDashboard
         self.onOpenAICapture = onOpenAICapture
         super.init()
@@ -93,7 +97,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         remindNowMenuItem.action = #selector(remindNow)
         menu.addItem(remindNowMenuItem)
 
-        // Row 5: AI schedule capture
+        // Row 5: Voice input
+        voiceInputMenuItem.target = self
+        voiceInputMenuItem.action = #selector(toggleVoiceInput)
+        menu.addItem(voiceInputMenuItem)
+
+        // Row 6: AI schedule capture
         aiCaptureMenuItem.target = self
         aiCaptureMenuItem.action = #selector(openAICapture)
         menu.addItem(aiCaptureMenuItem)
@@ -184,6 +193,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // Remind now
         remindNowMenuItem.title = L("menu.remind_now")
 
+        voiceInputMenuItem.title = voiceInputSession.isRecording ? L("menu.voice_input_stop") : L("menu.voice_input_start")
+
         // AI schedule capture
         aiCaptureMenuItem.title = L("menu.ai_add_schedule")
 
@@ -217,6 +228,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func openAICapture() {
         logger.notice("Opening AI schedule capture")
         onOpenAICapture()
+    }
+
+    @objc private func toggleVoiceInput() {
+        logger.notice("Voice input toggled from menu bar")
+        voiceInputSession.toggleFromMenu()
     }
 
     @objc private func toggleSound() {

@@ -114,6 +114,7 @@ struct SettingsContentView: View {
     @State private var localSpeechModelStore: LocalSpeechModelStore
     @State private var microphoneAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .audio)
     @State private var appleSpeechAuthorizationState: AppleSpeechAuthorizationState = .unknown
+    @State private var accessibilityTrusted = AccessibilityPermissionService.isTrusted
 
     private let screenProvider = MainScreenProvider()
     private static let intervalOptions = [15, 20, 25, 30, 45, 60]
@@ -344,6 +345,7 @@ struct SettingsContentView: View {
     private var aiInputSection: some View {
         Section {
             microphonePermissionRow
+            accessibilityPermissionRow
 
             SettingsPropertyRow("ai.settings.transcription_provider") {
                 HStack(spacing: 8) {
@@ -550,6 +552,29 @@ struct SettingsContentView: View {
                 if appleSpeechAuthorizationState == .denied || appleSpeechAuthorizationState == .restricted {
                     Button("ai.settings.open_macos_settings") {
                         SystemPrivacySettings.openSpeechRecognition()
+                    }
+                }
+            }
+            .font(.caption)
+        }
+    }
+
+    private var accessibilityPermissionRow: some View {
+        SettingsPropertyRow("ai.settings.accessibility_permission", captionKey: accessibilityPermissionCaptionKey) {
+            HStack(spacing: 8) {
+                permissionLabel(
+                    accessibilityPermissionStatusText,
+                    color: accessibilityTrusted ? .green : .orange,
+                    isReady: accessibilityTrusted
+                )
+
+                if !accessibilityTrusted {
+                    Button("ai.settings.request_permission") {
+                        requestAccessibilityPermission()
+                    }
+
+                    Button("ai.settings.open_macos_settings") {
+                        SystemPrivacySettings.openAccessibility()
                     }
                 }
             }
@@ -999,6 +1024,16 @@ struct SettingsContentView: View {
         }
     }
 
+    private var accessibilityPermissionStatusText: String {
+        accessibilityTrusted
+            ? localizedString("ai.settings.permission_authorized")
+            : localizedString("ai.settings.permission_not_determined")
+    }
+
+    private var accessibilityPermissionCaptionKey: String? {
+        accessibilityTrusted ? nil : "ai.settings.accessibility_permission_caption"
+    }
+
     private var globalHotkeyStatusText: String {
         switch globalHotkeyController.registrationState {
         case .disabled:
@@ -1340,6 +1375,7 @@ struct SettingsContentView: View {
     private func refreshSystemPermissionState() {
         microphoneAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .audio)
         appleSpeechAuthorizationState = AppleSpeechTranscriptionProvider.authorizationState()
+        accessibilityTrusted = AccessibilityPermissionService.isTrusted
     }
 
     private func requestMicrophonePermission() {
@@ -1354,6 +1390,10 @@ struct SettingsContentView: View {
         Task { @MainActor in
             appleSpeechAuthorizationState = await AppleSpeechTranscriptionProvider.requestAuthorizationState()
         }
+    }
+
+    private func requestAccessibilityPermission() {
+        accessibilityTrusted = AccessibilityPermissionService.requestTrustPrompt()
     }
 
     private func downloadLocalModel() {
@@ -1714,7 +1754,7 @@ private struct SettingsDynamicPropertyRow<Content: View>: View {
         preferencesStore: preferencesStore,
         aiProviderPreferences: AIProviderPreferences(defaults: settings.defaults),
         breakStatsStore: breakStatsStore,
-        globalHotkeyController: GlobalAICaptureHotkeyController {}
+        globalHotkeyController: GlobalAICaptureHotkeyController(onPress: {}, onRelease: {})
     )
         .frame(width: 420, height: 600)
 }

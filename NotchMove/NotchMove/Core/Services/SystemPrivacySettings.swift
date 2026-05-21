@@ -16,6 +16,10 @@ enum SystemPrivacySettings {
         open("x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition")
     }
 
+    static func openAccessibility() {
+        open("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+    }
+
     static func openPrivacyAndSecurity() {
         open("x-apple.systempreferences:com.apple.preference.security")
     }

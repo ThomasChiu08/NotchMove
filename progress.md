@@ -37,3 +37,13 @@
 - Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
 - Completed AI schedule assistant implementation Phase 5 automated QA: added English, Simplified Chinese, Traditional Chinese, and Japanese parser fixture tests; confirmed existing Phase 5 regression coverage for credentials, Base URL validation, invalid parser JSON, date warnings, draft conversion, and temporary audio cleanup.
 - Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed. Live microphone/provider manual QA remains to run on a configured machine.
+
+## 2026-05-15
+
+- Executed `docs/plans/2026-05-01-ai-input-full-flow-optimization-plan.md`.
+- Confirmed Apple Speech transcription provider support, generated `NSSpeechRecognitionUsageDescription`, Speech Recognition permission handling, Settings readiness diagnostics, and split AI Settings sections are present.
+- Added the full voice input path on top of the AI input flow: menu bar start/stop, global shortcut press/release handling, notch overlay recording/processing/result/error states, cleanup, insertion, undo, Accessibility recovery, and clipboard fallback.
+- Updated Info.plist privacy descriptions so microphone and Apple Speech copy covers both AI schedule capture and voice input.
+- Ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' -derivedDataPath /private/tmp/NotchMove-DerivedData test`; result: passed.
+- Fixed `script/verify_release_privacy.sh` for current `codesign --entitlements` output and verified the Release app privacy metadata/entitlements.
+- Ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -configuration Release -destination 'platform=macOS' -derivedDataPath /private/tmp/NotchMove-Release-DerivedData build`; result: passed.

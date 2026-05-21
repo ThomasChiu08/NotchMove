@@ -47,14 +47,30 @@ TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/notchmove-entitlements.XXXXXX")"
 ENTITLEMENTS_PLIST="$TMP_DIR/entitlements.plist"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-if ! codesign -d --entitlements :- "$APP_PATH" >"$ENTITLEMENTS_PLIST" 2>/dev/null; then
+if ! codesign -d --entitlements "$ENTITLEMENTS_PLIST" "$APP_PATH" >/dev/null 2>/dev/null; then
   fail "unable to read code signing entitlements"
 fi
+
+entitlement_value() {
+  local key="$1"
+  local value
+  if value="$(/usr/libexec/PlistBuddy -c "Print :$key" "$ENTITLEMENTS_PLIST" 2>/dev/null)"; then
+    printf '%s\n' "$value"
+    return
+  fi
+
+  awk -v key="$key" '
+    index($0, "[Key] " key) { found = 1; next }
+    found && index($0, "[Bool] true") { print "true"; exit }
+    found && index($0, "[Bool] false") { print "false"; exit }
+    found && index($0, "[Key] ") { exit }
+  ' "$ENTITLEMENTS_PLIST"
+}
 
 require_entitlement_true() {
   local key="$1"
   local value
-  value="$(/usr/libexec/PlistBuddy -c "Print :$key" "$ENTITLEMENTS_PLIST" 2>/dev/null || true)"
+  value="$(entitlement_value "$key")"
   if [[ "$value" != "true" ]]; then
     fail "missing or false entitlement: $key"
   fi

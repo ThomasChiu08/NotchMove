@@ -513,7 +513,7 @@ private struct DashboardSettingsPage: View {
         preferencesStore: preferencesStore,
         aiProviderPreferences: AIProviderPreferences(defaults: settings.defaults),
         breakStatsStore: breakStatsStore,
-        globalHotkeyController: GlobalAICaptureHotkeyController {}
+        globalHotkeyController: GlobalAICaptureHotkeyController(onPress: {}, onRelease: {})
     )
     .frame(width: 920, height: 640)
 }

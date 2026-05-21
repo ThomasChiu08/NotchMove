@@ -82,6 +82,8 @@
 "menu.pause" = "暂停提醒";
 "menu.resume" = "恢复提醒";
 "menu.remind_now" = "立即提醒";
+"menu.voice_input_start" = "开始语音输入";
+"menu.voice_input_stop" = "停止语音输入";
 "menu.ai_add_schedule" = "AI 添加日程…";
 "menu.sound" = "提醒声音";
 "menu.next_schedule_format" = "下个行程：%@ · %@";
@@ -184,7 +186,7 @@
 "ai.settings.section_credentials" = "凭据";
 "ai.settings.section_diagnostics" = "诊断";
 "ai.settings.global_hotkey" = "全局快捷键";
-"ai.settings.global_hotkey_caption" = "默认关闭。开启后只注册所选快捷键；不会请求辅助功能或输入监控权限。开始录音时，macOS 可能会请求麦克风权限。";
+"ai.settings.global_hotkey_caption" = "默认关闭。按住所选快捷键开始语音输入，松开后插入文本。自动插入可能需要辅助功能权限。";
 "ai.settings.global_hotkey_shortcut" = "快捷键";
 "ai.settings.global_hotkey_shortcut_control_option_space" = "Control-Option-Space";
 "ai.settings.global_hotkey_shortcut_control_option_a" = "Control-Option-A";
@@ -199,6 +201,8 @@
 "ai.settings.parser_provider" = "解析服务";
 "ai.settings.parser_model" = "解析模型";
 "ai.settings.microphone_permission" = "麦克风权限";
+"ai.settings.accessibility_permission" = "文本插入权限";
+"ai.settings.accessibility_permission_caption" = "用于把清理后的语音文本粘贴到当前 App。未授权时，NotchMove 会只复制到剪贴板。";
 "ai.settings.apple_speech_permission" = "语音识别权限";
 "ai.settings.permission_authorized" = "已允许";
 "ai.settings.permission_not_determined" = "未请求";
@@ -330,3 +334,17 @@
 "ai.error.speech_recognition_unavailable_format" = "Apple Speech 暂不支持 %@。";
 "ai.error.speech_recognition_failed_format" = "Apple Speech 识别失败：%@";
 "ai.error.keychain_failed_format" = "钥匙串访问失败：%@";
+
+/* ─── Voice Input Overlay ─── */
+"voice.overlay.listening" = "正在聆听";
+"voice.overlay.processing" = "正在清理文本";
+"voice.overlay.processing_detail" = "转写并准备插入";
+"voice.overlay.inserted" = "已插入";
+"voice.overlay.inserted_accessibility" = "已插入当前输入框";
+"voice.overlay.inserted_clipboard" = "已粘贴到当前 App";
+"voice.overlay.copied" = "已复制";
+"voice.overlay.copied_detail" = "允许辅助功能后可自动插入";
+"voice.overlay.failed" = "语音输入失败";
+"voice.overlay.failed_detail" = "请重试";
+"voice.overlay.undo" = "撤销";
+"voice.overlay.dismiss" = "关闭";

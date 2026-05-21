@@ -82,6 +82,8 @@
 "menu.pause" = "Pause reminders";
 "menu.resume" = "Resume reminders";
 "menu.remind_now" = "Remind me now";
+"menu.voice_input_start" = "Start Voice Input";
+"menu.voice_input_stop" = "Stop Voice Input";
 "menu.ai_add_schedule" = "AI Add Schedule…";
 "menu.sound" = "Sound on reminder";
 "menu.next_schedule_format" = "Next schedule: %@ · %@";
@@ -184,7 +186,7 @@
 "ai.settings.section_credentials" = "Credentials";
 "ai.settings.section_diagnostics" = "Diagnostics";
 "ai.settings.global_hotkey" = "Global shortcut";
-"ai.settings.global_hotkey_caption" = "Off by default. Registers only the selected shortcut; no Accessibility or Input Monitoring permission is requested. macOS may ask for Microphone access when recording starts.";
+"ai.settings.global_hotkey_caption" = "Off by default. Hold the selected shortcut to dictate, release to insert. Text insertion may request Accessibility access.";
 "ai.settings.global_hotkey_shortcut" = "Shortcut";
 "ai.settings.global_hotkey_shortcut_control_option_space" = "Control-Option-Space";
 "ai.settings.global_hotkey_shortcut_control_option_a" = "Control-Option-A";
@@ -199,6 +201,8 @@
 "ai.settings.parser_provider" = "Parser provider";
 "ai.settings.parser_model" = "Parser model";
 "ai.settings.microphone_permission" = "Microphone access";
+"ai.settings.accessibility_permission" = "Text insertion access";
+"ai.settings.accessibility_permission_caption" = "Needed to paste cleaned dictation into the current app. Without it, NotchMove copies the text to the clipboard instead.";
 "ai.settings.apple_speech_permission" = "Speech Recognition access";
 "ai.settings.permission_authorized" = "Allowed";
 "ai.settings.permission_not_determined" = "Not requested";
@@ -330,3 +334,17 @@
 "ai.error.speech_recognition_unavailable_format" = "Apple Speech recognition is unavailable for %@.";
 "ai.error.speech_recognition_failed_format" = "Apple Speech recognition failed: %@";
 "ai.error.keychain_failed_format" = "Keychain access failed: %@";
+
+/* ─── Voice Input Overlay ─── */
+"voice.overlay.listening" = "Listening";
+"voice.overlay.processing" = "Cleaning text";
+"voice.overlay.processing_detail" = "Transcribing and preparing insertion";
+"voice.overlay.inserted" = "Inserted";
+"voice.overlay.inserted_accessibility" = "Inserted into the current field";
+"voice.overlay.inserted_clipboard" = "Pasted into the current app";
+"voice.overlay.copied" = "Copied";
+"voice.overlay.copied_detail" = "Allow Accessibility to insert automatically";
+"voice.overlay.failed" = "Voice input failed";
+"voice.overlay.failed_detail" = "Try again";
+"voice.overlay.undo" = "Undo";
+"voice.overlay.dismiss" = "Dismiss";

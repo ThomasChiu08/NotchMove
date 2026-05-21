@@ -9,6 +9,7 @@ import SwiftUI
 
 struct NotchView: View {
     let reminderEngine: ReminderEngine
+    let voiceInputSession: VoiceInputSessionController
     let overlayMetrics: NotchOverlayMetrics
 
     private let shapeAnimation = Animation.smooth(duration: 0.24, extraBounce: 0)
@@ -17,23 +18,36 @@ struct NotchView: View {
     var body: some View {
         ZStack(alignment: .top) {
             NotchShape(cornerRadius: cornerRadius)
-                .fill(Color(red: 0.02, green: 0.02, blue: 0.02))
-                .animation(shapeAnimation, value: reminderEngine.overlayState.presentation)
+                .fill(backgroundColor)
+                .animation(shapeAnimation, value: activePresentation)
 
             contentLayer
                 .clipped()
         }
         .onHover { hovering in
+            guard !voiceInputSession.isOverlayVisible else { return }
             reminderEngine.send(.hoverChanged(hovering))
         }
     }
 
     private var cornerRadius: CGFloat {
-        switch reminderEngine.overlayState.presentation {
+        switch activePresentation {
         case .hidden, .reminderPending, .dismissAnimating: 10
         case .hoverPreview: 14
         case .presenting: 16
         }
+    }
+
+    private var activePresentation: ReminderState.PresentationPhase {
+        voiceInputSession.isOverlayVisible ? .presenting : reminderEngine.overlayState.presentation
+    }
+
+    private var backgroundColor: Color {
+        if case .recording = voiceInputSession.phase {
+            return Color(red: 0.08, green: 0.015, blue: 0.018)
+        }
+
+        return Color(red: 0.02, green: 0.02, blue: 0.02)
     }
 
     private var contentLayer: some View {
@@ -41,23 +55,61 @@ struct NotchView: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(contentAnimation, value: reminderEngine.overlayState.presentation)
+        .animation(contentAnimation, value: activePresentation)
     }
 
     @ViewBuilder
     private var content: some View {
-        switch reminderEngine.overlayState.presentation {
-        case .hidden, .dismissAnimating:
+        if voiceInputSession.isOverlayVisible {
+            voiceInputContent
+                .transition(.notchOverlayInsertion)
+        } else {
+            switch reminderEngine.overlayState.presentation {
+            case .hidden, .dismissAnimating:
+                EmptyView()
+            case .reminderPending:
+                reminderPendingIndicator
+                    .transition(.opacity)
+            case .hoverPreview:
+                hoverPreview
+                    .transition(.notchOverlayInsertion)
+            case .presenting:
+                reminderContent
+                    .transition(.notchOverlayInsertion)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var voiceInputContent: some View {
+        switch voiceInputSession.phase {
+        case .idle:
             EmptyView()
-        case .reminderPending:
-            reminderPendingIndicator
-                .transition(.opacity)
-        case .hoverPreview:
-            hoverPreview
-                .transition(.notchOverlayInsertion)
-        case .presenting:
-            reminderContent
-                .transition(.notchOverlayInsertion)
+        case .recording(let startedAt):
+            VoiceRecordingContentView(
+                startedAt: startedAt,
+                topInset: overlayMetrics.topInset
+            ) {
+                voiceInputSession.cancel()
+            }
+        case .processing:
+            VoiceProcessingContentView(topInset: overlayMetrics.topInset)
+        case .inserted(let outcome):
+            VoiceResultContentView(
+                outcome: outcome,
+                topInset: overlayMetrics.topInset
+            ) {
+                voiceInputSession.undoLastInsertion()
+            } onDismiss: {
+                voiceInputSession.cancel()
+            }
+        case .failed(let message):
+            VoiceErrorContentView(
+                message: message,
+                topInset: overlayMetrics.topInset
+            ) {
+                voiceInputSession.cancel()
+            }
         }
     }
 
@@ -124,6 +176,192 @@ private struct ReminderPendingIndicatorView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .allowsHitTesting(false)
         }
+    }
+}
+
+private struct VoiceRecordingContentView: View {
+    let startedAt: Date
+    let topInset: CGFloat
+    let onCancel: () -> Void
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            HStack(spacing: 10) {
+                Image(systemName: "waveform")
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundStyle(.red)
+                    .symbolEffect(.pulse, options: .repeating)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("voice.overlay.listening")
+                        .font(.system(.caption, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+
+                    Text(elapsedText(at: context.date))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.white.opacity(0.62))
+                }
+
+                Spacer(minLength: 8)
+
+                Button(action: onCancel) {
+                    Text("cancel")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+                .controlSize(.small)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, topInset + 4)
+        }
+    }
+
+    private func elapsedText(at date: Date) -> String {
+        let seconds = max(Int(date.timeIntervalSince(startedAt)), 0)
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+}
+
+private struct VoiceProcessingContentView: View {
+    let topInset: CGFloat
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+                .tint(.white)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("voice.overlay.processing")
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+
+                Text("voice.overlay.processing_detail")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 6)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, topInset + 4)
+    }
+}
+
+private struct VoiceResultContentView: View {
+    let outcome: TextInsertionOutcome
+    let topInset: CGFloat
+    let onUndo: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: iconName)
+                .font(.system(.caption, weight: .semibold))
+                .foregroundStyle(outcome.didReachTargetApp ? .green : .yellow)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(titleKey)
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+
+                Text(detailKey)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+
+            Spacer(minLength: 6)
+
+            if outcome.didReachTargetApp {
+                Button(action: onUndo) {
+                    Text("voice.overlay.undo")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+                .controlSize(.small)
+            } else {
+                Button(action: onDismiss) {
+                    Text("voice.overlay.dismiss")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+                .controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, topInset + 4)
+    }
+
+    private var iconName: String {
+        outcome.didReachTargetApp ? "text.insert" : "doc.on.clipboard"
+    }
+
+    private var titleKey: LocalizedStringKey {
+        switch outcome {
+        case .insertedViaAccessibility, .pastedViaClipboard:
+            "voice.overlay.inserted"
+        case .copiedToClipboard:
+            "voice.overlay.copied"
+        case .failed:
+            "voice.overlay.failed"
+        }
+    }
+
+    private var detailKey: LocalizedStringKey {
+        switch outcome {
+        case .insertedViaAccessibility:
+            "voice.overlay.inserted_accessibility"
+        case .pastedViaClipboard:
+            "voice.overlay.inserted_clipboard"
+        case .copiedToClipboard:
+            "voice.overlay.copied_detail"
+        case .failed:
+            "voice.overlay.failed_detail"
+        }
+    }
+}
+
+private struct VoiceErrorContentView: View {
+    let message: String
+    let topInset: CGFloat
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.yellow)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("voice.overlay.failed")
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+
+                Text(message)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.62)
+            }
+
+            Spacer(minLength: 6)
+
+            Button(action: onDismiss) {
+                Text("voice.overlay.dismiss")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, topInset + 4)
     }
 }
 
@@ -406,7 +644,14 @@ private struct PreviewSoundPlayer: SoundPlaying {
     )
     let overlayMetrics = NotchOverlayMetrics(topInset: 38)
 
-    NotchView(reminderEngine: engine, overlayMetrics: overlayMetrics)
+    NotchView(
+        reminderEngine: engine,
+        voiceInputSession: VoiceInputSessionController(
+            preferences: AIProviderPreferences(defaults: settings.defaults),
+            languageManager: LanguageManager(preferencesStore: preferencesStore)
+        ),
+        overlayMetrics: overlayMetrics
+    )
         .frame(width: 380, height: 160)
         .background(.gray)
         .onAppear {

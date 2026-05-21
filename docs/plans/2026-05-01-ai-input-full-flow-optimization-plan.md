@@ -4,6 +4,8 @@
 
 Implement a complete AI input flow that fits macOS: Apple Speech/system permission support, a clearer native Settings experience, reliable readiness diagnostics, and the existing draft-review boundary before writing schedule items.
 
+Status: implemented and verified on 2026-05-15.
+
 Current baseline:
 
 - The app already has microphone entitlement and usage copy, Keychain-backed credentials, WhisperKit, cloud transcription/parser providers, the AI capture sheet, and AI assistant tests.
@@ -20,11 +22,26 @@ Current baseline:
 - Keep privacy copy accurate for cloud, Apple Speech, and local WhisperKit flows.
 - Keep AI output as editable drafts; confirmed drafts are still the only path into `DailyScheduleStore`.
 
+## Completion Notes
+
+- Added Apple Speech provider selection with automatic, English, Simplified Chinese, Traditional Chinese, and Japanese locale choices.
+- Added Speech Recognition permission state, request, denial recovery, and generated Info.plist privacy metadata.
+- Kept provider readiness diagnostics split between transcription and parser setup.
+- Added text insertion access recovery for the hold-to-dictate voice input flow; when Accessibility is unavailable, cleaned dictation falls back to the clipboard.
+- Routed menu bar and global shortcut voice input through the notch overlay with recording, processing, inserted, copied, failed, undo, and dismiss states.
+- Updated localized Settings/menu/overlay strings in English, Simplified Chinese, Traditional Chinese, and Japanese.
+
 ## Test Plan
 
 - Unit tests for provider registry, Apple Speech provider construction, no-credential behavior, and model defaults.
 - Existing AI assistant tests for parser fixtures, provider factory wiring, readiness diagnostics, secret redaction, and temporary audio cleanup.
 - Manual checks for Settings layout, Apple Speech permission request, microphone denial recovery, local model missing state, and AI capture draft review.
+
+Verification:
+
+- `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' -derivedDataPath /private/tmp/NotchMove-DerivedData test` passed on 2026-05-15.
+- `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -configuration Release -destination 'platform=macOS' -derivedDataPath /private/tmp/NotchMove-Release-DerivedData build` passed on 2026-05-15.
+- `script/verify_release_privacy.sh /private/tmp/NotchMove-Release-DerivedData/Build/Products/Release/NotchMove.app` passed on 2026-05-15.
 
 ## Assumptions
 

@@ -92,10 +92,11 @@ NotchMove/dist/NotchMove-1.0-test-YYYYMMDD-HHMM.dmg
 
 给朋友测试时可同时发送 [中文安装与使用说明](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md)。
 
-如果本机曾运行过缺少麦克风权限声明的旧包，退出 NotchMove 后重置权限记录，再启动新包并点击“请求权限”：
+如果本机曾运行过缺少麦克风或语音识别权限声明的旧包，退出 NotchMove 后重置权限记录，再启动新包并点击“请求权限”：
 
 ```bash
 tccutil reset Microphone com.thomaschiu.developer.NotchMove
+tccutil reset SpeechRecognition com.thomaschiu.developer.NotchMove
 ```
 
 ### 运行时结构
@@ -194,10 +195,11 @@ NotchMove/dist/NotchMove-1.0-test-YYYYMMDD-HHMM.dmg
 
 For friend testing, send the [Simplified Chinese install and usage guide](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md) with the DMG.
 
-If this Mac previously ran an older package without microphone privacy metadata, quit NotchMove, reset the TCC record, then launch the new package and click Request Access:
+If this Mac previously ran an older package without microphone or speech recognition privacy metadata, quit NotchMove, reset the TCC records, then launch the new package and click Request Access:
 
 ```bash
 tccutil reset Microphone com.thomaschiu.developer.NotchMove
+tccutil reset SpeechRecognition com.thomaschiu.developer.NotchMove
 ```
 
 ### Runtime Overview

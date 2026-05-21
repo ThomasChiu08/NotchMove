@@ -20,7 +20,8 @@ enum GlobalHotkeyRegistrationState: Equatable {
 @Observable
 final class GlobalAICaptureHotkeyController {
     private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "global-hotkey")
-    private let onToggleCapture: () -> Void
+    private let onPress: () -> Void
+    private let onRelease: () -> Void
     @ObservationIgnored private nonisolated(unsafe) var eventHandlerRef: EventHandlerRef?
     @ObservationIgnored private nonisolated(unsafe) var hotKeyRef: EventHotKeyRef?
     @ObservationIgnored private nonisolated(unsafe) var isEventHandlerInstalled = false
@@ -30,8 +31,12 @@ final class GlobalAICaptureHotkeyController {
 
     var registrationState: GlobalHotkeyRegistrationState = .disabled
 
-    init(onToggleCapture: @escaping () -> Void) {
-        self.onToggleCapture = onToggleCapture
+    init(
+        onPress: @escaping () -> Void,
+        onRelease: @escaping () -> Void
+    ) {
+        self.onPress = onPress
+        self.onRelease = onRelease
     }
 
     deinit {
@@ -84,26 +89,42 @@ final class GlobalAICaptureHotkeyController {
         update(preferences: preferences)
     }
 
-    fileprivate func handleHotKeyPressed() {
-        logger.notice("Global AI capture hotkey pressed")
-        onToggleCapture()
+    fileprivate func handleHotKeyEvent(kind: UInt32) {
+        switch kind {
+        case UInt32(kEventHotKeyPressed):
+            logger.notice("Global AI capture hotkey pressed")
+            onPress()
+        case UInt32(kEventHotKeyReleased):
+            logger.notice("Global AI capture hotkey released")
+            onRelease()
+        default:
+            break
+        }
     }
 
     private func installEventHandlerIfNeeded(for shortcut: GlobalHotkeyShortcut) -> Bool {
         guard !isEventHandlerInstalled else { return true }
 
-        var eventType = EventTypeSpec(
-            eventClass: OSType(kEventClassKeyboard),
-            eventKind: UInt32(kEventHotKeyPressed)
-        )
-        let installStatus = InstallEventHandler(
-            GetApplicationEventTarget(),
-            globalAICaptureHotkeyEventHandler,
-            1,
-            &eventType,
-            Unmanaged.passUnretained(self).toOpaque(),
-            &eventHandlerRef
-        )
+        let eventTypes = [
+            EventTypeSpec(
+                eventClass: OSType(kEventClassKeyboard),
+                eventKind: UInt32(kEventHotKeyPressed)
+            ),
+            EventTypeSpec(
+                eventClass: OSType(kEventClassKeyboard),
+                eventKind: UInt32(kEventHotKeyReleased)
+            ),
+        ]
+        let installStatus = eventTypes.withUnsafeBufferPointer { buffer in
+            InstallEventHandler(
+                GetApplicationEventTarget(),
+                globalAICaptureHotkeyEventHandler,
+                buffer.count,
+                buffer.baseAddress,
+                Unmanaged.passUnretained(self).toOpaque(),
+                &eventHandlerRef
+            )
+        }
 
         guard installStatus == noErr else {
             let message = Self.message(for: installStatus)
@@ -134,15 +155,16 @@ final class GlobalAICaptureHotkeyController {
     }
 }
 
-private let globalAICaptureHotkeyEventHandler: EventHandlerUPP = { _, _, userData in
+private let globalAICaptureHotkeyEventHandler: EventHandlerUPP = { _, event, userData in
     guard let userData else { return noErr }
 
     let controller = Unmanaged<GlobalAICaptureHotkeyController>
         .fromOpaque(userData)
         .takeUnretainedValue()
+    let kind = event.map { GetEventKind($0) } ?? 0
 
     Task { @MainActor in
-        controller.handleHotKeyPressed()
+        controller.handleHotKeyEvent(kind: kind)
     }
 
     return noErr

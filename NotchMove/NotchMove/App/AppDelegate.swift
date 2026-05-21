@@ -18,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var aiProviderPreferences = AIProviderPreferences(defaults: settings.defaults)
     private lazy var aiScheduleAssistantService = AIScheduleAssistantService(preferences: aiProviderPreferences)
     private lazy var languageManager = LanguageManager(preferencesStore: preferencesStore)
+    private lazy var voiceInputSession = VoiceInputSessionController(
+        preferences: aiProviderPreferences,
+        languageManager: languageManager
+    )
 
     private var activityMonitor: ActivityMonitor?
     private var reminderEngine: ReminderEngine?
@@ -46,9 +50,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             soundPlayer: soundPlayer,
             breakStatsStore: breakStatsStore
         )
-        let globalHotkeyController = GlobalAICaptureHotkeyController { [weak self] in
-            self?.dashboardWindowController?.toggleAICaptureFromGlobalHotkey()
-        }
+        let globalHotkeyController = GlobalAICaptureHotkeyController(
+            onPress: { [weak self] in
+                self?.voiceInputSession.beginPushToTalk()
+            },
+            onRelease: { [weak self] in
+                self?.voiceInputSession.endPushToTalk()
+            }
+        )
         let scheduleReminderEngine = DailyScheduleReminderEngine(
             scheduleStore: dailyScheduleStore,
             soundPlayer: soundPlayer,
@@ -56,6 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         let controller = NotchWindowController(
             reminderEngine: engine,
+            voiceInputSession: voiceInputSession,
             languageManager: languageManager,
             preferencesStore: preferencesStore
         )
@@ -88,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dailyScheduleStore: dailyScheduleStore,
             languageManager: languageManager,
             preferencesStore: preferencesStore,
+            voiceInputSession: voiceInputSession,
             onOpenDashboard: { [weak dashboardWindow] in
                 dashboardWindow?.openDashboard()
             },

@@ -11,6 +11,7 @@ import SwiftUI
 final class NotchWindowController {
     private let panel: NotchWindow
     private let reminderEngine: ReminderEngine
+    private let voiceInputSession: VoiceInputSessionController
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
     private let overlayMetrics: NotchOverlayMetrics
@@ -37,12 +38,14 @@ final class NotchWindowController {
 
     init(
         reminderEngine: ReminderEngine,
+        voiceInputSession: VoiceInputSessionController,
         languageManager: LanguageManager,
         preferencesStore: PreferencesStore,
         screenProvider: ScreenProviding = MainScreenProvider(),
         placementService: ScreenPlacementService = ScreenPlacementService()
     ) {
         self.reminderEngine = reminderEngine
+        self.voiceInputSession = voiceInputSession
         self.languageManager = languageManager
         self.preferencesStore = preferencesStore
         self.screenProvider = screenProvider
@@ -52,6 +55,7 @@ final class NotchWindowController {
         hostingView = NSHostingView(
             rootView: Self.makeRootView(
                 reminderEngine: reminderEngine,
+                voiceInputSession: voiceInputSession,
                 overlayMetrics: overlayMetrics,
                 locale: languageManager.locale
             )
@@ -89,6 +93,7 @@ final class NotchWindowController {
         panel.orderFrontRegardless()
         installScreenChangeObserver()
         observeReminderState()
+        observeVoiceInputState()
     }
 
     // MARK: - State Observation
@@ -104,6 +109,18 @@ final class NotchWindowController {
         }
     }
 
+    private func observeVoiceInputState() {
+        withObservationTracking {
+            _ = voiceInputSession.phase
+        } onChange: {
+            Task { @MainActor [weak self] in
+                self?.applyCurrentPlacement(animated: true)
+                self?.updateHostingRootView()
+                self?.observeVoiceInputState()
+            }
+        }
+    }
+
     // MARK: - Screen Tracking
 
     private func applyCurrentPlacement(animated: Bool) {
@@ -112,7 +129,7 @@ final class NotchWindowController {
         }
 
         let placement = placementService.placement(
-            for: reminderEngine.overlayState.presentation,
+            for: activePresentation,
             on: screen,
             notchExpansionEnabled: preferencesStore.preferences.notchExpansionEnabled
         )
@@ -136,18 +153,28 @@ final class NotchWindowController {
     private func updateHostingRootView() {
         hostingView.rootView = Self.makeRootView(
             reminderEngine: reminderEngine,
+            voiceInputSession: voiceInputSession,
             overlayMetrics: overlayMetrics,
             locale: languageManager.locale
         )
     }
 
+    private var activePresentation: ReminderState.PresentationPhase {
+        voiceInputSession.isOverlayVisible ? .presenting : reminderEngine.overlayState.presentation
+    }
+
     private static func makeRootView(
         reminderEngine: ReminderEngine,
+        voiceInputSession: VoiceInputSessionController,
         overlayMetrics: NotchOverlayMetrics,
         locale: Locale
     ) -> AnyView {
         AnyView(
-            NotchView(reminderEngine: reminderEngine, overlayMetrics: overlayMetrics)
+            NotchView(
+                reminderEngine: reminderEngine,
+                voiceInputSession: voiceInputSession,
+                overlayMetrics: overlayMetrics
+            )
                 .environment(\.locale, locale)
         )
     }
