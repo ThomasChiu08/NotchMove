@@ -51,18 +51,33 @@ final class TextInsertionService {
 
         guard AccessibilityPermissionService.isTrusted else {
             _ = AccessibilityPermissionService.requestTrustPrompt()
-            copyToPasteboard(trimmedText)
+            guard copyToPasteboard(trimmedText) else {
+                let outcome = TextInsertionOutcome.failed("Could not copy text to the clipboard.")
+                lastOutcome = outcome
+                return outcome
+            }
             lastOutcome = .copiedToClipboard
             logger.notice("Voice text copied because Accessibility is not trusted")
             return .copiedToClipboard
         }
 
         let snapshot = PasteboardSnapshot.capture(from: pasteboard)
-        copyToPasteboard(trimmedText)
-        postCommandKey(virtualKey: UInt16(kVK_ANSI_V))
+        guard copyToPasteboard(trimmedText) else {
+            let outcome = TextInsertionOutcome.failed("Could not copy text to the clipboard.")
+            lastOutcome = outcome
+            return outcome
+        }
+
+        let pasteboardChangeCountAfterCopy = pasteboard.changeCount
+        guard postCommandKey(virtualKey: UInt16(kVK_ANSI_V)) else {
+            lastOutcome = .copiedToClipboard
+            return .copiedToClipboard
+        }
 
         try? await Task.sleep(for: .milliseconds(250))
-        snapshot.restore(to: pasteboard)
+        if !snapshot.restoreIfUnchanged(to: pasteboard, expectedChangeCount: pasteboardChangeCountAfterCopy) {
+            logger.notice("Skipped clipboard restoration because the pasteboard changed after voice paste")
+        }
 
         lastOutcome = .pastedViaClipboard
         logger.notice("Voice text pasted through clipboard fallback")
@@ -74,7 +89,7 @@ final class TextInsertionService {
             return
         }
 
-        postCommandKey(virtualKey: UInt16(kVK_ANSI_Z))
+        _ = postCommandKey(virtualKey: UInt16(kVK_ANSI_Z))
         self.lastOutcome = nil
         logger.notice("Voice insertion undo requested")
     }
@@ -91,7 +106,9 @@ final class TextInsertionService {
         )
         guard focusedResult == .success, let focusedValue else { return false }
 
-        let focusedElement = focusedValue as! AXUIElement
+        guard let focusedElement = TextInsertionService.accessibilityElement(from: focusedValue) else {
+            return false
+        }
         let selectedTextResult = AXUIElementSetAttributeValue(
             focusedElement,
             kAXSelectedTextAttribute as CFString,
@@ -100,32 +117,42 @@ final class TextInsertionService {
         return selectedTextResult == .success
     }
 
-    private func copyToPasteboard(_ text: String) {
+    private func copyToPasteboard(_ text: String) -> Bool {
         pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        return pasteboard.setString(text, forType: .string)
     }
 
-    private func postCommandKey(virtualKey: UInt16) {
+    private func postCommandKey(virtualKey: UInt16) -> Bool {
         guard
             let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: virtualKey, keyDown: true),
             let keyUp = CGEvent(keyboardEventSource: nil, virtualKey: virtualKey, keyDown: false)
         else {
-            return
+            return false
         }
 
         keyDown.flags = .maskCommand
         keyUp.flags = .maskCommand
         keyDown.post(tap: .cghidEventTap)
         keyUp.post(tap: .cghidEventTap)
+        return true
+    }
+
+    static func accessibilityElement(from value: CFTypeRef?) -> AXUIElement? {
+        guard let value, CFGetTypeID(value) == AXUIElementGetTypeID() else {
+            return nil
+        }
+
+        return unsafeDowncast(value, to: AXUIElement.self)
     }
 }
 
-private struct PasteboardSnapshot {
+struct PasteboardSnapshot {
     struct Item {
         var representations: [(type: NSPasteboard.PasteboardType, data: Data)]
     }
 
     var items: [Item]
+    var capturedChangeCount: Int
 
     static func capture(from pasteboard: NSPasteboard) -> PasteboardSnapshot {
         let items = pasteboard.pasteboardItems?.map { item in
@@ -135,12 +162,13 @@ private struct PasteboardSnapshot {
             })
         } ?? []
 
-        return PasteboardSnapshot(items: items)
+        return PasteboardSnapshot(items: items, capturedChangeCount: pasteboard.changeCount)
     }
 
-    func restore(to pasteboard: NSPasteboard) {
+    func restoreIfUnchanged(to pasteboard: NSPasteboard, expectedChangeCount: Int) -> Bool {
+        guard pasteboard.changeCount == expectedChangeCount else { return false }
         pasteboard.clearContents()
-        guard !items.isEmpty else { return }
+        guard !items.isEmpty else { return true }
 
         let restoredItems = items.map { snapshotItem in
             let item = NSPasteboardItem()
@@ -150,6 +178,6 @@ private struct PasteboardSnapshot {
             return item
         }
 
-        pasteboard.writeObjects(restoredItems)
+        return pasteboard.writeObjects(restoredItems)
     }
 }

@@ -7,6 +7,13 @@ VERSION="${VERSION:-1.0}"
 CHANNEL="${CHANNEL:-test}"
 BUILD_STAMP="${BUILD_STAMP:-$(date +%Y%m%d-%H%M)}"
 DMG_NAME="${DMG_NAME:-$APP_NAME-$VERSION-$CHANNEL-$BUILD_STAMP.dmg}"
+CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-Developer ID Application}"
+DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-PFZC7ULP8P}"
+NOTARIZE="${NOTARIZE:-0}"
+NOTARY_PROFILE="${NOTARY_PROFILE:-}"
+APPLE_ID="${APPLE_ID:-}"
+TEAM_ID="${TEAM_ID:-$DEVELOPMENT_TEAM}"
+APP_SPECIFIC_PASSWORD="${APP_SPECIFIC_PASSWORD:-}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_PATH="$ROOT_DIR/NotchMove/NotchMove.xcodeproj"
@@ -40,6 +47,49 @@ detach_existing_volume_mounts() {
   done
 }
 
+verify_dmg_contents() {
+  local mount_info
+  local app_path
+
+  mount_info="$(hdiutil attach -readonly -noverify -noautoopen "$DMG_PATH")"
+  MOUNT_PATH="$(printf '%s\n' "$mount_info" | awk '/\/Volumes\// {print substr($0, index($0, "/Volumes/")); exit}')"
+  if [[ -z "$MOUNT_PATH" || ! -d "$MOUNT_PATH" ]]; then
+    printf 'unable to find verification mount path\n%s\n' "$mount_info" >&2
+    exit 1
+  fi
+
+  app_path="$MOUNT_PATH/$APP_NAME.app"
+  "$VERIFY_SCRIPT" "$app_path"
+
+  if [[ ! -e "$MOUNT_PATH/Applications" ]]; then
+    printf 'DMG verification failed: missing Applications shortcut\n' >&2
+    exit 1
+  fi
+
+  hdiutil detach "$MOUNT_PATH" -quiet
+  MOUNT_PATH=""
+}
+
+notarize_and_staple() {
+  if [[ "$NOTARIZE" != "1" ]]; then
+    printf 'notarization skipped: set NOTARIZE=1 and provide NOTARY_PROFILE or APPLE_ID/APP_SPECIFIC_PASSWORD\n' >&2
+    return
+  fi
+
+  if [[ -n "$NOTARY_PROFILE" ]]; then
+    xcrun notarytool submit "$DMG_PATH" --keychain-profile "$NOTARY_PROFILE" --wait
+  else
+    if [[ -z "$APPLE_ID" || -z "$APP_SPECIFIC_PASSWORD" || -z "$TEAM_ID" ]]; then
+      printf 'missing notarization credentials: set NOTARY_PROFILE or APPLE_ID, APP_SPECIFIC_PASSWORD, and TEAM_ID\n' >&2
+      exit 1
+    fi
+    xcrun notarytool submit "$DMG_PATH" --apple-id "$APPLE_ID" --password "$APP_SPECIFIC_PASSWORD" --team-id "$TEAM_ID" --wait
+  fi
+
+  xcrun stapler staple "$DMG_PATH"
+  spctl -a -vv --type open "$DMG_PATH"
+}
+
 trap cleanup EXIT
 
 if [[ ! -x "$VERIFY_SCRIPT" ]]; then
@@ -61,7 +111,11 @@ xcodebuild \
   -configuration Release \
   -destination "platform=macOS" \
   -derivedDataPath "$DERIVED_DATA_PATH" \
-  clean build
+  clean build \
+  CODE_SIGN_STYLE=Manual \
+  "CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY" \
+  "DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM" \
+  PROVISIONING_PROFILE_SPECIFIER=
 
 "$VERIFY_SCRIPT" "$RELEASE_APP"
 
@@ -143,5 +197,8 @@ hdiutil convert \
   -format UDZO \
   -imagekey zlib-level=9 \
   -o "$DMG_PATH" >/dev/null
+
+verify_dmg_contents
+notarize_and_staple
 
 printf 'packaged: %s\n' "$DMG_PATH"

@@ -3,6 +3,8 @@ set -euo pipefail
 
 APP_PATH="${1:-}"
 EXPECTED_BUNDLE_ID="com.thomaschiu.developer.NotchMove"
+EXPECTED_CODE_SIGN_AUTHORITY="${EXPECTED_CODE_SIGN_AUTHORITY:-Developer ID Application}"
+REQUIRE_GATEKEEPER_ACCEPTED="${REQUIRE_GATEKEEPER_ACCEPTED:-0}"
 
 fail() {
   printf 'privacy verification failed: %s\n' "$1" >&2
@@ -49,6 +51,25 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 if ! codesign -d --entitlements "$ENTITLEMENTS_PLIST" "$APP_PATH" >/dev/null 2>/dev/null; then
   fail "unable to read code signing entitlements"
+fi
+
+if ! codesign --verify --deep --strict --verbose=2 "$APP_PATH" >/dev/null 2>&1; then
+  fail "code signature verification failed"
+fi
+
+SIGNING_DETAILS="$(codesign -dvvv "$APP_PATH" 2>&1 || true)"
+if [[ "$SIGNING_DETAILS" != *"Authority=$EXPECTED_CODE_SIGN_AUTHORITY"* ]]; then
+  fail "unexpected signing authority; expected an authority containing '$EXPECTED_CODE_SIGN_AUTHORITY'"
+fi
+
+if [[ "$SIGNING_DETAILS" != *"Runtime Version="* ]]; then
+  fail "hardened runtime is missing from code signature"
+fi
+
+if [[ "$REQUIRE_GATEKEEPER_ACCEPTED" == "1" ]]; then
+  if ! spctl -a -vv "$APP_PATH" >/dev/null 2>&1; then
+    fail "Gatekeeper assessment failed"
+  fi
 fi
 
 entitlement_value() {

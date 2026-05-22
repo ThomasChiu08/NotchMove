@@ -59,6 +59,7 @@
 /* ─── Startup ─── */
 "launch_at_login" = "ログイン時に起動";
 "launch_at_login_footer" = "サインイン時に NotchMove を自動的に起動します。";
+"launch_at_login_opt_in_footer" = "ログイン時の起動は既定でオフです。NotchMove を自動起動したい場合のみオンにしてください。";
 "launch_at_login_requires_approval" = "ログイン時の起動を有効にするには、システム設定で NotchMove を許可してください。";
 "launch_at_login_error_format" = "ログイン時の起動を更新できませんでした：%@";
 
@@ -70,6 +71,8 @@
 "schedule_reminder_snooze" = "あとで";
 "schedule_reminder_done" = "完了";
 "notch.later" = "あとで";
+"notch.snooze_10m" = "10分";
+"notch.skip" = "スキップ";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "次のリマインド：%@ 分";

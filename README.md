@@ -70,7 +70,10 @@ xcodebuild -project NotchMove.xcodeproj \
 ```bash
 VERSION=1.0 CHANNEL=test BUILD_STAMP=20260501-2330 ./script/package_dmg.sh
 DMG_NAME=NotchMove-custom-test.dmg ./script/package_dmg.sh
+NOTARIZE=1 NOTARY_PROFILE=notchmove-notary ./script/package_dmg.sh
 ```
+
+脚本默认使用 Developer ID Application 签名，并会校验签名、Hardened Runtime、隐私权限声明、DMG 内容和 Applications 快捷方式。设置 `NOTARIZE=1` 后会提交 notarization、staple，并执行 Gatekeeper 校验。
 
 当前 DMG 背景图资源位于：
 
@@ -173,7 +176,10 @@ Optional overrides:
 ```bash
 VERSION=1.0 CHANNEL=test BUILD_STAMP=20260501-2330 ./script/package_dmg.sh
 DMG_NAME=NotchMove-custom-test.dmg ./script/package_dmg.sh
+NOTARIZE=1 NOTARY_PROFILE=notchmove-notary ./script/package_dmg.sh
 ```
+
+The script builds with Developer ID Application signing and verifies the signature, Hardened Runtime, privacy usage strings, DMG contents, and Applications shortcut. Set `NOTARIZE=1` to submit notarization, staple the result, and run Gatekeeper assessment.
 
 The generated DMG background asset is stored at:
 

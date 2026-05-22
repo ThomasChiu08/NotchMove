@@ -12,6 +12,7 @@ final class AppSettings {
     enum Keys {
         static let soundEnabled = "soundEnabled"
         static let launchAtLoginEnabled = "launchAtLoginEnabled"
+        static let hasSeenLaunchAtLoginPrompt = "hasSeenLaunchAtLoginPrompt"
         static let reminderIntervalMinutes = "reminderIntervalMinutes"
         static let sitAwareEnabled = "sitAwareEnabled"
         static let scheduleEnabled = "scheduleEnabled"
@@ -46,6 +47,7 @@ final class AppSettings {
         defaults.register(defaults: [
             Keys.soundEnabled: Preferences.defaults.soundEnabled,
             Keys.launchAtLoginEnabled: Preferences.defaults.launchAtLoginEnabled,
+            Keys.hasSeenLaunchAtLoginPrompt: Preferences.defaults.hasSeenLaunchAtLoginPrompt,
             Keys.reminderIntervalMinutes: Preferences.defaults.reminderIntervalMinutes,
             Keys.sitAwareEnabled: Preferences.defaults.sitAwareEnabled,
             Keys.scheduleEnabled: Preferences.defaults.schedule.isEnabled,
@@ -71,6 +73,10 @@ final class AppSettings {
             launchAtLoginEnabled: bool(
                 forKey: Keys.launchAtLoginEnabled,
                 default: Preferences.defaults.launchAtLoginEnabled
+            ),
+            hasSeenLaunchAtLoginPrompt: bool(
+                forKey: Keys.hasSeenLaunchAtLoginPrompt,
+                default: Preferences.defaults.hasSeenLaunchAtLoginPrompt
             ),
             reminderIntervalMinutes: integer(
                 forKey: Keys.reminderIntervalMinutes,
@@ -114,6 +120,7 @@ final class AppSettings {
     func save(_ preferences: Preferences) {
         defaults.set(preferences.soundEnabled, forKey: Keys.soundEnabled)
         defaults.set(preferences.launchAtLoginEnabled, forKey: Keys.launchAtLoginEnabled)
+        defaults.set(preferences.hasSeenLaunchAtLoginPrompt, forKey: Keys.hasSeenLaunchAtLoginPrompt)
         defaults.set(preferences.reminderIntervalMinutes, forKey: Keys.reminderIntervalMinutes)
         defaults.set(preferences.sitAwareEnabled, forKey: Keys.sitAwareEnabled)
         defaults.set(preferences.schedule.isEnabled, forKey: Keys.scheduleEnabled)

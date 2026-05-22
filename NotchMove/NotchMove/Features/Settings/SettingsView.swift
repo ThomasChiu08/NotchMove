@@ -254,6 +254,9 @@ struct SettingsContentView: View {
                 .foregroundStyle(.red)
         } else if loginItemStatus == .requiresApproval {
             Text("launch_at_login_requires_approval")
+        } else if !preferencesStore.preferences.hasSeenLaunchAtLoginPrompt &&
+                    !preferencesStore.preferences.launchAtLoginEnabled {
+            Text("launch_at_login_opt_in_footer")
         } else {
             Text("launch_at_login_footer")
         }
@@ -1301,9 +1304,11 @@ struct SettingsContentView: View {
 
         do {
             try loginItemManager.setEnabled(isEnabled)
+            preferencesStore.preferences.hasSeenLaunchAtLoginPrompt = true
             preferencesStore.preferences.launchAtLoginEnabled = isEnabled
             refreshLoginItemStatus()
         } catch {
+            preferencesStore.preferences.hasSeenLaunchAtLoginPrompt = true
             refreshLoginItemStatus()
             launchAtLoginErrorMessage = String(
                 format: localizedString("launch_at_login_error_format"),

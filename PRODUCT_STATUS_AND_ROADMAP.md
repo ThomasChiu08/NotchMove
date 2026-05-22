@@ -153,7 +153,7 @@ NotchMove 当前是一款原生 macOS 菜单栏健康提醒工具。核心目标
 - Xcode project。
 - Swift + SwiftUI + AppKit。
 - 使用 `@Observable`。
-- macOS deployment target 当前为 26.2。
+- macOS deployment target 当前为 14.0。
 - Bundle ID 为 `com.thomaschiu.developer.NotchMove`。
 - 项目内已有 DMG 产物 `NotchMove/dist/NotchMove-1.0.dmg`。
 - 项目内已有 DMG 背景图资源 `NotchMove/Packaging/NotchMove-dmg-background.png`。

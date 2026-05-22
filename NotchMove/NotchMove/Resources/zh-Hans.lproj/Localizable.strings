@@ -59,6 +59,7 @@
 /* ─── Startup ─── */
 "launch_at_login" = "开机自启动";
 "launch_at_login_footer" = "登录系统后自动启动 NotchMove。";
+"launch_at_login_opt_in_footer" = "开机自启动默认关闭。只有在你希望 NotchMove 登录后自动启动时再开启。";
 "launch_at_login_requires_approval" = "请在系统设置中允许 NotchMove，才能完成开机自启动。";
 "launch_at_login_error_format" = "无法更新开机自启动：%@";
 
@@ -70,6 +71,8 @@
 "schedule_reminder_snooze" = "稍后";
 "schedule_reminder_done" = "完成";
 "notch.later" = "稍后";
+"notch.snooze_10m" = "10 分钟";
+"notch.skip" = "跳过";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "下次提醒：%@ 分钟";

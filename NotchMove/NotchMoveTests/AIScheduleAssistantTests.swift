@@ -465,6 +465,45 @@ struct AIScheduleAssistantServiceTests {
         }
         #expect(callLog.values == ["transcribe"])
     }
+
+    @Test func cancellationDuringTranscriptionDeletesTemporaryAudioAndSkipsParser() async throws {
+        let context = makeAIServiceContext()
+        defer { context.cleanup() }
+
+        let callLog = AICallLog()
+        let recording = try makeTemporaryRecordingFile()
+        let service = AIScheduleAssistantService(
+            preferences: context.preferences,
+            transcriptionProvider: FakeTranscriptionProvider(
+                callLog: callLog,
+                result: Transcript(text: "meet at three"),
+                delay: .milliseconds(200)
+            ),
+            parserProvider: FakeScheduleParserProvider(callLog: callLog, result: ScheduleParseResult())
+        )
+
+        let task = Task {
+            try await service.createDrafts(
+                from: recording,
+                existingScheduleItems: [],
+                localeIdentifier: "en",
+                appLanguage: "en"
+            )
+        }
+        try await Task.sleep(for: .milliseconds(20))
+        task.cancel()
+
+        do {
+            _ = try await task.value
+            Issue.record("Expected cancellation.")
+        } catch is CancellationError {
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(callLog.values == ["transcribe"])
+        #expect(!FileManager.default.fileExists(atPath: recording.url.path))
+    }
 }
 
 @MainActor
@@ -925,15 +964,20 @@ private final class FakeTranscriptionProvider: TranscriptionProvider {
     private let callLog: AICallLog
     private let result: Transcript
     private let error: Error?
+    private let delay: Duration?
 
-    init(callLog: AICallLog, result: Transcript, error: Error? = nil) {
+    init(callLog: AICallLog, result: Transcript, error: Error? = nil, delay: Duration? = nil) {
         self.callLog = callLog
         self.result = result
         self.error = error
+        self.delay = delay
     }
 
     func transcribe(recording: AudioRecordingFile, context: TranscriptionContext) async throws -> Transcript {
         callLog.values.append("transcribe")
+        if let delay {
+            try await Task.sleep(for: delay)
+        }
         if let error {
             throw error
         }

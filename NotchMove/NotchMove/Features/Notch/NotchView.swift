@@ -134,7 +134,9 @@ struct NotchView: View {
                 topInset: overlayMetrics.topInset
             ) {
                 reminderEngine.send(.completeBreak)
-            } onDismiss: {
+            } onSnooze: {
+                reminderEngine.snoozeReminder(duration: 10 * 60)
+            } onSkip: {
                 reminderEngine.send(.dismissReminder)
             }
         case .schedule(let content):
@@ -388,21 +390,29 @@ private struct BreakReminderContentView: View {
     let reminderDuration: TimeInterval
     let topInset: CGFloat
     let onCompleteBreak: () -> Void
-    let onDismiss: () -> Void
+    let onSnooze: () -> Void
+    let onSkip: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             BreakReminderTimingView(
                 reminderStartDate: reminderStartDate,
                 reminderDuration: reminderDuration
             )
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 4)
 
-            Button(action: onDismiss) {
-                Text("notch.later")
+            Button(action: onSnooze) {
+                Text("notch.snooze_10m")
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .minimumScaleFactor(0.65)
+            }
+            .controlSize(.small)
+
+            Button(action: onSkip) {
+                Text("notch.skip")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .controlSize(.small)
 

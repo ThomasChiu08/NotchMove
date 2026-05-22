@@ -35,6 +35,11 @@ final class VoiceInputSessionController {
     private(set) var lastRawTranscript = ""
     private(set) var lastCleanedText = ""
 
+    deinit {
+        processingTask?.cancel()
+        resetTask?.cancel()
+    }
+
     init(
         preferences: AIProviderPreferences,
         languageManager: LanguageManager,
@@ -73,8 +78,12 @@ final class VoiceInputSessionController {
 
             do {
                 try await captureService.startRecording()
+                try Task.checkCancellation()
                 phase = .recording(startedAt: .now)
                 logger.notice("Voice input recording started")
+            } catch is CancellationError {
+                captureService.cancelRecording()
+                phase = .idle
             } catch {
                 fail(error)
             }
@@ -93,6 +102,7 @@ final class VoiceInputSessionController {
         do {
             let recording = try captureService.stopRecording()
             phase = .processing
+            processingTask?.cancel()
             processingTask = Task { @MainActor [weak self] in
                 await self?.process(recording)
             }
@@ -111,7 +121,9 @@ final class VoiceInputSessionController {
 
     func cancel() {
         processingTask?.cancel()
+        processingTask = nil
         resetTask?.cancel()
+        resetTask = nil
         captureService.cancelRecording()
         phase = .idle
     }
@@ -127,6 +139,7 @@ final class VoiceInputSessionController {
         }
 
         do {
+            try Task.checkCancellation()
             let provider = try makeTranscriptionProvider()
             let transcript = try await provider.transcribe(
                 recording: recording,
@@ -135,6 +148,7 @@ final class VoiceInputSessionController {
                     languageMode: preferences.languageMode
                 )
             )
+            try Task.checkCancellation()
             let transcriptText = transcript.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !transcriptText.isEmpty else {
                 throw AIScheduleAssistantError.emptyTranscript
@@ -149,12 +163,17 @@ final class VoiceInputSessionController {
                     personalTerms: []
                 )
             )
+            try Task.checkCancellation()
             lastCleanedText = cleanedText
 
             let outcome = await insertionService.insert(cleanedText)
+            try Task.checkCancellation()
             phase = .inserted(outcome)
             scheduleReset(after: outcome.didReachTargetApp ? 2.4 : 5.0)
             logger.notice("Voice input completed with outcome: \(String(describing: outcome), privacy: .public)")
+        } catch is CancellationError {
+            phase = .idle
+            logger.notice("Voice input processing cancelled")
         } catch {
             fail(AIProviderFactory.redactedProviderError(error, preferences: preferences))
         }

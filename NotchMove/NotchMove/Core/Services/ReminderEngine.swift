@@ -44,6 +44,7 @@ struct ReminderState: Equatable {
     var manualPause = false
     var scheduleState: SchedulePolicy.Evaluation = .disabled
     var reminderStartDate: Date = .distantPast
+    var breakSnoozedUntilDate: Date?
 }
 
 @MainActor
@@ -89,6 +90,7 @@ final class ReminderEngine {
         case setManualPause(Bool)
         case manualTrigger
         case completeBreak
+        case snoozeReminder(duration: TimeInterval)
         case dismissReminder
         case autoDismiss
         case cancelReminder
@@ -209,6 +211,10 @@ final class ReminderEngine {
         send(.scheduleTrigger(ScheduleReminderContent(item: item)))
     }
 
+    func snoozeReminder(duration: TimeInterval) {
+        send(.snoozeReminder(duration: duration))
+    }
+
     func send(_ intent: Intent) {
         switch intent {
         case let .tick(now):
@@ -221,6 +227,8 @@ final class ReminderEngine {
             beginBreakReminderPresentation(playSound: true)
         case .completeBreak:
             finishReminder(with: .completedBreak)
+        case .snoozeReminder(let duration):
+            snoozeBreakReminder(duration: duration)
         case .dismissReminder:
             finishReminder(with: .dismissed)
         case .autoDismiss:
@@ -251,6 +259,7 @@ final class ReminderEngine {
             if state.activeSeconds > 0 {
                 state.activeSeconds = 0
             }
+            state.breakSnoozedUntilDate = nil
 
             if isBreakReminderPresenting {
                 send(.cancelReminder)
@@ -263,6 +272,20 @@ final class ReminderEngine {
         guard !state.manualPause, !isReminderPresenting else {
             lastTickDate = now
             return
+        }
+
+        if let breakSnoozedUntilDate = state.breakSnoozedUntilDate {
+            if now < breakSnoozedUntilDate {
+                lastTickDate = now
+                return
+            }
+
+            state.breakSnoozedUntilDate = nil
+            if activityState(for: idleResetThreshold) == .active {
+                logger.notice("Break reminder snooze expired")
+                beginBreakReminderPresentation(playSound: true)
+                return
+            }
         }
 
         let elapsed = lastTickDate.map { now.timeIntervalSince($0) } ?? 5
@@ -312,6 +335,7 @@ final class ReminderEngine {
             } else if overlayState.presentation == .hoverPreview {
                 updatePresentation(.hidden)
             }
+            state.breakSnoozedUntilDate = nil
         }
 
         logger.notice("Manual pause \(paused ? "enabled" : "disabled")")
@@ -319,8 +343,21 @@ final class ReminderEngine {
 
     private func beginBreakReminderPresentation(playSound: Bool) {
         guard overlayState.content == .breakReminder || !isReminderPresenting else { return }
+        state.breakSnoozedUntilDate = nil
         beginReminderPresentation(content: .breakReminder, playSound: playSound, resetActiveSeconds: true)
         logger.notice("Reminder presentation began")
+    }
+
+    private func snoozeBreakReminder(duration: TimeInterval) {
+        guard isBreakReminderPresenting else {
+            finishReminder(with: .dismissed)
+            return
+        }
+
+        let safeDuration = max(duration, 60)
+        state.breakSnoozedUntilDate = clock.now.addingTimeInterval(safeDuration)
+        finishReminder(with: .dismissed)
+        logger.notice("Break reminder snoozed for \(Int(safeDuration))s")
     }
 
     private func beginScheduleReminderPresentation(_ content: ScheduleReminderContent) {
@@ -448,6 +485,7 @@ final class ReminderEngine {
 
         if state.scheduleState.blocksAutomaticReminders {
             state.activeSeconds = 0
+            state.breakSnoozedUntilDate = nil
             if isBreakReminderPresenting {
                 send(.cancelReminder)
             }

@@ -59,6 +59,7 @@
 /* ─── Startup ─── */
 "launch_at_login" = "Launch at login";
 "launch_at_login_footer" = "Starts NotchMove automatically when you sign in.";
+"launch_at_login_opt_in_footer" = "Launch at login is off by default. Turn it on only if you want NotchMove to start automatically.";
 "launch_at_login_requires_approval" = "Allow NotchMove in System Settings to finish enabling launch at login.";
 "launch_at_login_error_format" = "Could not update launch at login: %@";
 
@@ -70,6 +71,8 @@
 "schedule_reminder_snooze" = "Later";
 "schedule_reminder_done" = "Done";
 "notch.later" = "Later";
+"notch.snooze_10m" = "10 min";
+"notch.skip" = "Skip";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "Next reminder: %@ min";

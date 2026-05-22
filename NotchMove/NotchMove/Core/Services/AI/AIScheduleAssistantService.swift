@@ -55,10 +55,12 @@ final class AIScheduleAssistantService {
         )
 
         progress?(.transcribing)
+        try Task.checkCancellation()
         let transcript = try await transcriptionProvider.transcribe(
             recording: recording,
             context: transcriptionContext
         )
+        try Task.checkCancellation()
         guard !transcript.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw AIScheduleAssistantError.emptyTranscript
         }
@@ -72,10 +74,12 @@ final class AIScheduleAssistantService {
             existingScheduleItems: existingScheduleItems
         )
         progress?(.parsing)
+        try Task.checkCancellation()
         var result = try await parserProvider.parseSchedule(
             transcript: transcript,
             context: parseContext
         )
+        try Task.checkCancellation()
         result.transcriptText = transcript.text
         return result.validatedAgainstContext(parseContext)
     }

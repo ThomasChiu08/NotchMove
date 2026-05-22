@@ -5,6 +5,7 @@
 //  Created by Thomas Chiu on 4/16/26.
 //
 
+import AppKit
 import CoreGraphics
 import Foundation
 import Testing
@@ -119,17 +120,21 @@ struct PreferencesStoreTests {
         let settings = AppSettings(defaults: defaults)
         var preferences = settings.loadPreferences()
 
-        #expect(preferences.launchAtLoginEnabled)
+        #expect(!preferences.launchAtLoginEnabled)
+        #expect(!preferences.hasSeenLaunchAtLoginPrompt)
 
+        preferences.hasSeenLaunchAtLoginPrompt = true
         preferences.launchAtLoginEnabled = false
         settings.save(preferences)
 
         #expect(!settings.loadPreferences().launchAtLoginEnabled)
+        #expect(settings.loadPreferences().hasSeenLaunchAtLoginPrompt)
 
         preferences.launchAtLoginEnabled = true
         settings.save(preferences)
 
         #expect(settings.loadPreferences().launchAtLoginEnabled)
+        #expect(settings.loadPreferences().hasSeenLaunchAtLoginPrompt)
     }
 
     @Test func globalHotkeyPreferenceIsOptInAndPersistsShortcut() {
@@ -394,6 +399,49 @@ struct ReminderEngineTests {
         #expect(context.breakStatsStore.weekBreaks == 0)
     }
 
+    @Test func snoozedBreakReminderWaitsUntilSnoozeExpires() async {
+        let now = makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+
+        context.engine.send(.manualTrigger)
+        context.engine.snoozeReminder(duration: 10 * 60)
+        await flushAsyncWork()
+
+        #expect(context.engine.state.presentation == .hidden)
+        #expect(context.engine.state.breakSnoozedUntilDate == now.addingTimeInterval(10 * 60))
+
+        context.clock.now = now.addingTimeInterval(9 * 60)
+        context.engine.send(.tick(context.clock.now))
+
+        #expect(context.engine.state.presentation == .hidden)
+
+        context.clock.now = now.addingTimeInterval(10 * 60)
+        context.engine.send(.tick(context.clock.now))
+
+        #expect(context.engine.state.presentation == .presenting)
+        #expect(context.soundPlayer.playCount == 2)
+    }
+
+    @Test func skippedBreakReminderUsesFullIntervalBeforeRepeating() async {
+        let now = makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+
+        context.preferencesStore.preferences.reminderIntervalMinutes = 30
+        context.engine.send(.manualTrigger)
+        context.engine.send(.dismissReminder)
+        await flushAsyncWork()
+
+        context.clock.now = now.addingTimeInterval(10 * 60)
+        context.engine.send(.tick(context.clock.now))
+        #expect(context.engine.state.presentation == .hidden)
+
+        context.clock.now = now.addingTimeInterval(30 * 60)
+        context.engine.send(.tick(context.clock.now))
+        #expect(context.engine.state.presentation == .presenting)
+    }
+
     @Test func preferencesChangeToBlockedScheduleCancelsActiveReminder() async {
         let now = makeDate(year: 2026, month: 4, day: 20, hour: 22, minute: 0)
         let context = makeReminderContext(now: now)
@@ -440,6 +488,39 @@ struct ReminderEngineTests {
         await flushAsyncWork()
 
         #expect(context.engine.overlayState.reminderDuration == 90)
+    }
+}
+
+@MainActor
+struct TextInsertionServiceTests {
+    @Test func pasteboardSnapshotRestoresOnlyWhenClipboardIsUnchanged() {
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("NotchMovePasteboardTests-\(UUID().uuidString)"))
+        pasteboard.clearContents()
+        pasteboard.setString("original", forType: .string)
+
+        let snapshot = PasteboardSnapshot.capture(from: pasteboard)
+        pasteboard.clearContents()
+        pasteboard.setString("voice text", forType: .string)
+        let expectedChangeCount = pasteboard.changeCount
+
+        #expect(snapshot.restoreIfUnchanged(to: pasteboard, expectedChangeCount: expectedChangeCount))
+        #expect(pasteboard.string(forType: .string) == "original")
+
+        pasteboard.clearContents()
+        pasteboard.setString("voice text", forType: .string)
+        let staleChangeCount = pasteboard.changeCount
+        pasteboard.clearContents()
+        pasteboard.setString("user copied something else", forType: .string)
+
+        #expect(!snapshot.restoreIfUnchanged(to: pasteboard, expectedChangeCount: staleChangeCount))
+        #expect(pasteboard.string(forType: .string) == "user copied something else")
+    }
+
+    @Test func accessibilityElementHelperRejectsNonAccessibilityValues() {
+        let nonAccessibilityValue = "focused text field" as CFString
+
+        #expect(TextInsertionService.accessibilityElement(from: nil) == nil)
+        #expect(TextInsertionService.accessibilityElement(from: nonAccessibilityValue) == nil)
     }
 }
 

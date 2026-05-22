@@ -30,6 +30,9 @@ struct AIScheduleCaptureSheet: View {
     @State private var questions: [String] = []
     @State private var warnings: [String] = []
     @State private var lastAssistantError: AIScheduleAssistantError?
+    @State private var recordingTask: Task<Void, Never>?
+    @State private var processingTask: Task<Void, Never>?
+    @State private var activeCaptureTaskID: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -50,7 +53,7 @@ struct AIScheduleCaptureSheet: View {
             elapsedSeconds = Int(Date().timeIntervalSince(recordingStartedAt))
         }
         .onDisappear {
-            captureService.cancelRecording()
+            cancelCaptureFlow()
         }
         .onAppear {
             handleGlobalToggleRequestIfNeeded(globalToggleRequestID)
@@ -115,6 +118,7 @@ struct AIScheduleCaptureSheet: View {
 
                 if shouldShowSettingsButtonForReadiness {
                     Button("ai.settings.open") {
+                        cancelCaptureFlow()
                         onOpenSettings()
                         dismiss()
                     }
@@ -315,6 +319,7 @@ struct AIScheduleCaptureSheet: View {
                 }
 
                 Button {
+                    cancelCaptureFlow()
                     onOpenSettings()
                     dismiss()
                 } label: {
@@ -328,12 +333,14 @@ struct AIScheduleCaptureSheet: View {
     private var footer: some View {
         HStack {
             Button("cancel") {
+                cancelCaptureFlow()
                 dismiss()
             }
 
             Spacer()
 
             Button {
+                cancelCaptureFlow()
                 onOpenSettings()
                 dismiss()
             } label: {
@@ -445,14 +452,25 @@ struct AIScheduleCaptureSheet: View {
     }
 
     private func startRecording() {
-        Task {
+        cancelCaptureTasks()
+        let taskID = beginCaptureTask()
+        recordingTask = Task { @MainActor in
+            defer { clearCaptureTaskIfCurrent(taskID) }
             do {
                 try AIProviderFactory.validateCaptureReadiness(preferences: aiPreferences)
+                try Task.checkCancellation()
                 try await captureService.startRecording()
+                try Task.checkCancellation()
+                guard isCurrentCaptureTask(taskID) else { return }
                 recordingStartedAt = .now
                 elapsedSeconds = 0
                 phase = .recording
+            } catch is CancellationError {
+                guard isCurrentCaptureTask(taskID) else { return }
+                captureService.cancelRecording()
+                phase = .ready
             } catch {
+                guard isCurrentCaptureTask(taskID) else { return }
                 lastAssistantError = error as? AIScheduleAssistantError
                 phase = .error(errorMessage(for: error))
             }
@@ -460,9 +478,15 @@ struct AIScheduleCaptureSheet: View {
     }
 
     private func stopRecordingAndProcess() {
-        Task {
+        recordingTask?.cancel()
+        recordingTask = nil
+        processingTask?.cancel()
+        let taskID = beginCaptureTask()
+        processingTask = Task { @MainActor in
+            defer { clearCaptureTaskIfCurrent(taskID) }
             do {
                 let recording = try captureService.stopRecording()
+                guard isCurrentCaptureTask(taskID) else { return }
                 phase = .transcribing
                 let result = try await assistantService.createDrafts(
                     from: recording,
@@ -470,6 +494,7 @@ struct AIScheduleCaptureSheet: View {
                     localeIdentifier: languageManager.locale.identifier,
                     appLanguage: languageManager.selectedLanguage,
                     progress: { progress in
+                        guard isCurrentCaptureTask(taskID) else { return }
                         switch progress {
                         case .transcribing:
                             phase = .transcribing
@@ -479,13 +504,19 @@ struct AIScheduleCaptureSheet: View {
                     }
                 )
 
+                guard isCurrentCaptureTask(taskID) else { return }
                 transcriptText = result.transcriptText
                 drafts = result.drafts
                 selectedDraftIDs = Set(result.drafts.map(\.id))
                 questions = result.questions
                 warnings = result.warnings
                 phase = .review
+            } catch is CancellationError {
+                guard isCurrentCaptureTask(taskID) else { return }
+                captureService.cancelRecording()
+                phase = .ready
             } catch {
+                guard isCurrentCaptureTask(taskID) else { return }
                 lastAssistantError = error as? AIScheduleAssistantError
                 phase = .error(errorMessage(for: error))
             }
@@ -500,7 +531,7 @@ struct AIScheduleCaptureSheet: View {
     }
 
     private func reset() {
-        captureService.cancelRecording()
+        cancelCaptureFlow()
         transcriptText = ""
         drafts = []
         selectedDraftIDs = []
@@ -510,6 +541,36 @@ struct AIScheduleCaptureSheet: View {
         elapsedSeconds = 0
         recordingStartedAt = nil
         phase = .ready
+    }
+
+    private func cancelCaptureFlow() {
+        cancelCaptureTasks()
+        captureService.cancelRecording()
+    }
+
+    private func cancelCaptureTasks() {
+        activeCaptureTaskID = nil
+        recordingTask?.cancel()
+        recordingTask = nil
+        processingTask?.cancel()
+        processingTask = nil
+    }
+
+    private func beginCaptureTask() -> UUID {
+        let taskID = UUID()
+        activeCaptureTaskID = taskID
+        return taskID
+    }
+
+    private func isCurrentCaptureTask(_ taskID: UUID) -> Bool {
+        activeCaptureTaskID == taskID
+    }
+
+    private func clearCaptureTaskIfCurrent(_ taskID: UUID) {
+        guard isCurrentCaptureTask(taskID) else { return }
+        activeCaptureTaskID = nil
+        recordingTask = nil
+        processingTask = nil
     }
 
     private func handleGlobalToggleRequestIfNeeded(_ requestID: UUID?) {

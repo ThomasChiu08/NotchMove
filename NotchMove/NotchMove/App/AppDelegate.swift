@@ -127,9 +127,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func reconcileLaunchAtLogin() {
         guard !ProcessInfo.processInfo.isRunningTests else { return }
+        let preferences = preferencesStore.preferences
+        guard preferences.hasSeenLaunchAtLoginPrompt || preferences.launchAtLoginEnabled else { return }
 
         let status = loginItemService.reconcile(
-            desiredEnabled: preferencesStore.preferences.launchAtLoginEnabled
+            desiredEnabled: preferences.launchAtLoginEnabled
         )
 
         if status == .requiresApproval {
