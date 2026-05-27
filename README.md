@@ -59,7 +59,7 @@ xcodebuild -project NotchMove.xcodeproj \
 
 ### 打包 DMG
 
-测试版发布包必须通过隐私权限校验，确保 macOS 能把 NotchMove 登记到麦克风权限列表。默认会生成带 `test` 和时间戳的新 DMG，并把中文安装/使用说明放进 DMG：
+测试版发布包必须通过隐私权限校验，确保 macOS 能把 NotchMove 登记到麦克风权限列表。默认会生成带 `test` 和时间戳的新 DMG，并把带界面的 HTML 中文安装/使用说明放进 DMG：
 
 ```bash
 ./script/package_dmg.sh
@@ -73,7 +73,7 @@ DMG_NAME=NotchMove-custom-test.dmg ./script/package_dmg.sh
 NOTARIZE=1 NOTARY_PROFILE=notchmove-notary ./script/package_dmg.sh
 ```
 
-脚本默认使用 Developer ID Application 签名，并会校验签名、Hardened Runtime、隐私权限声明、DMG 内容和 Applications 快捷方式。设置 `NOTARIZE=1` 后会提交 notarization、staple，并执行 Gatekeeper 校验。
+脚本会优先使用本机可用的 Developer ID Application 签名身份；如果没有 Developer ID，会降级使用 Apple Development 身份生成测试包。脚本会校验签名、Hardened Runtime、隐私权限声明、DMG 内容、Applications 快捷方式和 HTML 使用说明。设置 `NOTARIZE=1` 后会提交 notarization、staple，并执行 Gatekeeper 校验。
 
 当前 DMG 背景图资源位于：
 
@@ -93,7 +93,7 @@ NotchMove/build/DerivedData/Build/Products/Release/NotchMove.app
 NotchMove/dist/NotchMove-1.0-test-YYYYMMDD-HHMM.dmg
 ```
 
-给朋友测试时可同时发送 [中文安装与使用说明](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md)。
+给朋友测试时可同时发送 [HTML 中文安装与使用说明](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.html)，纯文本版见 [Markdown 说明](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md)。
 
 如果本机曾运行过缺少麦克风或语音识别权限声明的旧包，退出 NotchMove 后重置权限记录，再启动新包并点击“请求权限”：
 
@@ -165,7 +165,7 @@ xcodebuild -project NotchMove.xcodeproj \
 
 ### Package
 
-Test release packages must pass privacy verification so macOS can register NotchMove in the Microphone access list. By default the script creates a new timestamped `test` DMG and includes the Simplified Chinese install/use guide inside the image:
+Test release packages must pass privacy verification so macOS can register NotchMove in the Microphone access list. By default the script creates a new timestamped `test` DMG and includes the styled Simplified Chinese HTML install/use guide inside the image:
 
 ```bash
 ./script/package_dmg.sh
@@ -179,7 +179,7 @@ DMG_NAME=NotchMove-custom-test.dmg ./script/package_dmg.sh
 NOTARIZE=1 NOTARY_PROFILE=notchmove-notary ./script/package_dmg.sh
 ```
 
-The script builds with Developer ID Application signing and verifies the signature, Hardened Runtime, privacy usage strings, DMG contents, and Applications shortcut. Set `NOTARIZE=1` to submit notarization, staple the result, and run Gatekeeper assessment.
+The script prefers a local Developer ID Application signing identity. If Developer ID is unavailable, it falls back to Apple Development for test packages. It verifies the signature, Hardened Runtime, privacy usage strings, DMG contents, Applications shortcut, and HTML guide. Set `NOTARIZE=1` to submit notarization, staple the result, and run Gatekeeper assessment.
 
 The generated DMG background asset is stored at:
 
@@ -199,7 +199,7 @@ The packaged DMG is written to:
 NotchMove/dist/NotchMove-1.0-test-YYYYMMDD-HHMM.dmg
 ```
 
-For friend testing, send the [Simplified Chinese install and usage guide](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md) with the DMG.
+For friend testing, send the [Simplified Chinese HTML install and usage guide](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.html) with the DMG. A plain Markdown version is also available at [docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md).
 
 If this Mac previously ran an older package without microphone or speech recognition privacy metadata, quit NotchMove, reset the TCC records, then launch the new package and click Request Access:
 

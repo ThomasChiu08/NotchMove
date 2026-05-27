@@ -7,13 +7,32 @@ VERSION="${VERSION:-1.0}"
 CHANNEL="${CHANNEL:-test}"
 BUILD_STAMP="${BUILD_STAMP:-$(date +%Y%m%d-%H%M)}"
 DMG_NAME="${DMG_NAME:-$APP_NAME-$VERSION-$CHANNEL-$BUILD_STAMP.dmg}"
-CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-Developer ID Application}"
 DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-PFZC7ULP8P}"
 NOTARIZE="${NOTARIZE:-0}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-}"
 APPLE_ID="${APPLE_ID:-}"
 TEAM_ID="${TEAM_ID:-$DEVELOPMENT_TEAM}"
 APP_SPECIFIC_PASSWORD="${APP_SPECIFIC_PASSWORD:-}"
+
+detect_default_code_sign_identity() {
+  local identities
+  identities="$(security find-identity -v -p codesigning 2>/dev/null || true)"
+
+  if printf '%s\n' "$identities" | grep -q '"Developer ID Application:'; then
+    printf '%s\n' "$identities" | awk -F '"' '/"Developer ID Application:/ { print $2; exit }'
+    return
+  fi
+
+  if printf '%s\n' "$identities" | grep -q '"Apple Development:'; then
+    printf '%s\n' "$identities" | awk -F '"' '/"Apple Development:/ { print $2; exit }'
+    return
+  fi
+
+  printf 'Developer ID Application\n'
+}
+
+CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-$(detect_default_code_sign_identity)}"
+EXPECTED_CODE_SIGN_AUTHORITY="${EXPECTED_CODE_SIGN_AUTHORITY:-$CODE_SIGN_IDENTITY}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_PATH="$ROOT_DIR/NotchMove/NotchMove.xcodeproj"
@@ -25,8 +44,10 @@ DIST_DIR="$ROOT_DIR/NotchMove/dist"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 RW_DMG_PATH="$DIST_DIR/${DMG_NAME%.dmg}.rw.dmg"
 VERIFY_SCRIPT="$ROOT_DIR/script/verify_release_privacy.sh"
-GUIDE_SOURCE="$ROOT_DIR/docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md"
-GUIDE_NAME="NotchMove-Install-Usage-zh-Hans.md"
+GUIDE_HTML_SOURCE="$ROOT_DIR/docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.html"
+GUIDE_MARKDOWN_SOURCE="$ROOT_DIR/docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md"
+GUIDE_NAME="${GUIDE_NAME:-NotchMove-Install-Usage-zh-Hans.html}"
+MARKDOWN_GUIDE_NAME="${MARKDOWN_GUIDE_NAME:-NotchMove-Install-Usage-zh-Hans.md}"
 BACKGROUND_SOURCE="$ROOT_DIR/NotchMove/Packaging/NotchMove-dmg-background.png"
 BACKGROUND_NAME="NotchMove-dmg-background.png"
 MOUNT_PATH=""
@@ -59,10 +80,15 @@ verify_dmg_contents() {
   fi
 
   app_path="$MOUNT_PATH/$APP_NAME.app"
-  "$VERIFY_SCRIPT" "$app_path"
+  EXPECTED_CODE_SIGN_AUTHORITY="$EXPECTED_CODE_SIGN_AUTHORITY" "$VERIFY_SCRIPT" "$app_path"
 
   if [[ ! -e "$MOUNT_PATH/Applications" ]]; then
     printf 'DMG verification failed: missing Applications shortcut\n' >&2
+    exit 1
+  fi
+
+  if [[ ! -e "$MOUNT_PATH/$GUIDE_NAME" ]]; then
+    printf 'DMG verification failed: missing install guide: %s\n' "$GUIDE_NAME" >&2
     exit 1
   fi
 
@@ -105,6 +131,9 @@ fi
 rm -rf "$RELEASE_APP" "$STAGING_DIR" "$DMG_PATH" "$RW_DMG_PATH"
 mkdir -p "$STAGING_DIR/.background" "$DIST_DIR"
 
+printf 'using code signing identity: %s\n' "$CODE_SIGN_IDENTITY"
+printf 'expecting signing authority: %s\n' "$EXPECTED_CODE_SIGN_AUTHORITY"
+
 xcodebuild \
   -project "$PROJECT_PATH" \
   -scheme "$APP_NAME" \
@@ -117,18 +146,21 @@ xcodebuild \
   "DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM" \
   PROVISIONING_PROFILE_SPECIFIER=
 
-"$VERIFY_SCRIPT" "$RELEASE_APP"
+EXPECTED_CODE_SIGN_AUTHORITY="$EXPECTED_CODE_SIGN_AUTHORITY" "$VERIFY_SCRIPT" "$RELEASE_APP"
 
 ditto "$RELEASE_APP" "$STAGING_APP"
 ln -s /Applications "$STAGING_DIR/Applications"
-if [[ -f "$GUIDE_SOURCE" ]]; then
-  cp "$GUIDE_SOURCE" "$STAGING_DIR/$GUIDE_NAME"
+if [[ -f "$GUIDE_HTML_SOURCE" ]]; then
+  cp "$GUIDE_HTML_SOURCE" "$STAGING_DIR/$GUIDE_NAME"
+elif [[ -f "$GUIDE_MARKDOWN_SOURCE" ]]; then
+  GUIDE_NAME="$MARKDOWN_GUIDE_NAME"
+  cp "$GUIDE_MARKDOWN_SOURCE" "$STAGING_DIR/$GUIDE_NAME"
 else
-  printf 'warning: install guide not found: %s\n' "$GUIDE_SOURCE" >&2
+  printf 'warning: install guide not found: %s or %s\n' "$GUIDE_HTML_SOURCE" "$GUIDE_MARKDOWN_SOURCE" >&2
 fi
 cp "$BACKGROUND_SOURCE" "$STAGING_DIR/.background/$BACKGROUND_NAME"
 
-"$VERIFY_SCRIPT" "$STAGING_APP"
+EXPECTED_CODE_SIGN_AUTHORITY="$EXPECTED_CODE_SIGN_AUTHORITY" "$VERIFY_SCRIPT" "$STAGING_APP"
 
 hdiutil create \
   -volname "$VOLUME_NAME" \

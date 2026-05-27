@@ -1,8 +1,8 @@
 # NotchMove 测试版安装与使用说明
 
-这份说明面向帮忙测试 NotchMove 的朋友。当前 DMG 是测试包，不是面向公开分发的正式 notarized 版本，所以首次打开时 macOS 可能会额外确认。
+这份说明面向帮忙测试 NotchMove 的朋友。当前 DMG 是测试包，不是面向公开分发的正式 notarized 版本，所以首次打开时 macOS 可能会额外确认。DMG 内也包含一份界面更友好的 HTML 使用说明。
 
-本次测试包支持 Apple Silicon 和 Intel Mac，当前项目的部署目标是 macOS 26.2；如果系统版本低于 macOS 26.2，可能无法启动。
+本次测试包支持 Apple Silicon 和 Intel Mac，当前项目的部署目标是 macOS 14.0；如果系统版本低于 macOS 14.0，可能无法启动。
 
 ## 安装
 

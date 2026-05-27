@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NotchMove 安装与使用说明</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #11181b;
+      --muted: #5e6b6b;
+      --line: rgba(17, 24, 27, 0.12);
+      --panel: rgba(255, 255, 255, 0.78);
+      --panel-strong: rgba(255, 255, 255, 0.94);
+      --mint: #23c996;
+      --mint-dark: #0e8f69;
+      --coral: #ff7568;
+      --cream: #f5f7f1;
+      --shadow: 0 22px 70px rgba(17, 24, 27, 0.14);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 38%, rgba(35, 201, 150, 0.17), transparent 28rem),
+        radial-gradient(circle at 92% 70%, rgba(255, 117, 104, 0.13), transparent 24rem),
+        linear-gradient(180deg, #f7faf5 0%, #eef5ef 100%);
+      line-height: 1.65;
+    }
+
+    a { color: var(--mint-dark); }
+
+    .chrome {
+      min-height: 100vh;
+      padding-bottom: 56px;
+    }
+
+    .topbar {
+      height: 112px;
+      background: linear-gradient(180deg, #10171a 0%, #172022 100%);
+      position: relative;
+      box-shadow: inset 0 -1px rgba(255, 255, 255, 0.08);
+    }
+
+    .notch {
+      position: absolute;
+      left: 50%;
+      top: 28px;
+      width: 142px;
+      height: 52px;
+      transform: translateX(-50%);
+      border-radius: 18px;
+      background: #030506;
+      box-shadow: 0 12px 26px rgba(0, 0, 0, 0.42);
+    }
+
+    .lens {
+      position: absolute;
+      left: 50%;
+      top: 48px;
+      width: 13px;
+      height: 13px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: radial-gradient(circle at 35% 30%, #8aa2ac, #223039 58%, #081014 100%);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.03);
+    }
+
+    .hero {
+      max-width: 1080px;
+      margin: -28px auto 0;
+      padding: 0 24px;
+      position: relative;
+    }
+
+    .hero-card {
+      background: var(--panel-strong);
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+    }
+
+    .hero-copy {
+      padding: 42px 44px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 14px;
+      padding: 7px 12px;
+      border: 1px solid rgba(35, 201, 150, 0.22);
+      border-radius: 999px;
+      background: rgba(35, 201, 150, 0.08);
+      color: #197b60;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--coral);
+      box-shadow: 0 0 0 5px rgba(255, 117, 104, 0.16);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 6vw, 58px);
+      line-height: 1.04;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 680px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .hero-art {
+      min-height: 360px;
+      padding: 34px;
+      background:
+        radial-gradient(circle at 28% 72%, rgba(35, 201, 150, 0.25), transparent 9rem),
+        radial-gradient(circle at 78% 24%, rgba(255, 117, 104, 0.20), transparent 8rem),
+        linear-gradient(160deg, rgba(17, 24, 27, 0.08), rgba(35, 201, 150, 0.09));
+      position: relative;
+      overflow: hidden;
+    }
+
+    .phone {
+      width: min(270px, 72vw);
+      aspect-ratio: 1;
+      margin: 26px auto 0;
+      border-radius: 54px;
+      background: linear-gradient(145deg, #ffffff 0%, #ecece8 100%);
+      border: 17px solid #12191d;
+      box-shadow: 0 28px 70px rgba(17, 24, 27, 0.24), inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+      position: relative;
+    }
+
+    .phone::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: -17px;
+      width: 96px;
+      height: 48px;
+      transform: translateX(-50%);
+      border-radius: 0 0 22px 22px;
+      background: #080c0e;
+    }
+
+    .arc {
+      position: absolute;
+      left: 34px;
+      right: 34px;
+      bottom: 50px;
+      height: 112px;
+      border-bottom: 20px solid var(--mint);
+      border-radius: 0 0 180px 180px;
+      transform: rotate(-10deg);
+      filter: drop-shadow(0 12px 18px rgba(35, 201, 150, 0.32));
+    }
+
+    .arrow-head {
+      position: absolute;
+      right: 38px;
+      bottom: 100px;
+      width: 0;
+      height: 0;
+      border-top: 20px solid transparent;
+      border-bottom: 20px solid transparent;
+      border-left: 34px solid var(--mint);
+      transform: rotate(-36deg);
+      filter: drop-shadow(0 8px 12px rgba(35, 201, 150, 0.22));
+    }
+
+    .person {
+      position: absolute;
+      left: 45%;
+      top: 42%;
+      width: 24px;
+      height: 88px;
+      border-radius: 18px;
+      background: linear-gradient(160deg, #364248, #11191d);
+      transform: rotate(10deg);
+      box-shadow: 0 6px 16px rgba(17, 24, 27, 0.22);
+    }
+
+    .person::before {
+      content: "";
+      position: absolute;
+      left: 1px;
+      top: -31px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(160deg, #4b5960, #11191d);
+    }
+
+    .person::after {
+      content: "";
+      position: absolute;
+      left: 20px;
+      bottom: -14px;
+      width: 20px;
+      height: 58px;
+      border-radius: 16px;
+      background: linear-gradient(160deg, #303c42, #11191d);
+      transform: rotate(-34deg);
+      transform-origin: top left;
+    }
+
+    .orb {
+      position: absolute;
+      right: 66px;
+      top: 108px;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #ff9b90, #ff6858);
+      box-shadow: 0 10px 24px rgba(255, 117, 104, 0.24);
+    }
+
+    main {
+      max-width: 1080px;
+      margin: 28px auto 0;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    nav {
+      position: sticky;
+      top: 18px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.62);
+      backdrop-filter: blur(14px);
+    }
+
+    nav a {
+      display: block;
+      padding: 9px 10px;
+      border-radius: 12px;
+      text-decoration: none;
+      color: #2c383b;
+      font-weight: 650;
+      font-size: 14px;
+    }
+
+    nav a:hover {
+      background: rgba(35, 201, 150, 0.10);
+    }
+
+    .content {
+      display: grid;
+      gap: 18px;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 28px;
+      box-shadow: 0 12px 34px rgba(17, 24, 27, 0.06);
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 26px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 0 0 12px; color: var(--muted); }
+
+    ol, ul {
+      margin: 10px 0 0;
+      padding-left: 1.35rem;
+      color: #2f3b3d;
+    }
+
+    li { margin: 8px 0; }
+
+    code {
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.92em;
+      color: #0f5f49;
+      background: rgba(35, 201, 150, 0.10);
+      padding: 2px 5px;
+      border-radius: 6px;
+    }
+
+    pre {
+      margin: 14px 0 0;
+      padding: 16px;
+      overflow-x: auto;
+      border-radius: 16px;
+      background: #10171a;
+      color: #d7fff0;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .tile {
+      min-height: 122px;
+      padding: 18px;
+      border: 1px solid rgba(17, 24, 27, 0.09);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.58);
+    }
+
+    .tile strong {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--ink);
+      font-size: 16px;
+    }
+
+    .tile span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .callout {
+      margin-top: 16px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: rgba(255, 117, 104, 0.10);
+      border: 1px solid rgba(255, 117, 104, 0.18);
+      color: #69403c;
+    }
+
+    .success {
+      background: rgba(35, 201, 150, 0.10);
+      border-color: rgba(35, 201, 150, 0.20);
+      color: #195f4d;
+    }
+
+    footer {
+      max-width: 1080px;
+      margin: 28px auto 0;
+      padding: 0 24px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 860px) {
+      .hero-card, main { grid-template-columns: 1fr; }
+      nav { position: static; }
+      .hero-copy { padding: 34px 28px; }
+      .hero-art { min-height: 300px; }
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 520px) {
+      .hero, main, footer { padding-left: 16px; padding-right: 16px; }
+      section { padding: 22px; border-radius: 18px; }
+      .hero-card { border-radius: 22px; }
+      .hero-art { padding: 20px; }
+      .phone { width: min(240px, 78vw); border-radius: 42px; border-width: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="chrome">
+    <div class="topbar" aria-hidden="true">
+      <div class="notch"></div>
+      <div class="lens"></div>
+    </div>
+
+    <header class="hero">
+      <div class="hero-card">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="dot"></span>NotchMove 测试包说明</p>
+          <h1>安装、授权和日常使用</h1>
+          <p class="lead">NotchMove 是原生 macOS 菜单栏应用，用刘海区域或顶部浮层提醒你站立、活动，也支持本地日程提醒和可选 AI 语音录入。</p>
+          <div class="callout success">当前测试包面向朋友测试。首次打开时，macOS 可能需要你手动确认来源和权限。</div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="phone">
+            <div class="arc"></div>
+            <div class="arrow-head"></div>
+            <div class="person"></div>
+            <div class="orb"></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <nav aria-label="目录">
+        <a href="#install">安装</a>
+        <a href="#update">更新旧版本</a>
+        <a href="#use">基本使用</a>
+        <a href="#dashboard">控制台</a>
+        <a href="#ai">AI 语音日程</a>
+        <a href="#feedback">反馈与卸载</a>
+      </nav>
+
+      <div class="content">
+        <section id="install">
+          <h2>安装</h2>
+          <ol>
+            <li>打开 <code>NotchMove-*.dmg</code>。</li>
+            <li>把 <code>NotchMove.app</code> 拖到 <code>Applications</code> 文件夹。</li>
+            <li>从“应用程序”打开 NotchMove。首次打开建议右键点击 <code>NotchMove.app</code>，选择“打开”，再确认。</li>
+            <li>启动后，在菜单栏找到 NotchMove 图标，点击图标即可打开菜单。</li>
+          </ol>
+          <div class="callout">如果 macOS 提示无法验证开发者，进入“系统设置 > 隐私与安全性”，在页面底部点击“仍要打开”。</div>
+          <h3>如果提示文件已损坏</h3>
+          <p>只在确认 DMG 来源可信时打开“终端”运行下面命令，然后重新打开 NotchMove。</p>
+          <pre><code>xattr -dr com.apple.quarantine /Applications/NotchMove.app</code></pre>
+        </section>
+
+        <section id="update">
+          <h2>更新旧测试版</h2>
+          <ol>
+            <li>点击菜单栏 NotchMove 图标，选择“退出 NotchMove”。</li>
+            <li>打开新版 DMG，把新版 <code>NotchMove.app</code> 拖到 <code>Applications</code>。</li>
+            <li>macOS 询问是否替换时选择“替换”。</li>
+            <li>重新打开 NotchMove。</li>
+          </ol>
+          <p>如果旧包曾缺少麦克风或语音识别权限声明，可以退出 NotchMove 后重置权限记录。</p>
+          <pre><code>tccutil reset Microphone com.thomaschiu.developer.NotchMove
+tccutil reset SpeechRecognition com.thomaschiu.developer.NotchMove</code></pre>
+        </section>
+
+        <section id="use">
+          <h2>基本使用</h2>
+          <p>NotchMove 启动后会常驻菜单栏，不显示 Dock 图标。点击菜单栏图标可以执行这些常用操作：</p>
+          <div class="grid">
+            <div class="tile"><strong>查看状态</strong><span>查看下次站立提醒、今天和本周休息次数、下一项日程。</span></div>
+            <div class="tile"><strong>控制提醒</strong><span>暂停/恢复提醒，或手动触发一次刘海/居中浮层提醒。</span></div>
+            <div class="tile"><strong>录入日程</strong><span>打开“AI 添加日程…”或进入控制台手动新增、导入日程。</span></div>
+            <div class="tile"><strong>调整行为</strong><span>开关提醒声音，进入控制台调整提醒间隔、工作时间和显示位置。</span></div>
+          </div>
+        </section>
+
+        <section id="dashboard">
+          <h2>控制台</h2>
+          <p>菜单栏选择“控制台…”后，可以在左侧切换“工作区”和“设置”。</p>
+          <ul>
+            <li>“今天”：查看当前追踪状态、下一次站立提醒、当前/下一项日程，也可以立即提醒或新增日程。</li>
+            <li>“日程”：新增、编辑、导入或清空今天的日程。日程支持开始/结束时间、提前提醒和备注。</li>
+            <li>“休息”：查看今天和本周完成的休息次数。</li>
+            <li>“提醒”：设置提醒间隔、久坐感知模式、工作时间和工作日限制。</li>
+            <li>“行为”：设置提醒显示屏幕、刘海展开、悬停预览、声音和自动关闭时间。</li>
+            <li>“语言”：切换 English、简体中文、繁体中文或日文。</li>
+            <li>“启动”：设置是否登录后自动启动。</li>
+          </ul>
+        </section>
+
+        <section id="ai">
+          <h2>AI 语音日程</h2>
+          <p>如果只测试站立提醒和手动日程，不需要配置 AI。要测试语音添加日程：</p>
+          <ol>
+            <li>打开“控制台 > AI 助手”。</li>
+            <li>开启“启用 AI 助手”。</li>
+            <li>选择转写服务和解析服务。</li>
+            <li>按界面提示保存对应 API Key。密钥会存进 macOS 钥匙串。</li>
+            <li>点击“请求权限”允许麦克风权限；如果使用 Apple Speech，还需要允许语音识别权限。</li>
+            <li>回到菜单栏选择“AI 添加日程…”，或在“今天/日程”页面点击“语音”。</li>
+            <li>录音后检查识别出的草稿，确认无误再添加到今天的日程。</li>
+          </ol>
+          <div class="callout">选择云端服务时，音频或转写文本可能会发送给所选服务商；选择本地转写时，音频会留在本机，但解析日程时转写文本仍可能发送给解析服务商。</div>
+        </section>
+
+        <section id="feedback">
+          <h2>反馈与卸载</h2>
+          <h3>测试反馈</h3>
+          <ul>
+            <li>macOS 版本和 Mac 型号。</li>
+            <li>使用的 DMG 文件名。</li>
+            <li>问题发生在哪一步。</li>
+            <li>预期结果和实际结果。</li>
+            <li>截图或录屏。</li>
+            <li>如果是 AI 功能问题，请说明使用的转写服务和解析服务，不要发送 API Key。</li>
+          </ul>
+          <h3>卸载</h3>
+          <ol>
+            <li>点击菜单栏 NotchMove 图标，选择“退出 NotchMove”。</li>
+            <li>删除 <code>/Applications/NotchMove.app</code>。</li>
+            <li>如果开启过登录启动，建议先在 NotchMove 的“启动”设置里关闭，或到“系统设置 > 通用 > 登录项”里移除。</li>
+          </ol>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <p>NotchMove test guide. 本说明随 DMG 发布，可离线打开。</p>
+    </footer>
+  </div>
+</body>
+</html>
