@@ -2,6 +2,29 @@
 
 Date: 2026-04-30
 
+## Current Status As Of 2026-05-22
+
+This design document has been partially overtaken by later implementation plans and code. Treat it as the original product/architecture design, not the active execution plan.
+
+Implemented since this document was written:
+
+- provider-agnostic transcription and parser seams
+- OpenAI and OpenAI-compatible schedule parsing
+- cloud transcription/provider adapters
+- local WhisperKit transcription and model management
+- Apple Speech transcription, Speech Recognition permission handling, and privacy metadata
+- AI provider readiness diagnostics
+- menu bar and dashboard AI schedule capture entry points
+- AI capture review sheet with user-confirmed writes to `DailyScheduleStore`
+- opt-in global shortcut handling
+- voice input flow through the notch overlay with recording, processing, inserted/copied/failed, undo, and dismiss states
+
+Still pending:
+
+- live manual QA for microphone permission, real provider credentials, provider failure paths, local model states, and release-package behavior
+- general app diagnostics export beyond AI provider readiness
+- release checklist manual acceptance evidence
+
 ## 1. Goal
 
 Add an AI voice assistant to NotchMove so users can hold a shortcut or use a menu bar microphone action, describe their schedule and reminder needs, review the AI-parsed result, and add confirmed items to the existing daily schedule reminder system.
@@ -40,7 +63,7 @@ The AI assistant should therefore be a capture and draft-generation layer, not a
 | AssemblyAI | High | Mature WebSocket streaming, clear pricing, word timestamps/confidence, strong voice product docs | STT only; multilingual streaming support is narrower than batch |
 | xAI | Medium | Very low published STT pricing, REST and streaming support | Newer API surface; ecosystem and reliability need validation before default use |
 | Groq | Medium | OpenAI-compatible transcription endpoint and fast Whisper-family inference | Better as fast completed-audio transcription than the first realtime default |
-| Apple Speech / WhisperKit | Medium | Local/private transcription path; WhisperKit has native Swift package support | Larger implementation and model-management cost; better as later privacy mode |
+| Apple Speech / WhisperKit | Implemented after this design | Local/private transcription path; WhisperKit has native Swift package support | Now implemented through Apple Speech permission handling and WhisperKit model management. |
 
 ### Parser Providers
 
@@ -131,12 +154,11 @@ Version 1 should include:
 - Dashboard header action on Today and Schedule pages: `Speak`.
 - Local app keyboard shortcut while the dashboard is focused.
 
-Version 2 can add:
+2026-05-22 current status:
 
-- Configurable global push-to-talk shortcut.
-- Accessibility/Input Monitoring onboarding if the chosen global hotkey approach requires it.
-
-Reasoning: global key monitoring can create a privacy/trust cost on macOS. Apple documents that global key monitors for key events require accessibility trust. NotchMove should avoid asking for that permission before the AI capture UX is proven.
+- Configurable global capture/voice-input shortcut is implemented as an opt-in setting.
+- The current implementation uses Carbon registered hotkeys for this flow and does not require Accessibility/Input Monitoring just to register the shortcut.
+- Accessibility recovery is still relevant for automatic text insertion in the separate voice input flow.
 
 ### Capture Flow
 
@@ -365,21 +387,23 @@ API keys should be stored in Keychain, not `UserDefaults`.
 
 ## 11. macOS Permissions And Entitlements
 
-Current entitlement file only enables App Sandbox. AI voice requires additional permissions:
+Original status on 2026-04-30: the entitlement file only enabled App Sandbox. AI voice required additional permissions:
 
 - Microphone entitlement for sandboxed audio input.
 - `NSMicrophoneUsageDescription` in generated Info.plist settings.
 - Outgoing network client entitlement for cloud provider API calls.
 
-For version 1, avoid global keyboard monitoring permissions by using menu bar and focused-window actions first.
+Current status as of 2026-05-22: App Sandbox, microphone, and outgoing network client entitlements are present, and microphone/Speech Recognition privacy copy is covered by the generated Info.plist settings.
 
-If adding global push-to-talk later, evaluate:
+Historical note: the original version 1 plan avoided global keyboard monitoring permissions by using menu bar and focused-window actions first.
+
+Current status as of 2026-05-22: global shortcut support has been added with Carbon `RegisterEventHotKey`. If this changes later, evaluate:
 
 - Carbon `RegisterEventHotKey` for registered shortcuts.
 - `NSEvent` global monitor only if necessary.
-- Accessibility/Input Monitoring onboarding copy if required.
+- Accessibility/Input Monitoring onboarding copy if required by a future implementation.
 
-Do not request Accessibility/Input Monitoring in version 1 unless the implementation cannot meet the product requirement without it.
+Do not request Accessibility/Input Monitoring for shortcut registration unless the implementation cannot meet the product requirement without it.
 
 ## 12. Privacy And Security
 
@@ -508,7 +532,7 @@ Use fake providers:
 
 ### Phase 1: OpenAI MVP
 
-Status: implemented as first-pass MVP on 2026-04-30.
+Status: completed on 2026-04-30.
 
 - Add permissions and settings.
 - Add Keychain API key storage.
@@ -521,23 +545,49 @@ Status: implemented as first-pass MVP on 2026-04-30.
 
 ### Phase 2: Multi-Provider Adapters
 
-- Add Deepgram and AssemblyAI STT adapters.
-- Add Groq and xAI completed-audio STT adapters if reliability is acceptable.
-- Add Claude and Gemini parser adapters.
-- Add provider health/test button in settings.
+Status: partially completed and reshaped by later implementation.
+
+Implemented:
+
+- provider registry for multiple transcription and parser providers
+- OpenAI-compatible parser support
+- provider readiness diagnostics and setup guidance
+- mainland transcription provider adapters
+- Groq/xAI/OpenRouter-style provider definitions where supported by the current adapter model
+
+Not completed from the original examples:
+
+- Deepgram and AssemblyAI STT adapters are not present in the current codebase.
+- Claude and Gemini are present as provider IDs, but the current parser implementation remains OpenAI-compatible/schema-oriented rather than a fully separate native adapter for each.
 
 ### Phase 3: Realtime Voice UX
 
-- Add streaming transcription provider capability.
-- Show live transcript in the capture sheet.
-- Optionally show compact notch recording state.
-- Add global push-to-talk after permission review.
+Status: partially superseded.
+
+Implemented:
+
+- opt-in global shortcut handling
+- notch overlay recording/processing/result/error states for voice input
+- press/release voice input flow routed through the global shortcut and menu bar
+
+Still not implemented:
+
+- streaming transcription provider capability
+- live transcript display while speaking
 
 ### Phase 4: Local Privacy Mode
 
-- Add WhisperKit or Apple Speech local transcription adapter.
-- Allow local STT + cloud parser.
-- Explore local parser only if model size and accuracy make sense.
+Status: completed for local/system transcription.
+
+Implemented:
+
+- WhisperKit local transcription adapter and model management
+- Apple Speech transcription adapter and permission handling
+- local/system STT combined with the selected parser provider
+
+Still not implemented:
+
+- local schedule parser
 
 ## 17. Open Decisions
 
@@ -545,7 +595,7 @@ Status: implemented as first-pass MVP on 2026-04-30.
 - Should OpenAI be the bundled default, or should first launch ask the user to choose a provider?
 - Should NotchMove ever ship a developer-owned proxy, or stay BYOK-only?
 - Should AI-created drafts include provenance metadata in persistent storage?
-- What is the default push-to-talk shortcut if global hotkeys are added?
+- What default shortcut should be recommended now that global hotkeys are implemented with selectable presets?
 
 ## 18. Source References
 

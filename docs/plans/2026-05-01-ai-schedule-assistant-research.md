@@ -2,13 +2,15 @@
 
 Date: 2026-05-01
 
+Current status as of 2026-05-22: this remains a research snapshot, not the active implementation plan. Read it with `docs/plans/2026-05-01-ai-schedule-assistant-implementation-plan.md` and `docs/plans/2026-05-01-ai-input-full-flow-optimization-plan.md`; readiness diagnostics, local WhisperKit, Apple Speech, and opt-in global shortcut support have since been implemented.
+
 ## Goal
 
 Capture the current NotchMove AI assistant analysis, summarize comparable GitHub projects, and define copyable implementation patterns for adding AI in a way that fits NotchMove's quiet menu bar product.
 
 ## Current Project Fit
 
-NotchMove already has a working AI assistant skeleton. The existing flow is:
+NotchMove now has a working AI assistant implementation. The existing flow is:
 
 ```text
 AudioCaptureService
@@ -101,13 +103,13 @@ What NotchMove should avoid:
 
 Repository: https://github.com/argmaxinc/argmax-oss-swift
 
-This is the current home of WhisperKit and related on-device speech frameworks. It is the best technical base for a future local transcription provider.
+This is the current home of WhisperKit and related on-device speech frameworks. It became the technical base for NotchMove's implemented local transcription provider.
 
 Copyable pattern:
 
-- Add WhisperKit as a Swift Package product when local STT becomes a priority.
-- Wrap it behind NotchMove's existing `TranscriptionProvider` protocol.
-- Make model selection explicit and avoid surprise downloads during capture.
+- WhisperKit was added as a Swift Package product.
+- It is wrapped behind NotchMove's existing `TranscriptionProvider` protocol.
+- Model selection is explicit and capture does not trigger surprise downloads.
 
 ## Copyable Patterns
 
@@ -147,7 +149,9 @@ Cloud providers are acceptable for an MVP, but the product should have a credibl
 
 ### 5. Permission Staging
 
-Do not ask for Accessibility or Input Monitoring on first launch. Start with menu bar and dashboard capture. Add global push-to-talk only after the base flow is trusted.
+Do not ask for Accessibility or Input Monitoring on first launch. Start with menu bar and dashboard capture. Historical recommendation: defer global push-to-talk until the base flow is trusted.
+
+2026-05-22 update: global shortcut support is now implemented through Carbon registered hotkeys without requiring Accessibility/Input Monitoring for shortcut registration. Accessibility remains relevant for automatic text insertion in the voice input flow.
 
 ### 6. Narrow AI Scope
 
@@ -159,7 +163,9 @@ Ship the AI feature as a focused schedule capture assistant:
 
 1. Make the current cloud batch flow reliable and easy to configure.
 2. Add local WhisperKit transcription as the privacy-first option.
-3. Add global push-to-talk after the app has clear onboarding and permission copy.
+3. Add global push-to-talk after the app has clear permission copy.
+
+2026-05-22 update: all three items above have implementation coverage. Live microphone/provider/manual release QA remains pending.
 
 This preserves NotchMove's character: quiet, native, low-interruption, and explicit about privacy.
 

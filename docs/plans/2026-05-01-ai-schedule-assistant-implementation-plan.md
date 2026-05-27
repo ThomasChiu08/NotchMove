@@ -4,7 +4,9 @@ Date: 2026-05-01
 
 ## Goal
 
-Turn the existing AI schedule assistant skeleton into a reliable, privacy-aware product feature. The first shipped experience should let users speak a schedule command, review parsed drafts, edit mistakes, and add confirmed items to NotchMove's existing daily schedule reminder loop.
+Original goal: turn the then-existing AI schedule assistant skeleton into a reliable, privacy-aware product feature. As of 2026-05-22, this implementation plan is complete through automated QA, and the remaining work is live manual QA.
+
+The first shipped experience should let users speak a schedule command, review parsed drafts, edit mistakes, and add confirmed items to NotchMove's existing daily schedule reminder loop.
 
 ## Recommendation
 
@@ -12,7 +14,9 @@ Use a staged plan:
 
 1. Harden the current cloud batch capture flow.
 2. Add local WhisperKit transcription as a privacy-first transcription provider.
-3. Add global push-to-talk only after onboarding and permission handling are solid.
+3. Defer global push-to-talk until permission handling is solid.
+
+2026-05-22 note: this sequencing has since completed. The current app has opt-in global shortcut handling through Carbon and keeps menu bar/dashboard capture working without extra Accessibility/Input Monitoring permissions.
 
 Do not build a general chatbot. Keep AI scoped to structured schedule capture.
 
@@ -220,6 +224,8 @@ Completion notes:
 ## Phase 5: QA and Release Readiness
 
 Status: complete for automated QA; live manual QA pending
+
+Current status as of 2026-05-22: this remains accurate. Later work in `docs/plans/2026-05-01-ai-input-full-flow-optimization-plan.md` was implemented and verified on 2026-05-15, adding Apple Speech permission handling, a clearer AI Settings flow, full voice input, notch overlay voice states, Release build verification, and release privacy verification. That later plan extends this one, but it does not close the live microphone/provider/manual release QA items below.
 
 Scope:
 

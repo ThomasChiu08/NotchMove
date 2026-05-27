@@ -47,3 +47,11 @@
 - Ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' -derivedDataPath /private/tmp/NotchMove-DerivedData test`; result: passed.
 - Fixed `script/verify_release_privacy.sh` for current `codesign --entitlements` output and verified the Release app privacy metadata/entitlements.
 - Ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -configuration Release -destination 'platform=macOS' -derivedDataPath /private/tmp/NotchMove-Release-DerivedData build`; result: passed.
+
+## 2026-05-22
+
+- Synced planning documentation to the current implementation state without changing Swift code.
+- Replaced the stale product roadmap with a current status/roadmap that no longer lists launch at login, Snooze/Skip, schedule Done/Snooze, packaging scripts, signing/privacy verification, notarization documentation, or expanded localization as missing work.
+- Archived `task_plan.md` as the completed daily schedule reminder execution plan instead of the active product plan.
+- Updated UI and AI design plans with completed/partial/pending status notes and cross-references to later implementation work.
+- Confirmed the remaining active TODOs are temporary pause, first-run onboarding, general diagnostics export, minimal UI smoke test, daily goal and 7-day trend, Feedback/Report Issue, and live microphone/provider/manual release QA.

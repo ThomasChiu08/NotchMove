@@ -1,5 +1,11 @@
 # Daily Schedule Reminder Execution Plan
 
+Status: archived / completed
+
+Completion date: 2026-04-30
+
+Current note as of 2026-05-22: this is a completed专项 execution plan for the daily schedule reminder loop, not the current overall product plan. Use `PRODUCT_STATUS_AND_ROADMAP.md` for the active roadmap and `progress.md` for chronological implementation history.
+
 ## Goal
 
 Turn the current daily schedule feature from an import-only surface into a usable reminder loop:
@@ -16,14 +22,16 @@ Turn the current daily schedule feature from an import-only surface into a usabl
 - `pakerwreah/Calendr` and `sfsam/Itsycal`: useful for agenda display and EventKit refresh patterns.
 - `DamascenoRafael/reminders-menubar`: useful for Reminders CRUD and upcoming reminder filtering, but GPL-3.0 means avoid copying code.
 
-## Current Findings
+## Original Findings Before Implementation
+
+These findings describe the starting point on 2026-04-30. They are retained as historical context for this archived plan and are not current product gaps.
 
 - `DailyScheduleStore` already persists `DailyScheduleItem` values in `UserDefaults`.
 - `DailyScheduleImportParser` supports text lines like `09:00-10:00 Meeting`.
 - `DailyScheduleDashboardView` already has an import sheet and today list.
-- `DailyScheduleReminderEngine` currently fires on a 30-second loop but presents an `NSAlert`.
-- `NotchView` is tied to `ReminderEngine` and only knows about sedentary break reminders.
-- `MenuBarController` has a dashboard entry but no schedule preview/status.
+- At the time, `DailyScheduleReminderEngine` fired on a 30-second loop but presented an `NSAlert`; this was resolved by routing schedule reminders through the notch overlay.
+- At the time, `NotchView` was tied to `ReminderEngine` and only knew about sedentary break reminders; this was resolved by the completed shared overlay work in Phase 2.
+- At the time, `MenuBarController` had a dashboard entry but no schedule preview/status; this was resolved by the completed visibility/menu affordance work in Phase 4.
 
 ## Implementation Phases
 

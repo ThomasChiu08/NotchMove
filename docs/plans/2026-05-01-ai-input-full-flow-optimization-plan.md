@@ -6,10 +6,12 @@ Implement a complete AI input flow that fits macOS: Apple Speech/system permissi
 
 Status: implemented and verified on 2026-05-15.
 
-Current baseline:
+2026-05-22 consistency check: this status still matches `progress.md`, README release/privacy documentation, and the current implementation files for Apple Speech, WhisperKit, provider readiness diagnostics, voice input, notch overlay voice states, and release privacy verification. Remaining work is manual QA, not implementation of this plan.
+
+Original baseline before this plan:
 
 - The app already has microphone entitlement and usage copy, Keychain-backed credentials, WhisperKit, cloud transcription/parser providers, the AI capture sheet, and AI assistant tests.
-- The missing pieces are Apple Speech as a transcription provider, `NSSpeechRecognitionUsageDescription`, explicit Speech Recognition permission handling, actionable system settings recovery, and a less crowded AI settings layout.
+- At the time, the missing pieces were Apple Speech as a transcription provider, `NSSpeechRecognitionUsageDescription`, explicit Speech Recognition permission handling, actionable system settings recovery, and a less crowded AI settings layout. Those items were implemented by this plan.
 
 ## Key Changes
 

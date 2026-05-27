@@ -398,30 +398,34 @@ Implementation should avoid:
 
 ## Acceptance Checklist
 
-- [ ] Main window still uses `NavigationSplitView`.
-- [ ] Sidebar has Workspace and Settings sections.
-- [ ] Sidebar shows NotchMove status: `Tracking` or `Paused`.
-- [ ] Sidebar icons use SF Symbols at roughly 16 px visual size.
-- [ ] Sidebar selection uses neutral gray, not high-saturation color.
-- [ ] Today first viewport shows current schedule, next schedule, next stand reminder, and status.
-- [ ] Today includes a timeline of schedule items.
-- [ ] Today has a concise empty state and `Add schedule item` action.
-- [ ] Schedule rows show time, title, reminder state, advance reminder, and note.
-- [ ] Schedule editing works through inline properties or a lightweight sheet.
-- [ ] Reminders, Behavior, Language, Startup, and About use native `Form` and controls.
-- [ ] Statistics uses compact numbers and weekly progress, not complex charts.
-- [ ] Destructive actions are visually subdued but clear and require confirmation.
-- [ ] Main content background follows macOS system background.
-- [ ] Blocks use subtle separators and no heavy shadows.
-- [ ] Radius stays within 6-8 px for rows and blocks.
-- [ ] Light and dark modes both meet WCAG AA contrast for text.
-- [ ] Notch overlay keeps the black notch-shaped identity.
-- [ ] Overlay uses white primary text, lower-opacity secondary text, and green completion action.
-- [ ] Overlay animations stay within 150-240 ms and use opacity, scale, or offset.
-- [ ] Overlay supports `Done` / `Snooze` for schedule reminders.
-- [ ] Overlay supports `Stand & Move` / `Later` for break reminders.
-- [ ] Keyboard navigation and VoiceOver labels are preserved for all controls.
-- [ ] UI contains no landing page, hero section, gradient background, large glass effect, or card-heavy dashboard.
+Current implementation status as of 2026-05-22:
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| Main window still uses `NavigationSplitView`. | Completed | `UnifiedDashboardView` uses `NavigationSplitView`. |
+| Sidebar has Workspace and Settings sections. | Completed | Workspace includes Today, Schedule, Breaks. Settings includes Reminders, AI Assistant, Behavior, Statistics, Language, Startup, About. |
+| Sidebar shows NotchMove status: `Tracking` or `Paused`. | Completed | Also covers schedule-blocked, reminding, and idle states. |
+| Sidebar icons use SF Symbols at roughly 16 px visual size. | Completed | Sidebar rows use `Label` with `Image(systemName:)`. |
+| Sidebar selection uses neutral gray, not high-saturation color. | Completed | Uses native `.sidebar` list selection and neutral row styling. |
+| Today first viewport shows current schedule, next schedule, next stand reminder, and status. | Completed | Today rhythm section includes tracking status, next stand reminder, current schedule, next schedule, and breaks today. |
+| Today includes a timeline of schedule items. | Completed | `ScheduleTimelineRow` renders today's schedule rows. |
+| Today has a concise empty state and `Add schedule item` action. | Completed | Empty state uses `DashboardEmptyInline` and Add button. |
+| Schedule rows show time, title, reminder state, advance reminder, and note. | Completed | `ScheduleEditorRow` shows time, title, status, reminder text, note, and reminder toggle. |
+| Schedule editing works through inline properties or a lightweight sheet. | Completed | Selected item properties are inline; add/edit uses `DailyScheduleItemEditorSheet`. |
+| Reminders, Behavior, Language, Startup, and About use native `Form` and controls. | Completed | `SettingsContentView` keeps native `Form`, `Section`, `Toggle`, `Picker`, `Stepper`, and `Button` patterns. |
+| Statistics uses compact numbers and weekly progress, not complex charts. | Partial | Counts and weekly strip exist. Daily goal and a productized 7-day trend remain pending. |
+| Destructive actions are visually subdued but clear and require confirmation. | Completed | Clear, delete, reset, and restore use confirmation dialogs. |
+| Main content background follows macOS system background. | Completed | Dashboard document pages use semantic AppKit background colors. |
+| Blocks use subtle separators and no heavy shadows. | Completed | Dashboard rows use separators and no heavy card treatment. |
+| Radius stays within 6-8 px for rows and blocks. | Completed | Schedule rows use 7 px radius; compact rows stay within target. |
+| Light and dark modes both meet WCAG AA contrast for text. | Partial | Semantic colors are used, but no documented WCAG/manual contrast pass is recorded. |
+| Notch overlay keeps the black notch-shaped identity. | Completed | Existing notch overlay remains the reminder and voice-input surface. |
+| Overlay uses white primary text, lower-opacity secondary text, and green completion action. | Completed | Break, schedule, and voice-input states use white text with secondary opacity and green positive actions. |
+| Overlay animations stay within 150-240 ms and use opacity, scale, or offset. | Partial | Overlay uses restrained motion, but the exact duration target has not been manually audited. |
+| Overlay supports `Done` / `Snooze` for schedule reminders. | Completed | Schedule reminders expose Done and Later/Snooze actions. |
+| Overlay supports `Stand & Move` / `Later` for break reminders. | Completed | Implemented as Stand & Move, 10 min snooze, and Skip rather than a generic Later label. |
+| Keyboard navigation and VoiceOver labels are preserved for all controls. | Partial | Native controls and help labels cover most paths, but no full keyboard/VoiceOver QA pass is documented. |
+| UI contains no landing page, hero section, gradient background, large glass effect, or card-heavy dashboard. | Completed | Current dashboard is a workspace UI, not a landing page. |
 
 ## Out Of Scope
 
