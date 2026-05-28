@@ -24,6 +24,7 @@ struct ScreenDescriptor: Equatable {
 
 struct OverlayPlacement: Equatable {
     let frame: CGRect
+    let tuckedFrame: CGRect
     let topInset: CGFloat
 }
 
@@ -51,11 +52,15 @@ struct ScreenPlacementService {
     ) -> OverlayPlacement {
         let centerX = screen.notchFrame?.midX ?? screen.frame.midX
         let size = size(for: presentation, on: screen, notchExpansionEnabled: notchExpansionEnabled)
+        let tuckedSize = tuckedSize(on: screen)
         let x = centerX - size.width / 2
         let y = screen.frame.maxY - size.height
+        let tuckedX = centerX - tuckedSize.width / 2
+        let tuckedY = screen.frame.maxY - tuckedSize.height
 
         return OverlayPlacement(
             frame: CGRect(x: x, y: y, width: size.width, height: size.height),
+            tuckedFrame: CGRect(x: tuckedX, y: tuckedY, width: tuckedSize.width, height: tuckedSize.height),
             topInset: screen.notchFrame?.height ?? screen.menuBarHeight
         )
     }
@@ -69,7 +74,7 @@ struct ScreenPlacementService {
         let baseHeight = screen.notchFrame?.height ?? screen.menuBarHeight
 
         switch presentation {
-        case .hidden, .reminderPending, .dismissAnimating:
+        case .hidden, .reminderPending:
             return tuckedSize(on: screen)
         case .hoverPreview:
             return CGSize(
@@ -80,26 +85,37 @@ struct ScreenPlacementService {
                 ),
                 height: max(baseHeight + 34, Sizing.previewMinHeight)
             )
-        case .presenting:
-            if notchExpansionEnabled {
-                return CGSize(
-                    width: clamped(
-                        notchWidth + Sizing.reminderExpandedExtraWidth,
-                        min: Sizing.reminderExpandedMinWidth,
-                        max: Sizing.reminderExpandedMaxWidth
-                    ),
-                    height: Sizing.reminderExpandedMinHeight
-                )
-            }
-            return CGSize(
-                width: clamped(
-                    notchWidth + Sizing.reminderCollapsedExtraWidth,
-                    min: Sizing.reminderCollapsedMinWidth,
-                    max: Sizing.reminderCollapsedMaxWidth
-                ),
-                height: Sizing.reminderCollapsedMinHeight
+        case .presenting, .dismissAnimating:
+            return reminderSize(
+                notchWidth: notchWidth,
+                notchExpansionEnabled: notchExpansionEnabled
             )
         }
+    }
+
+    private func reminderSize(
+        notchWidth: CGFloat,
+        notchExpansionEnabled: Bool
+    ) -> CGSize {
+        if notchExpansionEnabled {
+            return CGSize(
+                width: clamped(
+                    notchWidth + Sizing.reminderExpandedExtraWidth,
+                    min: Sizing.reminderExpandedMinWidth,
+                    max: Sizing.reminderExpandedMaxWidth
+                ),
+                height: Sizing.reminderExpandedMinHeight
+            )
+        }
+
+        return CGSize(
+            width: clamped(
+                notchWidth + Sizing.reminderCollapsedExtraWidth,
+                min: Sizing.reminderCollapsedMinWidth,
+                max: Sizing.reminderCollapsedMaxWidth
+            ),
+            height: Sizing.reminderCollapsedMinHeight
+        )
     }
 
     private func tuckedSize(on screen: ScreenDescriptor) -> CGSize {

@@ -15,9 +15,10 @@ final class NotchWindowController {
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
     private let overlayMetrics: NotchOverlayMetrics
-    private let hostingView: NSHostingView<AnyView>
+    private let hostingView: NotchHostingView
     private let screenProvider: ScreenProviding
     private let placementService: ScreenPlacementService
+    private var interactiveFrame: CGRect?
     private nonisolated(unsafe) var screenChangeObserver: NSObjectProtocol?
     private nonisolated(unsafe) var languageObserver: NSObjectProtocol?
     private nonisolated(unsafe) var notchLayoutObserver: NSObjectProtocol?
@@ -52,7 +53,7 @@ final class NotchWindowController {
         self.placementService = placementService
         let overlayMetrics = NotchOverlayMetrics(topInset: 38)
         self.overlayMetrics = overlayMetrics
-        hostingView = NSHostingView(
+        hostingView = NotchHostingView(
             rootView: Self.makeRootView(
                 reminderEngine: reminderEngine,
                 voiceInputSession: voiceInputSession,
@@ -64,6 +65,9 @@ final class NotchWindowController {
         hostingView.layer?.drawsAsynchronously = true
         hostingView.layer?.allowsEdgeAntialiasing = true
         panel = NotchWindow()
+        hostingView.interactiveFrameProvider = { [weak self] in
+            self?.interactiveFrame
+        }
         panel.contentView = hostingView
 
         languageObserver = NotificationCenter.default.addObserver(
@@ -115,7 +119,6 @@ final class NotchWindowController {
         } onChange: {
             Task { @MainActor [weak self] in
                 self?.applyCurrentPlacement(animated: true)
-                self?.updateHostingRootView()
                 self?.observeVoiceInputState()
             }
         }
@@ -133,20 +136,45 @@ final class NotchWindowController {
             on: screen,
             notchExpansionEnabled: preferencesStore.preferences.notchExpansionEnabled
         )
+        updateOverlayMetrics(with: placement)
+        updateInteractiveFrame(with: placement)
+
+        guard panel.frame != placement.frame else { return }
+        panel.setFrame(placement.frame, display: true, animate: false)
+    }
+
+    private func updateOverlayMetrics(with placement: OverlayPlacement) {
         if overlayMetrics.topInset != placement.topInset {
             overlayMetrics.topInset = placement.topInset
         }
 
-        guard panel.frame != placement.frame else { return }
+        if overlayMetrics.tuckedSize != placement.tuckedFrame.size {
+            overlayMetrics.tuckedSize = placement.tuckedFrame.size
+        }
 
-        if animated {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.24
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                panel.animator().setFrame(placement.frame, display: true)
-            }
-        } else {
-            panel.setFrame(placement.frame, display: true, animate: false)
+        if overlayMetrics.canvasSize != placement.frame.size {
+            overlayMetrics.canvasSize = placement.frame.size
+        }
+    }
+
+    private func updateInteractiveFrame(with placement: OverlayPlacement) {
+        let size = islandSize(for: activePresentation, in: placement)
+        let origin = CGPoint(
+            x: max((placement.frame.width - size.width) / 2, 0),
+            y: max(placement.frame.height - size.height, 0)
+        )
+        interactiveFrame = CGRect(origin: origin, size: size)
+    }
+
+    private func islandSize(
+        for presentation: ReminderState.PresentationPhase,
+        in placement: OverlayPlacement
+    ) -> CGSize {
+        switch presentation {
+        case .hidden, .reminderPending, .dismissAnimating:
+            placement.tuckedFrame.size
+        case .hoverPreview, .presenting:
+            placement.frame.size
         }
     }
 
@@ -190,5 +218,19 @@ final class NotchWindowController {
                 self?.applyCurrentPlacement(animated: false)
             }
         }
+    }
+}
+
+private final class NotchHostingView: NSHostingView<AnyView> {
+    var interactiveFrameProvider: (() -> CGRect?)?
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let interactiveFrame = interactiveFrameProvider?(),
+              interactiveFrame.contains(point)
+        else {
+            return nil
+        }
+
+        return super.hitTest(point)
     }
 }

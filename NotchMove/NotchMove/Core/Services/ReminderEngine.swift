@@ -50,6 +50,8 @@ struct ReminderState: Equatable {
 @MainActor
 @Observable
 final class ReminderEngine {
+    static let reminderPresentationPreflightDelay: Duration = .milliseconds(90)
+
     struct ScheduleReminderContent: Equatable {
         let id: DailyScheduleItem.ID
         let title: String
@@ -109,6 +111,7 @@ final class ReminderEngine {
 
     @ObservationIgnored private var tickTask: Task<Void, Never>?
     @ObservationIgnored private var autoDismissTask: Task<Void, Never>?
+    @ObservationIgnored private var presentationTask: Task<Void, Never>?
     @ObservationIgnored private var settleTask: Task<Void, Never>?
     @ObservationIgnored private var activeScheduleActions: DailyScheduleReminderActions?
     @ObservationIgnored private nonisolated(unsafe) var preferencesObserver: NSObjectProtocol?
@@ -120,6 +123,7 @@ final class ReminderEngine {
     deinit {
         tickTask?.cancel()
         autoDismissTask?.cancel()
+        presentationTask?.cancel()
         settleTask?.cancel()
         if let observer = preferencesObserver {
             NotificationCenter.default.removeObserver(observer)
@@ -312,7 +316,7 @@ final class ReminderEngine {
     private func handleHoverChange(_ hovering: Bool) {
         if hovering {
             if overlayState.presentation == .reminderPending {
-                updatePresentation(.presenting)
+                promotePendingReminder()
             } else if overlayState.presentation == .hidden, preferencesStore.preferences.hoverPreviewEnabled {
                 updatePresentation(.hoverPreview)
             }
@@ -371,20 +375,41 @@ final class ReminderEngine {
         resetActiveSeconds: Bool
     ) {
         autoDismissTask?.cancel()
+        presentationTask?.cancel()
         settleTask?.cancel()
 
         if resetActiveSeconds {
             state.activeSeconds = 0
         }
         updateContent(content)
-        updatePresentation(.presenting)
         updateReminderStartDate(clock.now)
+        updatePresentation(.reminderPending)
         lastTickDate = clock.now
 
         if playSound {
             soundPlayer.playReminderSound()
         }
 
+        schedulePendingPromotion()
+    }
+
+    private func schedulePendingPromotion() {
+        presentationTask?.cancel()
+        presentationTask = Task { [weak self] in
+            guard let self else { return }
+            try? await self.clock.sleep(for: Self.reminderPresentationPreflightDelay)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self.promotePendingReminder()
+            }
+        }
+    }
+
+    private func promotePendingReminder() {
+        guard overlayState.presentation == .reminderPending else { return }
+        presentationTask?.cancel()
+        presentationTask = nil
+        updatePresentation(.presenting)
         scheduleAutoDismiss()
     }
 
@@ -420,6 +445,8 @@ final class ReminderEngine {
 
         autoDismissTask?.cancel()
         autoDismissTask = nil
+        presentationTask?.cancel()
+        presentationTask = nil
         settleTask?.cancel()
         settleTask = nil
 
@@ -440,6 +467,8 @@ final class ReminderEngine {
     }
 
     private func finalizeReminder(with outcome: ReminderOutcome) {
+        presentationTask?.cancel()
+        presentationTask = nil
         settleTask = nil
         updatePresentation(.hidden)
         if overlayState.content != .breakReminder {
@@ -491,7 +520,7 @@ final class ReminderEngine {
             }
         }
 
-        if isReminderPresenting {
+        if overlayState.presentation == .presenting {
             scheduleAutoDismiss()
         }
     }

@@ -12,18 +12,29 @@ struct NotchView: View {
     let voiceInputSession: VoiceInputSessionController
     let overlayMetrics: NotchOverlayMetrics
 
-    private let shapeAnimation = Animation.smooth(duration: 0.24, extraBounce: 0)
-    private let contentAnimation = Animation.smooth(duration: 0.22, extraBounce: 0)
+    private let shapeAnimation = Animation.spring(response: 0.28, dampingFraction: 0.86, blendDuration: 0.08)
+    private let contentAnimation = Animation.easeOut(duration: 0.18).delay(0.055)
 
     var body: some View {
         ZStack(alignment: .top) {
+            islandShell
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(.clear)
+    }
+
+    private var islandShell: some View {
+        ZStack(alignment: .top) {
             NotchShape(cornerRadius: cornerRadius)
                 .fill(backgroundColor)
-                .animation(shapeAnimation, value: activePresentation)
 
             contentLayer
                 .clipped()
         }
+        .frame(width: islandSize.width, height: islandSize.height, alignment: .top)
+        .clipped()
+        .animation(shapeAnimation, value: islandSize)
+        .animation(shapeAnimation, value: cornerRadius)
         .onHover { hovering in
             guard !voiceInputSession.isOverlayVisible else { return }
             reminderEngine.send(.hoverChanged(hovering))
@@ -42,6 +53,15 @@ struct NotchView: View {
         voiceInputSession.isOverlayVisible ? .presenting : reminderEngine.overlayState.presentation
     }
 
+    private var islandSize: CGSize {
+        switch activePresentation {
+        case .hidden, .reminderPending, .dismissAnimating:
+            overlayMetrics.tuckedSize
+        case .hoverPreview, .presenting:
+            overlayMetrics.canvasSize
+        }
+    }
+
     private var backgroundColor: Color {
         if case .recording = voiceInputSession.phase {
             return Color(red: 0.08, green: 0.015, blue: 0.018)
@@ -56,6 +76,7 @@ struct NotchView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(contentAnimation, value: activePresentation)
+        .animation(contentAnimation, value: voiceInputSession.phase)
     }
 
     @ViewBuilder
@@ -587,7 +608,7 @@ private struct NotchOverlayTransitionModifier: ViewModifier {
 private extension AnyTransition {
     static let notchOverlayInsertion = asymmetric(
         insertion: .modifier(
-            active: NotchOverlayTransitionModifier(opacity: 0, scale: 0.985, offsetY: -4),
+            active: NotchOverlayTransitionModifier(opacity: 0, scale: 0.965, offsetY: -14),
             identity: NotchOverlayTransitionModifier(opacity: 1, scale: 1, offsetY: 0)
         ),
         removal: .opacity

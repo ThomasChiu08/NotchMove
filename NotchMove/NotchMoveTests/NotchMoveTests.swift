@@ -336,7 +336,7 @@ struct ReminderEngineTests {
         #expect(context.engine.runState == .scheduleBlocked)
     }
 
-    @Test func automaticReminderPresentsImmediatelyAndPlaysSound() {
+    @Test func automaticReminderStagesPendingThenPresentsAndPlaysSound() async {
         let now = makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0)
         let context = makeReminderContext(now: now)
         defer { context.cleanup() }
@@ -348,15 +348,37 @@ struct ReminderEngineTests {
         context.clock.now = now.addingTimeInterval(60)
         context.engine.send(.tick(context.clock.now))
 
-        #expect(context.engine.state.presentation == .presenting)
+        #expect(context.engine.state.presentation == .reminderPending)
         #expect(context.engine.isReminderPresenting)
         #expect(context.soundPlayer.playCount == 1)
+
+        await promotePendingReminder(in: context)
+
+        #expect(context.engine.state.presentation == .presenting)
 
         context.engine.send(.hoverChanged(false))
         #expect(context.engine.state.presentation == .presenting)
     }
 
-    @Test func sitAwareDisabledContinuesCountingDuringIdleTime() {
+    @Test func manualTriggerStagesReminderBeforePresenting() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.engine.send(.manualTrigger)
+
+        #expect(context.engine.state.presentation == .reminderPending)
+        #expect(context.engine.overlayState.presentation == .reminderPending)
+        #expect(context.engine.isReminderPresenting)
+        #expect(context.engine.overlayState.content == .breakReminder)
+        #expect(context.soundPlayer.playCount == 1)
+
+        await promotePendingReminder(in: context)
+
+        #expect(context.engine.state.presentation == .presenting)
+        #expect(context.engine.overlayState.presentation == .presenting)
+    }
+
+    @Test func sitAwareDisabledContinuesCountingDuringIdleTime() async {
         let now = makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0)
         let context = makeReminderContext(now: now)
         defer { context.cleanup() }
@@ -369,6 +391,9 @@ struct ReminderEngineTests {
         context.clock.now = now.addingTimeInterval(60)
         context.engine.send(.tick(context.clock.now))
 
+        #expect(context.engine.state.presentation == .reminderPending)
+        await promotePendingReminder(in: context)
+
         #expect(context.engine.state.presentation == .presenting)
         #expect(context.soundPlayer.playCount == 1)
     }
@@ -378,8 +403,9 @@ struct ReminderEngineTests {
         defer { context.cleanup() }
 
         context.engine.send(.manualTrigger)
+        await promotePendingReminder(in: context)
         context.engine.send(.completeBreak)
-        await flushAsyncWork()
+        await settleReminderDismissal(in: context)
 
         #expect(context.engine.state.presentation == .hidden)
         #expect(context.breakStatsStore.todayBreaks == 1)
@@ -391,8 +417,9 @@ struct ReminderEngineTests {
         defer { context.cleanup() }
 
         context.engine.send(.manualTrigger)
+        await promotePendingReminder(in: context)
         context.engine.send(.autoDismiss)
-        await flushAsyncWork()
+        await settleReminderDismissal(in: context)
 
         #expect(context.engine.state.presentation == .hidden)
         #expect(context.breakStatsStore.todayBreaks == 0)
@@ -405,22 +432,29 @@ struct ReminderEngineTests {
         defer { context.cleanup() }
 
         context.engine.send(.manualTrigger)
+        await promotePendingReminder(in: context)
+        let snoozeStart = context.clock.now
+        let snoozedUntil = snoozeStart.addingTimeInterval(10 * 60)
         context.engine.snoozeReminder(duration: 10 * 60)
-        await flushAsyncWork()
+        await settleReminderDismissal(in: context)
 
         #expect(context.engine.state.presentation == .hidden)
-        #expect(context.engine.state.breakSnoozedUntilDate == now.addingTimeInterval(10 * 60))
+        #expect(context.engine.state.breakSnoozedUntilDate == snoozedUntil)
 
-        context.clock.now = now.addingTimeInterval(9 * 60)
+        context.clock.now = snoozeStart.addingTimeInterval(9 * 60)
         context.engine.send(.tick(context.clock.now))
 
         #expect(context.engine.state.presentation == .hidden)
 
-        context.clock.now = now.addingTimeInterval(10 * 60)
+        context.clock.now = snoozedUntil
         context.engine.send(.tick(context.clock.now))
+
+        #expect(context.soundPlayer.playCount == 2)
+        #expect(context.engine.state.presentation == .reminderPending)
+
+        await promotePendingReminder(in: context)
 
         #expect(context.engine.state.presentation == .presenting)
-        #expect(context.soundPlayer.playCount == 2)
     }
 
     @Test func skippedBreakReminderUsesFullIntervalBeforeRepeating() async {
@@ -430,15 +464,21 @@ struct ReminderEngineTests {
 
         context.preferencesStore.preferences.reminderIntervalMinutes = 30
         context.engine.send(.manualTrigger)
+        await promotePendingReminder(in: context)
         context.engine.send(.dismissReminder)
-        await flushAsyncWork()
+        await settleReminderDismissal(in: context)
+        let repeatStart = context.clock.now
 
-        context.clock.now = now.addingTimeInterval(10 * 60)
+        context.clock.now = repeatStart.addingTimeInterval(10 * 60)
         context.engine.send(.tick(context.clock.now))
         #expect(context.engine.state.presentation == .hidden)
 
-        context.clock.now = now.addingTimeInterval(30 * 60)
+        context.clock.now = repeatStart.addingTimeInterval(30 * 60)
         context.engine.send(.tick(context.clock.now))
+        #expect(context.engine.state.presentation == .reminderPending)
+
+        await promotePendingReminder(in: context)
+
         #expect(context.engine.state.presentation == .presenting)
     }
 
@@ -448,6 +488,7 @@ struct ReminderEngineTests {
         defer { context.cleanup() }
 
         context.engine.send(.manualTrigger)
+        await promotePendingReminder(in: context)
         #expect(context.engine.state.presentation == .presenting)
 
         context.preferencesStore.preferences.schedule = Preferences.Schedule(
@@ -462,6 +503,68 @@ struct ReminderEngineTests {
 
         #expect(context.engine.state.presentation == .hidden)
         #expect(context.engine.state.scheduleState == .blocked)
+    }
+
+    @Test func pendingReminderPromotionIsCancelledByDismiss() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.engine.send(.manualTrigger)
+        #expect(context.engine.state.presentation == .reminderPending)
+
+        context.engine.send(.dismissReminder)
+        #expect(context.engine.state.presentation == .dismissAnimating)
+
+        await context.clock.advance(by: ReminderEngine.reminderPresentationPreflightDelay)
+        await flushAsyncWork()
+        #expect(context.engine.state.presentation != .presenting)
+
+        await settleReminderDismissal(in: context)
+        #expect(context.engine.state.presentation == .hidden)
+    }
+
+    @Test func pendingReminderPromotionIsCancelledBySnooze() async {
+        let now = makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+
+        context.engine.send(.manualTrigger)
+        #expect(context.engine.state.presentation == .reminderPending)
+
+        context.engine.snoozeReminder(duration: 10 * 60)
+        #expect(context.engine.state.breakSnoozedUntilDate == now.addingTimeInterval(10 * 60))
+
+        await context.clock.advance(by: ReminderEngine.reminderPresentationPreflightDelay)
+        await flushAsyncWork()
+        #expect(context.engine.state.presentation != .presenting)
+
+        await settleReminderDismissal(in: context)
+        #expect(context.engine.state.presentation == .hidden)
+    }
+
+    @Test func scheduleReminderStagesWithoutPlayingBreakSound() async {
+        let now = makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+        let item = DailyScheduleItem(title: "Design review", startDate: now.addingTimeInterval(15 * 60))
+        let actions = DailyScheduleReminderActions(
+            complete: {},
+            snooze: { _ in },
+            dismiss: {}
+        )
+
+        context.engine.presentScheduleReminder(for: item, actions: actions)
+
+        #expect(context.engine.state.presentation == .reminderPending)
+        #expect(context.soundPlayer.playCount == 0)
+        if case .schedule(let content) = context.engine.overlayState.content {
+            #expect(content.title == "Design review")
+        } else {
+            Issue.record("Expected schedule overlay content")
+        }
+
+        await promotePendingReminder(in: context)
+        #expect(context.engine.state.presentation == .presenting)
     }
 
     @Test func disablingHoverPreviewClearsPreviewImmediately() async {
@@ -544,6 +647,7 @@ struct ScreenPlacementServiceTests {
 
         #expect(placement.topInset == 38)
         #expect(placement.frame == CGRect(x: 656, y: 944, width: 200, height: 38))
+        #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
     }
 
     @Test func tuckedFallbackStaysInsideMenuBarHeight() {
@@ -586,6 +690,51 @@ struct ScreenPlacementServiceTests {
         #expect(placement.topInset == 38)
         #expect(placement.frame.origin.x == 596)
         #expect(placement.frame.size == CGSize(width: 320, height: 96))
+        #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
+    }
+
+    @Test func dismissAnimatingUsesExpandedReminderCanvas() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .dismissAnimating,
+            on: screen,
+            notchExpansionEnabled: true
+        )
+
+        #expect(placement.topInset == 38)
+        #expect(placement.frame.origin.x == 596)
+        #expect(placement.frame.size == CGSize(width: 320, height: 96))
+        #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
+    }
+
+    @Test func dismissAnimatingUsesCollapsedCanvasWhenExpansionDisabled() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .dismissAnimating,
+            on: screen,
+            notchExpansionEnabled: false
+        )
+
+        #expect(placement.topInset == 38)
+        #expect(placement.frame.origin.x == 612)
+        #expect(placement.frame.size == CGSize(width: 288, height: 88))
+        #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
     }
 
     @Test func nonNotchedScreenFallsBackToScreenCenter() {
@@ -759,6 +908,18 @@ private func flushAsyncWork() async {
     await Task.yield()
 }
 
+private func promotePendingReminder(in context: ReminderTestContext) async {
+    await flushAsyncWork()
+    await context.clock.advance(by: ReminderEngine.reminderPresentationPreflightDelay)
+    await flushAsyncWork()
+}
+
+private func settleReminderDismissal(in context: ReminderTestContext) async {
+    await flushAsyncWork()
+    await context.clock.advance(by: .seconds(0.4))
+    await flushAsyncWork()
+}
+
 private func makeScreen(
     displayID: CGDirectDisplayID,
     isBuiltIn: Bool,
@@ -786,6 +947,7 @@ private struct ReminderTestContext {
     let engine: ReminderEngine
 
     func cleanup() {
+        engine.send(.cancelReminder)
         defaults.removePersistentDomain(forName: suiteName)
     }
 }
@@ -804,14 +966,100 @@ private final class TestSoundPlayer: SoundPlaying {
     }
 }
 
-private final class TestClock: Clock {
-    var now: Date
-
-    init(now: Date) {
-        self.now = now
+private final class TestClock: Clock, @unchecked Sendable {
+    private struct Sleeper {
+        let id: UUID
+        let deadline: Date
+        let continuation: CheckedContinuation<Void, Error>
     }
 
-    func sleep(for duration: Duration) async throws {}
+    private let lock = NSLock()
+    private nonisolated(unsafe) var storedNow: Date
+    private nonisolated(unsafe) var sleepers: [Sleeper] = []
+
+    nonisolated var now: Date {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedNow
+        }
+        set {
+            let ready = setNow(newValue)
+            resume(ready)
+        }
+    }
+
+    init(now: Date) {
+        storedNow = now
+    }
+
+    nonisolated func sleep(for duration: Duration) async throws {
+        let id = UUID()
+        let deadline = now.addingTimeInterval(duration.timeInterval)
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                lock.lock()
+                if Task.isCancelled {
+                    lock.unlock()
+                    continuation.resume(throwing: CancellationError())
+                } else if storedNow >= deadline {
+                    lock.unlock()
+                    continuation.resume()
+                } else {
+                    sleepers.append(Sleeper(id: id, deadline: deadline, continuation: continuation))
+                    lock.unlock()
+                }
+            }
+        } onCancel: {
+            if let sleeper = removeSleeper(id: id) {
+                sleeper.continuation.resume(throwing: CancellationError())
+            }
+        }
+    }
+
+    nonisolated func advance(by duration: Duration) async {
+        let ready = setNow(now.addingTimeInterval(duration.timeInterval))
+        resume(ready)
+        await Task.yield()
+    }
+
+    private nonisolated func setNow(_ newValue: Date) -> [Sleeper] {
+        lock.lock()
+        storedNow = newValue
+        var ready: [Sleeper] = []
+        var waiting: [Sleeper] = []
+        for sleeper in sleepers {
+            if sleeper.deadline <= newValue {
+                ready.append(sleeper)
+            } else {
+                waiting.append(sleeper)
+            }
+        }
+        sleepers = waiting
+        lock.unlock()
+        return ready
+    }
+
+    private nonisolated func resume(_ sleepers: [Sleeper]) {
+        for sleeper in sleepers {
+            sleeper.continuation.resume()
+        }
+    }
+
+    private nonisolated func removeSleeper(id: UUID) -> Sleeper? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let index = sleepers.firstIndex(where: { $0.id == id }) else { return nil }
+        return sleepers.remove(at: index)
+    }
+}
+
+private extension Duration {
+    var timeInterval: TimeInterval {
+        let durationComponents = components
+        return TimeInterval(durationComponents.seconds) +
+            TimeInterval(durationComponents.attoseconds) / 1_000_000_000_000_000_000
+    }
 }
 
 @MainActor
