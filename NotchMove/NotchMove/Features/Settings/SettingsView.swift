@@ -23,7 +23,6 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
         .language,
         .startup,
         .reminders,
-        .aiAssistant,
         .behavior,
         .statistics,
         .about,
@@ -31,7 +30,6 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
 
     static let dashboardOrder: [SettingsPageSection] = [
         .reminders,
-        .aiAssistant,
         .behavior,
         .statistics,
         .language,

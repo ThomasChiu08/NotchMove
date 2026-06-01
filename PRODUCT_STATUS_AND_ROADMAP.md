@@ -1,6 +1,6 @@
 # NotchMove Product Status And Roadmap
 
-Date: 2026-05-22
+Date: 2026-06-01
 
 ## 1. Purpose
 
@@ -17,17 +17,17 @@ Historical implementation plans remain in `task_plan.md`, `progress.md`, and `do
 
 ## 2. Current Product Positioning
 
-NotchMove is a native macOS menu bar health and input utility. Its core product still starts from low-interruption standing and movement reminders, but the current app also includes a local-first daily schedule reminder loop and AI-assisted voice capture/input features.
+NotchMove is a native macOS menu bar utility for low-interruption standing and movement reminders. The current product surface has been simplified back to the core reminder loop: menu bar status, activity-aware timing, notch/fallback overlay presentation, basic settings, and lightweight break statistics.
 
 Current positioning:
 
 - lightweight menu bar companion for long computer sessions
 - notch-shaped overlay reminder experience on supported Macs, with fallback placement on other displays
-- local daily schedule reminders with user-confirmed actions
-- BYOK AI schedule capture and voice input, with local and system transcription options where available
-- privacy-forward macOS utility with explicit permissions and no account system
+- activity-aware reminders that avoid counting long idle time as active sitting
+- quiet local preferences and break counters, with no account system
+- retained but hidden legacy modules for daily schedule, AI schedule capture, and voice input
 
-Do not position the current product as a full health platform, team management tool, complete calendar app, or cloud sync product.
+Do not position the current product as an AI input tool, full schedule/calendar app, full health platform, team management tool, or cloud sync product.
 
 ## 3. Current Implemented Capabilities
 
@@ -37,7 +37,8 @@ Do not position the current product as a full health platform, team management t
 - Menu bar accessory app using `LSUIElement`, with no Dock icon by default.
 - Hardened Runtime is enabled.
 - App Sandbox is enabled.
-- `AppDelegate` wires preferences, statistics, activity monitoring, reminders, menu bar, dashboard, settings, global hotkey handling, voice input, and the notch overlay.
+- `AppDelegate` wires preferences, statistics, activity monitoring, reminders, menu bar, dashboard, settings, and the notch overlay.
+- Daily schedule, AI schedule capture, voice input, and global hotkey modules remain in the codebase, but they are no longer started from the default app flow.
 
 ### 3.2 Reminder Loop
 
@@ -52,26 +53,27 @@ Implemented in `ReminderEngine`:
 - break reminder completion
 - break reminder Snooze for 10 minutes
 - break reminder Skip through dismiss without counting completion
-- schedule reminder presentation through the same notch overlay
-- schedule reminder Done and Snooze actions
+- staged hover preview motion: transparent panel canvas opens first, then the visible island expands and content reveals
 
 Important remaining limitation:
 
 - manual pause is still an indefinite toggle. There is no persisted `pauseUntil` and no menu options for Pause 15 min / 30 min / 1 hour / until tomorrow.
 
-### 3.3 Daily Schedule
+### 3.3 Retained Daily Schedule Module
 
-Implemented:
+Retained but hidden from the current product surface:
 
 - `DailyScheduleItem` with title, start/end time, notes, reminder lead time, enabled state, last reminded date, and snoozed-until date.
 - `DailyScheduleStore` persistence through `UserDefaults`.
 - text import parser for simple daily schedule lines.
-- manual add/edit/delete flows in the dashboard.
-- schedule reminder engine that routes due items into the notch overlay.
-- next schedule status in menu/dashboard surfaces.
-- Today and Schedule views that keep imported and manually added items visible and editable.
+- manual add/edit/delete dashboard views and import flows.
+- schedule reminder engine and shared overlay content.
 
-Out of scope / still not implemented:
+Current product decision:
+
+- Daily Schedule, Today/Schedule dashboard pages, next-schedule menu status, AI schedule capture entry points, and schedule reminder startup are hidden for the simplified reminder-first experience.
+
+Out of scope:
 
 - EventKit calendar sync.
 - full calendar/day timeline product.
@@ -79,18 +81,15 @@ Out of scope / still not implemented:
 
 ### 3.4 Dashboard And Settings
 
-Implemented in `UnifiedDashboardView`, `DailyScheduleDashboardView`, and `SettingsView`:
+Implemented in `UnifiedDashboardView` and `SettingsView`; retained schedule views still exist but are not in the default navigation:
 
 - `NavigationSplitView` primary window.
-- sidebar with Workspace pages: Today, Schedule, Breaks.
-- sidebar with Settings pages: Reminders, AI Assistant, Behavior, Statistics, Language, Startup, About.
+- sidebar with Workspace page: Breaks.
+- sidebar with Settings pages: Reminders, Behavior, Statistics, Language, Startup, About.
 - sidebar status showing tracking, paused, schedule-blocked, reminding, or idle state.
-- Today page with tracking status, next stand reminder, current schedule, next schedule, breaks today, and schedule timeline.
-- Schedule page with row actions, add/edit/delete/import, reminder toggles, and selected item properties.
 - Breaks page with today/week counts and a 7-day weekly strip.
 - native Forms and property rows for settings.
 - Startup settings page with launch-at-login toggle.
-- AI Assistant settings split into overview/input/parser/credentials/diagnostics style sections.
 
 Remaining limitations:
 
@@ -109,9 +108,9 @@ Implemented:
 
 This is no longer a roadmap gap. It remains subject to manual QA on a signed build and a real login session.
 
-### 3.6 AI Schedule Capture And Voice Input
+### 3.6 Retained AI Schedule Capture And Voice Input Modules
 
-Implemented:
+Retained but hidden from the current product surface:
 
 - provider-agnostic `TranscriptionProvider` and `ScheduleParserProvider` seams.
 - OpenAI and OpenAI-compatible schedule parser flow.
@@ -127,7 +126,11 @@ Implemented:
 - voice input session flow with notch overlay states: recording, processing, inserted, copied, failed, undo, dismiss.
 - text insertion through Accessibility when trusted, with clipboard fallback.
 
-Remaining limitations:
+Current product decision:
+
+- Menu bar Voice Input, menu bar AI Add Schedule, AI Assistant settings, dashboard AI capture sheet, and AI global hotkey registration are hidden/disabled in the default app flow.
+
+Remaining limitations if these modules are reactivated:
 
 - live manual QA is still pending for microphone permission, real provider credentials, cloud failure recovery, local model missing state, and release-package behavior.
 - AI diagnostics exist for provider readiness, but there is no general app diagnostic export covering displays, reminder state, app version, OS version, pause state, and settings.
@@ -141,7 +144,7 @@ Implemented languages:
 - Traditional Chinese
 - Japanese
 
-Current resource size as of 2026-05-22:
+Current resource size as of 2026-06-01:
 
 - `en.lproj/Localizable.strings`: 353 lines
 - `zh-Hans.lproj/Localizable.strings`: 353 lines
@@ -175,40 +178,44 @@ Remaining work:
 
 Known verified checkpoints:
 
-- Daily schedule reminder plan passed `xcodebuild test` on 2026-04-30.
-- AI schedule assistant phases passed `xcodebuild test` on 2026-05-01.
-- AI input full-flow optimization passed macOS tests, Release build, and release privacy verification on 2026-05-15.
+- Daily schedule reminder plan passed `xcodebuild test` on 2026-04-30, but the module is now hidden from the default product surface.
+- AI schedule assistant phases passed `xcodebuild test` on 2026-05-01, but the module is now hidden from the default product surface.
+- AI input full-flow optimization passed macOS tests, Release build, and release privacy verification on 2026-05-15, but voice/AI entry points are now disabled in the default product surface.
+- Core reminder simplification and staged hover preview tests passed `xcodebuild test` on 2026-06-01.
 
 Current limitation:
 
 - UI tests are still marked unavailable and do not provide useful UI coverage.
 - A minimal UI smoke harness is still missing.
-- Live microphone/provider/manual release QA remains pending.
+- Signed-build manual QA for the simplified core reminder flow remains pending.
 
-## 4. Completed Items That Should Not Be Listed As Gaps
+## 4. Implemented Or Retained Items That Should Not Be Listed As Core Gaps
 
 Do not keep these in P0 or active gap lists:
 
 - launch at login
 - break reminder Snooze and Skip
-- schedule reminder Done and Snooze
-- shared notch overlay for break and schedule reminders
-- daily schedule visibility after import
-- manual schedule item creation
 - `NavigationSplitView` dashboard with Workspace and Settings sidebar
-- WhisperKit transcription
-- Apple Speech transcription and permission handling
-- AI provider readiness diagnostics
-- opt-in global shortcut
-- voice input notch overlay state
 - DMG packaging script
 - signing/privacy verification script
 - README packaging, signing, and notarization usage
 - four-language localization growth to 353 lines per language file
 
+These retained modules are not core release gaps while their entry points remain hidden:
+
+- schedule reminder Done and Snooze
+- shared notch overlay support for retained schedule reminders
+- daily schedule visibility after import
+- manual schedule item creation
+- WhisperKit transcription
+- Apple Speech transcription and permission handling
+- AI provider readiness diagnostics
+- opt-in global shortcut
+- voice input notch overlay state
+
 ## 5. Current Unfinished Work
 
-These are the real remaining items as of 2026-05-22:
+These are the real remaining items as of 2026-06-01:
 
 1. Temporary pause
    - Add persisted `pauseUntil`.
@@ -222,8 +229,8 @@ These are the real remaining items as of 2026-05-22:
    - Provide a test reminder or test overlay action.
 
 3. General diagnostics export
-   - Existing AI readiness diagnostics are not enough.
-   - Add a privacy-safe "Copy diagnostics" output for version/build, macOS version, sandbox/signing clues, screen list, selected display mode, reminder state, pause state, schedule state, AI provider readiness summary, and relevant preferences.
+   - Existing diagnostics are module-specific and not enough for core support.
+   - Add a privacy-safe "Copy diagnostics" output for version/build, macOS version, sandbox/signing clues, screen list, selected display mode, reminder state, pause state, work-hours state, and relevant preferences.
 
 4. Minimal UI smoke test
    - Current UI tests are intentionally unavailable.
@@ -238,11 +245,8 @@ These are the real remaining items as of 2026-05-22:
    - A mailto or GitHub issue link is enough for the first pass.
 
 7. Manual QA and release acceptance
-   - Complete microphone permission QA.
-   - Complete real provider credential QA.
-   - Complete cloud provider failure QA.
-   - Complete local WhisperKit missing/ready model QA.
    - Complete signed DMG install/manual release QA.
+   - Complete hover preview, manual reminder, auto reminder, pause/resume, settings persistence, launch-at-login, and non-notch fallback QA on a signed build.
    - Keep the release checklist's manual acceptance section current.
 
 ## 6. Roadmap
@@ -255,8 +259,8 @@ These are the highest-priority unfinished items before a broader beta or public 
 - first-run onboarding
 - general diagnostics export
 - minimal UI smoke test
-- signed-build manual QA for microphone/provider/voice input paths
-- manual release checklist completion for DMG install, launch, permissions, login item, and basic reminders
+- signed-build manual QA for the simplified core reminder flow
+- manual release checklist completion for DMG install, launch, hover preview, reminders, settings persistence, login item, and non-notch fallback
 
 Acceptance:
 
@@ -310,8 +314,9 @@ Continue using `UserDefaults` for current settings and lightweight state:
 - language
 - display mode
 - launch-at-login preference
-- AI provider non-secret preferences
 - local statistics counters
+
+AI provider non-secret preferences remain only as retained-module state while AI/voice entry points are hidden.
 
 Likely near-term additions:
 
@@ -354,12 +359,9 @@ Manual release QA:
 - break Complete increments statistics
 - break Snooze reappears later
 - break Skip does not increment statistics
-- schedule reminder Done/Snooze works
 - launch-at-login can be enabled and reconciled after login
-- microphone permission prompt and denial recovery work
-- Apple Speech permission prompt and denial recovery work
-- local WhisperKit missing-model message is understandable
-- provider credential missing/wrong key/cloud failure flows are understandable
+- hover preview expands and dismisses smoothly on notch and fallback placements
+- automatic reminder overlay appears and dismisses correctly
 - four localizations do not visibly break compact UI
 
 ## 9. Immediate Next Actions
@@ -368,7 +370,7 @@ Manual release QA:
 2. Add first-run onboarding.
 3. Add general diagnostics export.
 4. Build the minimal UI smoke harness.
-5. Complete microphone/provider/manual release QA.
+5. Complete signed-build manual core QA.
 6. Add daily goal and 7-day trend.
 7. Add Feedback / Report Issue.
 8. Update release checklist with manual acceptance evidence.
@@ -377,6 +379,6 @@ Manual release QA:
 
 ## 10. Conclusion
 
-NotchMove now has a substantially larger implementation than the original 2026-04-30 roadmap described. Launch at login, Snooze/Skip, schedule reminders, AI schedule capture, local/system transcription, global shortcuts, voice input, packaging scripts, signing checks, privacy verification, notarization instructions, and the split dashboard are implemented.
+NotchMove now has a substantially larger implementation than the original 2026-04-30 roadmap described. Launch at login, Snooze/Skip, retained schedule reminders, retained AI schedule capture, retained local/system transcription, retained global shortcuts, retained voice input, packaging scripts, signing checks, privacy verification, notarization instructions, and the split dashboard have all been built at some point.
 
-The current roadmap should focus on the remaining operational gaps: temporary pause, onboarding, general diagnostics, smoke testing, daily goal/trends, feedback entry, and live manual QA for microphone/provider/release paths.
+The current roadmap should focus on the simplified core product gaps: temporary pause, onboarding, general diagnostics, smoke testing, daily goal/trends, feedback entry, and signed-build manual QA for the reminder, hover, settings, login item, and fallback-display paths.

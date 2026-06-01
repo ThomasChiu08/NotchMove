@@ -18,9 +18,7 @@ struct UnifiedDashboardView: View {
     @Bindable var breakStatsStore: BreakStatsStore
     @Bindable var globalHotkeyController: GlobalAICaptureHotkeyController
 
-    @AppStorage("unifiedDashboardSelectedPage") private var selectedPageID = UnifiedDashboardPage.today.id
-    @State private var showingAICaptureSheet = false
-    @State private var aiCaptureGlobalToggleRequestID: UUID?
+    @AppStorage("unifiedDashboardSelectedPage") private var selectedPageID = UnifiedDashboardPage.breaks.id
 
     var body: some View {
         NavigationSplitView {
@@ -29,36 +27,9 @@ struct UnifiedDashboardView: View {
             detail
         }
         .frame(minWidth: 860, minHeight: 560)
-        .sheet(isPresented: $showingAICaptureSheet) {
-            AIScheduleCaptureSheet(
-                languageManager: languageManager,
-                assistantService: aiAssistantService,
-                scheduleStore: scheduleStore,
-                aiPreferences: aiProviderPreferences,
-                globalToggleRequestID: aiCaptureGlobalToggleRequestID
-            ) {
-                selectedPageID = UnifiedDashboardPage.settings(.aiAssistant).id
-            } onGlobalToggleRequestHandled: {
-                aiCaptureGlobalToggleRequestID = nil
-            }
-            .environment(\.locale, languageManager.locale)
-        }
         .onAppear(perform: normalizeSelection)
         .onChange(of: selectedPageID) { _, _ in
             normalizeSelection()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: DashboardWindowController.aiCaptureRequestedNotification)) { _ in
-            selectedPageID = UnifiedDashboardPage.today.id
-            showingAICaptureSheet = true
-        }
-        .onReceive(
-            NotificationCenter.default.publisher(
-                for: DashboardWindowController.aiCaptureGlobalToggleRequestedNotification
-            )
-        ) { _ in
-            selectedPageID = UnifiedDashboardPage.today.id
-            aiCaptureGlobalToggleRequestID = UUID()
-            showingAICaptureSheet = true
         }
     }
 
@@ -155,17 +126,13 @@ struct UnifiedDashboardView: View {
                 preferencesStore: preferencesStore,
                 breakStatsStore: breakStatsStore,
                 reminderEngine: reminderEngine,
-                onSpeak: {
-                    showingAICaptureSheet = true
-                }
+                onSpeak: {}
             )
         case .schedule:
             DailyScheduleDashboardView(
                 languageManager: languageManager,
                 scheduleStore: scheduleStore,
-                onSpeak: {
-                    showingAICaptureSheet = true
-                }
+                onSpeak: {}
             )
         case .breaks:
             BreaksDashboardView(
@@ -186,12 +153,12 @@ struct UnifiedDashboardView: View {
     }
 
     private var selectedPage: UnifiedDashboardPage {
-        UnifiedDashboardPage(id: selectedPageID) ?? .today
+        UnifiedDashboardPage(id: selectedPageID) ?? .breaks
     }
 
     private func normalizeSelection() {
         guard UnifiedDashboardPage(id: selectedPageID) == nil else { return }
-        selectedPageID = UnifiedDashboardPage.today.id
+        selectedPageID = UnifiedDashboardPage.breaks.id
     }
 }
 
@@ -201,7 +168,7 @@ enum UnifiedDashboardPage: Hashable, Identifiable {
     case breaks
     case settings(SettingsPageSection)
 
-    static let workspacePages: [UnifiedDashboardPage] = [.today, .schedule, .breaks]
+    static let workspacePages: [UnifiedDashboardPage] = [.breaks]
 
     var id: String {
         switch self {

@@ -2,9 +2,9 @@
 
 **Developer / 开发者:** Thomas
 
-NotchMove is a native macOS menu bar app that reminds you to stand up, stretch, and move during long computer sessions. It presents a notch-shaped reminder overlay on Macs with a notch and uses a centered fallback overlay on other displays.
+NotchMove is a native macOS menu bar app focused on one job: reminding you to stand up, stretch, and move during long computer sessions. It presents a notch-shaped reminder overlay on Macs with a notch and uses a centered fallback overlay on other displays.
 
-NotchMove 是一款原生 macOS 菜单栏应用，用于在长时间使用电脑时提醒你站立、伸展和活动。它会在带刘海的 Mac 上显示贴合刘海的提醒浮层，在没有刘海的屏幕上自动使用居中浮层。
+NotchMove 是一款专注于久坐活动提醒的原生 macOS 菜单栏应用，用于在长时间使用电脑时提醒你站立、伸展和活动。它会在带刘海的 Mac 上显示贴合刘海的提醒浮层，在没有刘海的屏幕上自动使用居中浮层。
 
 ## 中文说明
 
@@ -16,6 +16,7 @@ NotchMove 是一款原生 macOS 菜单栏应用，用于在长时间使用电脑
 - 可手动暂停/恢复提醒，也可以立即触发一次提醒。
 - 设置窗口支持提醒间隔、工作时间段、工作日限制、声音、悬停预览和自动关闭。
 - 统计每日和每周完成的休息次数。
+- 日程、AI 添加日程和语音输入代码仍保留在仓库中，但当前主体验默认隐藏这些入口。
 - 本地化资源包含 English、简体中文、繁体中文和日文。
 
 ### 技术栈
@@ -59,7 +60,7 @@ xcodebuild -project NotchMove.xcodeproj \
 
 ### 打包 DMG
 
-测试版发布包必须通过隐私权限校验，确保 macOS 能把 NotchMove 登记到麦克风权限列表。默认会生成带 `test` 和时间戳的新 DMG，并把带界面的 HTML 中文安装/使用说明放进 DMG：
+测试版发布包会继续通过签名、Hardened Runtime、隐私声明和 DMG 内容校验。默认会生成带 `test` 和时间戳的新 DMG，并把带界面的 HTML 中文安装/使用说明放进 DMG：
 
 ```bash
 ./script/package_dmg.sh
@@ -95,19 +96,13 @@ NotchMove/dist/NotchMove-1.0-test-YYYYMMDD-HHMM.dmg
 
 给朋友测试时可同时发送 [HTML 中文安装与使用说明](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.html)，纯文本版见 [Markdown 说明](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md)。
 
-如果本机曾运行过缺少麦克风或语音识别权限声明的旧包，退出 NotchMove 后重置权限记录，再启动新包并点击“请求权限”：
-
-```bash
-tccutil reset Microphone com.thomaschiu.developer.NotchMove
-tccutil reset SpeechRecognition com.thomaschiu.developer.NotchMove
-```
-
 ### 运行时结构
 
 - `AppDelegate` 创建并连接偏好设置、统计、活动监控、提醒引擎、菜单栏控制器、设置窗口和刘海浮层控制器。
 - `ActivityMonitor` 每 5 秒读取系统空闲时间。
 - `ReminderEngine` 负责提醒生命周期，包括定时、暂停、工作时间段、悬停预览、显示和关闭。
 - `NotchWindowController` 负责展示提醒浮层，并根据 `ScreenPlacementService` 的结果放置窗口。
+- 日程提醒、AI 日程捕获和语音输入属于保留模块，当前不会从菜单栏或控制台主流程启动。
 - `PreferencesStore` 和 `BreakStatsStore` 将设置和休息统计持久化到 `UserDefaults`。
 
 更多架构细节见 [ARCHITECTURE.md](./ARCHITECTURE.md)。
@@ -120,8 +115,9 @@ tccutil reset SpeechRecognition com.thomaschiu.developer.NotchMove
 - Activity-aware reminders based on active computer usage.
 - Notch-aligned overlay on supported Macs, with a centered fallback on other displays.
 - Manual pause/resume controls and an immediate reminder action.
-- Settings for reminder interval, schedule window, weekdays-only mode, sound, hover preview, and auto-dismiss.
+- Settings for reminder interval, work-hours window, weekdays-only mode, sound, hover preview, and auto-dismiss.
 - Daily and weekly completed-break counters.
+- Daily schedule, AI schedule capture, and voice-input code remain in the repository, but those entry points are hidden from the default core experience.
 - Localized resources for English, Simplified Chinese, Traditional Chinese, and Japanese.
 
 ### Tech Stack
@@ -165,7 +161,7 @@ xcodebuild -project NotchMove.xcodeproj \
 
 ### Package
 
-Test release packages must pass privacy verification so macOS can register NotchMove in the Microphone access list. By default the script creates a new timestamped `test` DMG and includes the styled Simplified Chinese HTML install/use guide inside the image:
+Test release packages still pass signing, Hardened Runtime, privacy metadata, and DMG content verification. By default the script creates a new timestamped `test` DMG and includes the styled Simplified Chinese HTML install/use guide inside the image:
 
 ```bash
 ./script/package_dmg.sh
@@ -201,19 +197,13 @@ NotchMove/dist/NotchMove-1.0-test-YYYYMMDD-HHMM.dmg
 
 For friend testing, send the [Simplified Chinese HTML install and usage guide](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.html) with the DMG. A plain Markdown version is also available at [docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md](./docs/FRIEND_TEST_INSTALL_USAGE.zh-Hans.md).
 
-If this Mac previously ran an older package without microphone or speech recognition privacy metadata, quit NotchMove, reset the TCC records, then launch the new package and click Request Access:
-
-```bash
-tccutil reset Microphone com.thomaschiu.developer.NotchMove
-tccutil reset SpeechRecognition com.thomaschiu.developer.NotchMove
-```
-
 ### Runtime Overview
 
 - `AppDelegate` wires together preferences, statistics, activity monitoring, the reminder engine, the menu bar controller, the settings window, and the notch overlay controller.
 - `ActivityMonitor` polls system idle time every 5 seconds.
 - `ReminderEngine` owns the reminder lifecycle, including timing, pause state, schedule gating, hover preview, presentation, and dismissal.
 - `NotchWindowController` presents the overlay and positions it using `ScreenPlacementService`.
+- Schedule reminders, AI schedule capture, and voice input are retained modules, but they are not started from the default menu bar or dashboard flow.
 - `PreferencesStore` and `BreakStatsStore` persist settings and break counters through `UserDefaults`.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for a deeper runtime map.

@@ -25,18 +25,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var activityMonitor: ActivityMonitor?
     private var reminderEngine: ReminderEngine?
-    private var dailyScheduleReminderEngine: DailyScheduleReminderEngine?
     private var notchWindowController: NotchWindowController?
     private var menuBarController: MenuBarController?
     private var dashboardWindowController: DashboardWindowController?
-    private var globalHotkeyController: GlobalAICaptureHotkeyController?
-    private nonisolated(unsafe) var globalHotkeyPreferenceObserver: NSObjectProtocol?
-
-    deinit {
-        if let globalHotkeyPreferenceObserver {
-            NotificationCenter.default.removeObserver(globalHotkeyPreferenceObserver)
-        }
-    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -58,11 +49,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.voiceInputSession.endPushToTalk()
             }
         )
-        let scheduleReminderEngine = DailyScheduleReminderEngine(
-            scheduleStore: dailyScheduleStore,
-            soundPlayer: soundPlayer,
-            presenter: DailyScheduleNotchPresenter(reminderEngine: engine)
-        )
         let controller = NotchWindowController(
             reminderEngine: engine,
             voiceInputSession: voiceInputSession,
@@ -83,40 +69,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         monitor.start()
         engine.start()
-        scheduleReminderEngine.start()
         controller.show()
 
         self.activityMonitor = monitor
         self.reminderEngine = engine
-        self.dailyScheduleReminderEngine = scheduleReminderEngine
         self.notchWindowController = controller
         self.dashboardWindowController = dashboardWindow
-        self.globalHotkeyController = globalHotkeyController
         self.menuBarController = MenuBarController(
             reminderEngine: engine,
             breakStatsStore: breakStatsStore,
-            dailyScheduleStore: dailyScheduleStore,
             languageManager: languageManager,
             preferencesStore: preferencesStore,
-            voiceInputSession: voiceInputSession,
             onOpenDashboard: { [weak dashboardWindow] in
                 dashboardWindow?.openDashboard()
-            },
-            onOpenAICapture: { [weak dashboardWindow] in
-                dashboardWindow?.openAICapture()
             }
         )
-        self.globalHotkeyPreferenceObserver = NotificationCenter.default.addObserver(
-            forName: PreferencesStore.aiGlobalHotkeyDidChangeNotification,
-            object: preferencesStore,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.globalHotkeyController?.update(preferences: self.preferencesStore.preferences)
-            }
-        }
-        globalHotkeyController.update(preferences: preferencesStore.preferences)
 
         logger.notice("NotchMove launched — monitoring activity, reminder every \(engine.reminderInterval)s")
     }

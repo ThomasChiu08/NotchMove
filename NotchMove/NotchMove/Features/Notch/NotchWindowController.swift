@@ -158,24 +158,12 @@ final class NotchWindowController {
     }
 
     private func updateInteractiveFrame(with placement: OverlayPlacement) {
-        let size = islandSize(for: activePresentation, in: placement)
+        let size = placement.visibleSize
         let origin = CGPoint(
             x: max((placement.frame.width - size.width) / 2, 0),
             y: max(placement.frame.height - size.height, 0)
         )
         interactiveFrame = CGRect(origin: origin, size: size)
-    }
-
-    private func islandSize(
-        for presentation: ReminderState.PresentationPhase,
-        in placement: OverlayPlacement
-    ) -> CGSize {
-        switch presentation {
-        case .hidden, .reminderPending, .dismissAnimating:
-            placement.tuckedFrame.size
-        case .hoverPreview, .presenting:
-            placement.frame.size
-        }
     }
 
     private func updateHostingRootView() {

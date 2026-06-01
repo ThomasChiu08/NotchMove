@@ -43,7 +43,7 @@ struct NotchView: View {
 
     private var cornerRadius: CGFloat {
         switch activePresentation {
-        case .hidden, .reminderPending, .dismissAnimating: 10
+        case .hidden, .reminderPending, .hoverPreviewPending, .hoverPreviewDismissing, .dismissAnimating: 10
         case .hoverPreview: 14
         case .presenting: 16
         }
@@ -55,7 +55,7 @@ struct NotchView: View {
 
     private var islandSize: CGSize {
         switch activePresentation {
-        case .hidden, .reminderPending, .dismissAnimating:
+        case .hidden, .reminderPending, .hoverPreviewPending, .hoverPreviewDismissing, .dismissAnimating:
             overlayMetrics.tuckedSize
         case .hoverPreview, .presenting:
             overlayMetrics.canvasSize
@@ -86,7 +86,7 @@ struct NotchView: View {
                 .transition(.notchOverlayInsertion)
         } else {
             switch reminderEngine.overlayState.presentation {
-            case .hidden, .dismissAnimating:
+            case .hidden, .hoverPreviewPending, .hoverPreviewDismissing, .dismissAnimating:
                 EmptyView()
             case .reminderPending:
                 reminderPendingIndicator

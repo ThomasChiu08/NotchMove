@@ -542,6 +542,52 @@ struct ReminderEngineTests {
         #expect(context.engine.state.presentation == .hidden)
     }
 
+    @Test func hoverPreviewStagesEntryAndExit() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.engine.send(.hoverChanged(true))
+
+        #expect(context.engine.state.presentation == .hoverPreviewPending)
+        #expect(!context.engine.isReminderPresenting)
+
+        await promoteHoverPreview(in: context)
+
+        #expect(context.engine.state.presentation == .hoverPreview)
+
+        context.engine.send(.hoverChanged(false))
+        #expect(context.engine.state.presentation == .hoverPreviewDismissing)
+
+        await settleHoverPreviewDismissal(in: context)
+        #expect(context.engine.state.presentation == .hidden)
+    }
+
+    @Test func hoverPreviewPromotionIsCancelledWhenPointerLeavesQuickly() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.engine.send(.hoverChanged(true))
+        #expect(context.engine.state.presentation == .hoverPreviewPending)
+
+        context.engine.send(.hoverChanged(false))
+        #expect(context.engine.state.presentation == .hidden)
+
+        await context.clock.advance(by: ReminderEngine.hoverPreviewPromotionDelay)
+        await flushAsyncWork()
+        #expect(context.engine.state.presentation == .hidden)
+    }
+
+    @Test func hoverPromotesPendingReminderImmediately() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.engine.send(.manualTrigger)
+        #expect(context.engine.state.presentation == .reminderPending)
+
+        context.engine.send(.hoverChanged(true))
+        #expect(context.engine.state.presentation == .presenting)
+    }
+
     @Test func scheduleReminderStagesWithoutPlayingBreakSound() async {
         let now = makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0)
         let context = makeReminderContext(now: now)
@@ -572,7 +618,7 @@ struct ReminderEngineTests {
         defer { context.cleanup() }
 
         context.engine.send(.hoverChanged(true))
-        #expect(context.engine.state.presentation == .hoverPreview)
+        #expect(context.engine.state.presentation == .hoverPreviewPending)
 
         context.preferencesStore.preferences.hoverPreviewEnabled = false
         await flushAsyncWork()
@@ -648,6 +694,7 @@ struct ScreenPlacementServiceTests {
         #expect(placement.topInset == 38)
         #expect(placement.frame == CGRect(x: 656, y: 944, width: 200, height: 38))
         #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
+        #expect(placement.visibleSize == CGSize(width: 200, height: 38))
     }
 
     @Test func tuckedFallbackStaysInsideMenuBarHeight() {
@@ -669,6 +716,7 @@ struct ScreenPlacementServiceTests {
         #expect(placement.topInset == 24)
         #expect(placement.frame.origin.x == 638)
         #expect(placement.frame.size == CGSize(width: 164, height: 24))
+        #expect(placement.visibleSize == CGSize(width: 164, height: 24))
     }
 
     @Test func presentingReminderUsesNotchMidpointWhenAvailable() {
@@ -691,6 +739,7 @@ struct ScreenPlacementServiceTests {
         #expect(placement.frame.origin.x == 596)
         #expect(placement.frame.size == CGSize(width: 320, height: 96))
         #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
+        #expect(placement.visibleSize == CGSize(width: 320, height: 96))
     }
 
     @Test func dismissAnimatingUsesExpandedReminderCanvas() {
@@ -713,6 +762,7 @@ struct ScreenPlacementServiceTests {
         #expect(placement.frame.origin.x == 596)
         #expect(placement.frame.size == CGSize(width: 320, height: 96))
         #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
+        #expect(placement.visibleSize == CGSize(width: 200, height: 38))
     }
 
     @Test func dismissAnimatingUsesCollapsedCanvasWhenExpansionDisabled() {
@@ -735,6 +785,35 @@ struct ScreenPlacementServiceTests {
         #expect(placement.frame.origin.x == 612)
         #expect(placement.frame.size == CGSize(width: 288, height: 88))
         #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
+        #expect(placement.visibleSize == CGSize(width: 200, height: 38))
+    }
+
+    @Test func hoverPendingAndDismissingUsePreviewCanvasWithTuckedVisibleIsland() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+        let service = ScreenPlacementService()
+
+        let pending = service.placement(
+            for: .hoverPreviewPending,
+            on: screen,
+            notchExpansionEnabled: true
+        )
+        let dismissing = service.placement(
+            for: .hoverPreviewDismissing,
+            on: screen,
+            notchExpansionEnabled: true
+        )
+
+        #expect(pending.frame.size == CGSize(width: 248, height: 72))
+        #expect(pending.visibleSize == CGSize(width: 200, height: 38))
+        #expect(dismissing.frame.size == pending.frame.size)
+        #expect(dismissing.visibleSize == pending.visibleSize)
     }
 
     @Test func nonNotchedScreenFallsBackToScreenCenter() {
@@ -756,6 +835,7 @@ struct ScreenPlacementServiceTests {
         #expect(placement.topInset == 24)
         #expect(placement.frame.origin.x == 600)
         #expect(placement.frame.size == CGSize(width: 240, height: 64))
+        #expect(placement.visibleSize == CGSize(width: 240, height: 64))
     }
 
     @Test func compactPresentingReminderKeepsMinimumUsableWidth() {
@@ -914,9 +994,21 @@ private func promotePendingReminder(in context: ReminderTestContext) async {
     await flushAsyncWork()
 }
 
+private func promoteHoverPreview(in context: ReminderTestContext) async {
+    await flushAsyncWork()
+    await context.clock.advance(by: ReminderEngine.hoverPreviewPromotionDelay)
+    await flushAsyncWork()
+}
+
 private func settleReminderDismissal(in context: ReminderTestContext) async {
     await flushAsyncWork()
     await context.clock.advance(by: .seconds(0.4))
+    await flushAsyncWork()
+}
+
+private func settleHoverPreviewDismissal(in context: ReminderTestContext) async {
+    await flushAsyncWork()
+    await context.clock.advance(by: ReminderEngine.hoverPreviewDismissalDelay)
     await flushAsyncWork()
 }
 

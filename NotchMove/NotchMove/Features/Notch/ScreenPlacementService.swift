@@ -25,6 +25,7 @@ struct ScreenDescriptor: Equatable {
 struct OverlayPlacement: Equatable {
     let frame: CGRect
     let tuckedFrame: CGRect
+    let visibleSize: CGSize
     let topInset: CGFloat
 }
 
@@ -53,6 +54,11 @@ struct ScreenPlacementService {
         let centerX = screen.notchFrame?.midX ?? screen.frame.midX
         let size = size(for: presentation, on: screen, notchExpansionEnabled: notchExpansionEnabled)
         let tuckedSize = tuckedSize(on: screen)
+        let visibleSize = visibleSize(
+            for: presentation,
+            panelSize: size,
+            tuckedSize: tuckedSize
+        )
         let x = centerX - size.width / 2
         let y = screen.frame.maxY - size.height
         let tuckedX = centerX - tuckedSize.width / 2
@@ -61,6 +67,7 @@ struct ScreenPlacementService {
         return OverlayPlacement(
             frame: CGRect(x: x, y: y, width: size.width, height: size.height),
             tuckedFrame: CGRect(x: tuckedX, y: tuckedY, width: tuckedSize.width, height: tuckedSize.height),
+            visibleSize: visibleSize,
             topInset: screen.notchFrame?.height ?? screen.menuBarHeight
         )
     }
@@ -76,7 +83,7 @@ struct ScreenPlacementService {
         switch presentation {
         case .hidden, .reminderPending:
             return tuckedSize(on: screen)
-        case .hoverPreview:
+        case .hoverPreviewPending, .hoverPreview, .hoverPreviewDismissing:
             return CGSize(
                 width: clamped(
                     notchWidth + Sizing.previewExtraWidth,
@@ -90,6 +97,19 @@ struct ScreenPlacementService {
                 notchWidth: notchWidth,
                 notchExpansionEnabled: notchExpansionEnabled
             )
+        }
+    }
+
+    private func visibleSize(
+        for presentation: ReminderState.PresentationPhase,
+        panelSize: CGSize,
+        tuckedSize: CGSize
+    ) -> CGSize {
+        switch presentation {
+        case .hoverPreview, .presenting:
+            panelSize
+        case .hidden, .reminderPending, .hoverPreviewPending, .hoverPreviewDismissing, .dismissAnimating:
+            tuckedSize
         }
     }
 

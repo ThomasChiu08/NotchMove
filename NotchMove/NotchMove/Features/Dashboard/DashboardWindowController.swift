@@ -76,20 +76,12 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     func openAICapture() {
         DispatchQueue.main.async { [weak self] in
             self?.presentWindow()
-            NotificationCenter.default.post(
-                name: Self.aiCaptureRequestedNotification,
-                object: self
-            )
         }
     }
 
     func toggleAICaptureFromGlobalHotkey() {
         DispatchQueue.main.async { [weak self] in
             self?.presentWindow()
-            NotificationCenter.default.post(
-                name: Self.aiCaptureGlobalToggleRequestedNotification,
-                object: self
-            )
         }
     }
 

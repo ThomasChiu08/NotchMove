@@ -34,7 +34,9 @@ struct ReminderState: Equatable {
     enum PresentationPhase: Equatable {
         case hidden
         case reminderPending
+        case hoverPreviewPending
         case hoverPreview
+        case hoverPreviewDismissing
         case presenting
         case dismissAnimating
     }
@@ -51,6 +53,8 @@ struct ReminderState: Equatable {
 @Observable
 final class ReminderEngine {
     static let reminderPresentationPreflightDelay: Duration = .milliseconds(90)
+    static let hoverPreviewPromotionDelay: Duration = .milliseconds(70)
+    static let hoverPreviewDismissalDelay: Duration = .milliseconds(240)
 
     struct ScheduleReminderContent: Equatable {
         let id: DailyScheduleItem.ID
@@ -112,6 +116,7 @@ final class ReminderEngine {
     @ObservationIgnored private var tickTask: Task<Void, Never>?
     @ObservationIgnored private var autoDismissTask: Task<Void, Never>?
     @ObservationIgnored private var presentationTask: Task<Void, Never>?
+    @ObservationIgnored private var hoverPreviewTask: Task<Void, Never>?
     @ObservationIgnored private var settleTask: Task<Void, Never>?
     @ObservationIgnored private var activeScheduleActions: DailyScheduleReminderActions?
     @ObservationIgnored private nonisolated(unsafe) var preferencesObserver: NSObjectProtocol?
@@ -124,6 +129,7 @@ final class ReminderEngine {
         tickTask?.cancel()
         autoDismissTask?.cancel()
         presentationTask?.cancel()
+        hoverPreviewTask?.cancel()
         settleTask?.cancel()
         if let observer = preferencesObserver {
             NotificationCenter.default.removeObserver(observer)
@@ -317,14 +323,25 @@ final class ReminderEngine {
         if hovering {
             if overlayState.presentation == .reminderPending {
                 promotePendingReminder()
-            } else if overlayState.presentation == .hidden, preferencesStore.preferences.hoverPreviewEnabled {
+            } else if overlayState.presentation == .hoverPreviewDismissing {
+                hoverPreviewTask?.cancel()
+                hoverPreviewTask = nil
                 updatePresentation(.hoverPreview)
+            } else if overlayState.presentation == .hidden, preferencesStore.preferences.hoverPreviewEnabled {
+                beginHoverPreview()
             }
             return
         }
 
-        if overlayState.presentation == .hoverPreview {
+        switch overlayState.presentation {
+        case .hoverPreviewPending:
+            hoverPreviewTask?.cancel()
+            hoverPreviewTask = nil
             updatePresentation(.hidden)
+        case .hoverPreview:
+            dismissHoverPreview()
+        default:
+            break
         }
     }
 
@@ -336,8 +353,8 @@ final class ReminderEngine {
         if paused {
             if isBreakReminderPresenting {
                 send(.cancelReminder)
-            } else if overlayState.presentation == .hoverPreview {
-                updatePresentation(.hidden)
+            } else if isHoverPreviewActive {
+                hideHoverPreviewImmediately()
             }
             state.breakSnoozedUntilDate = nil
         }
@@ -376,6 +393,8 @@ final class ReminderEngine {
     ) {
         autoDismissTask?.cancel()
         presentationTask?.cancel()
+        hoverPreviewTask?.cancel()
+        hoverPreviewTask = nil
         settleTask?.cancel()
 
         if resetActiveSeconds {
@@ -437,8 +456,8 @@ final class ReminderEngine {
 
     private func finishReminder(with outcome: ReminderOutcome, animated: Bool = true) {
         guard isReminderPresenting else {
-            if overlayState.presentation == .hoverPreview {
-                updatePresentation(.hidden)
+            if isHoverPreviewActive {
+                hideHoverPreviewImmediately()
             }
             return
         }
@@ -447,6 +466,8 @@ final class ReminderEngine {
         autoDismissTask = nil
         presentationTask?.cancel()
         presentationTask = nil
+        hoverPreviewTask?.cancel()
+        hoverPreviewTask = nil
         settleTask?.cancel()
         settleTask = nil
 
@@ -469,6 +490,8 @@ final class ReminderEngine {
     private func finalizeReminder(with outcome: ReminderOutcome) {
         presentationTask?.cancel()
         presentationTask = nil
+        hoverPreviewTask?.cancel()
+        hoverPreviewTask = nil
         settleTask = nil
         updatePresentation(.hidden)
         if overlayState.content != .breakReminder {
@@ -508,8 +531,8 @@ final class ReminderEngine {
         updateReminderDuration()
         state.scheduleState = currentScheduleState(at: clock.now)
 
-        if !preferencesStore.preferences.hoverPreviewEnabled, overlayState.presentation == .hoverPreview {
-            updatePresentation(.hidden)
+        if !preferencesStore.preferences.hoverPreviewEnabled, isHoverPreviewActive {
+            hideHoverPreviewImmediately()
         }
 
         if state.scheduleState.blocksAutomaticReminders {
@@ -541,6 +564,48 @@ final class ReminderEngine {
         guard overlayState.presentation != presentation || state.presentation != presentation else { return }
         state.presentation = presentation
         overlayState.presentation = presentation
+    }
+
+    private var isHoverPreviewActive: Bool {
+        overlayState.presentation == .hoverPreviewPending ||
+            overlayState.presentation == .hoverPreview ||
+            overlayState.presentation == .hoverPreviewDismissing
+    }
+
+    private func beginHoverPreview() {
+        hoverPreviewTask?.cancel()
+        updatePresentation(.hoverPreviewPending)
+        hoverPreviewTask = Task { [weak self] in
+            guard let self else { return }
+            try? await self.clock.sleep(for: Self.hoverPreviewPromotionDelay)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard self.overlayState.presentation == .hoverPreviewPending else { return }
+                self.hoverPreviewTask = nil
+                self.updatePresentation(.hoverPreview)
+            }
+        }
+    }
+
+    private func dismissHoverPreview() {
+        hoverPreviewTask?.cancel()
+        updatePresentation(.hoverPreviewDismissing)
+        hoverPreviewTask = Task { [weak self] in
+            guard let self else { return }
+            try? await self.clock.sleep(for: Self.hoverPreviewDismissalDelay)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard self.overlayState.presentation == .hoverPreviewDismissing else { return }
+                self.hoverPreviewTask = nil
+                self.updatePresentation(.hidden)
+            }
+        }
+    }
+
+    private func hideHoverPreviewImmediately() {
+        hoverPreviewTask?.cancel()
+        hoverPreviewTask = nil
+        updatePresentation(.hidden)
     }
 
     private func updateReminderStartDate(_ date: Date) {
