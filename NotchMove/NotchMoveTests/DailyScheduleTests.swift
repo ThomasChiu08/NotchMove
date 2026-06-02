@@ -186,12 +186,14 @@ struct DailyScheduleReminderEngineTests {
 
         #expect(firedItems.map(\.id) == [item.id])
         #expect(context.soundPlayer.playCount == 1)
+        #expect(context.soundPlayer.cues == [.scheduleReminder])
         #expect(context.presenter.presentedIDs == [item.id])
         #expect(context.store.items[0].hasReminded(on: now, calendar: context.calendar))
 
         context.engine.checkReminders(at: now.addingTimeInterval(30))
 
         #expect(context.soundPlayer.playCount == 1)
+        #expect(context.soundPlayer.cues == [.scheduleReminder])
         #expect(context.presenter.presentedIDs == [item.id])
     }
 
@@ -352,10 +354,14 @@ private struct DailyScheduleReminderTestContext {
 
 @MainActor
 private final class DailyScheduleTestSoundPlayer: SoundPlaying {
-    private(set) var playCount = 0
+    private(set) var cues: [ReminderSoundCue] = []
 
-    func playReminderSound() {
-        playCount += 1
+    var playCount: Int {
+        cues.count
+    }
+
+    func playSound(_ cue: ReminderSoundCue) {
+        cues.append(cue)
     }
 }
 

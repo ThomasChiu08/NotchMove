@@ -67,6 +67,11 @@ struct NotchView: View {
             return Color(red: 0.08, green: 0.015, blue: 0.018)
         }
 
+        if case .pomodoro = reminderEngine.overlayState.content,
+           activePresentation == .presenting {
+            return Color(red: 0.055, green: 0.033, blue: 0.012)
+        }
+
         return Color(red: 0.02, green: 0.02, blue: 0.02)
     }
 
@@ -92,7 +97,7 @@ struct NotchView: View {
                 reminderPendingIndicator
                     .transition(.opacity)
             case .hoverPreview:
-                hoverPreview
+                hoverPreviewContent
                     .transition(.notchOverlayInsertion)
             case .presenting:
                 reminderContent
@@ -134,8 +139,17 @@ struct NotchView: View {
         }
     }
 
-    private var hoverPreview: some View {
-        HoverPreviewView(topInset: overlayMetrics.topInset)
+    @ViewBuilder
+    private var hoverPreviewContent: some View {
+        switch reminderEngine.overlayState.content {
+        case .breakCompletionCountdown(let content):
+            BreakCompletionCountdownView(
+                content: content,
+                topInset: overlayMetrics.topInset
+            )
+        default:
+            HoverPreviewView(topInset: overlayMetrics.topInset)
+        }
     }
 
     private var reminderPendingIndicator: some View {
@@ -180,6 +194,8 @@ struct NotchView: View {
             ) {
                 reminderEngine.send(.dismissPomodoroReminder)
             }
+        case .breakCompletionCountdown:
+            EmptyView()
         }
     }
 }
@@ -415,6 +431,45 @@ private struct HoverPreviewView: View {
     }
 }
 
+private struct BreakCompletionCountdownView: View {
+    let content: ReminderEngine.BreakCompletionCountdownContent
+    let topInset: CGFloat
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            let progress = reminderProgress(
+                at: context.date,
+                reminderStartDate: content.startedAt,
+                reminderDuration: content.duration
+            )
+
+            HStack(spacing: 10) {
+                ReminderProgressView(progress: progress)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("movement_countdown_title")
+                        .font(.system(.caption, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+
+                    ReminderCountdownLabel(
+                        remainingSeconds: remainingSeconds(
+                            at: context.date,
+                            reminderStartDate: content.startedAt,
+                            reminderDuration: content.duration
+                        )
+                    )
+                }
+
+                Spacer(minLength: 6)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, topInset + 4)
+        }
+    }
+}
+
 private struct BreakReminderContentView: View {
     let reminderStartDate: Date
     let reminderDuration: TimeInterval
@@ -568,9 +623,10 @@ private struct PomodoroReminderContentView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            ReminderProgressTimelineView(
+            PomodoroProgressTimelineView(
                 reminderStartDate: reminderStartDate,
-                reminderDuration: reminderDuration
+                reminderDuration: reminderDuration,
+                kind: content.kind
             )
 
             VStack(alignment: .leading, spacing: 1) {
@@ -580,11 +636,7 @@ private struct PomodoroReminderContentView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
 
-                Text(detailKey)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.62))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
+                detailView
             }
 
             Spacer(minLength: 6)
@@ -604,6 +656,8 @@ private struct PomodoroReminderContentView: View {
 
     private var titleKey: LocalizedStringKey {
         switch content.kind {
+        case .sessionStarted:
+            "pomodoro.session_started.title"
         case .focusCompleted:
             "pomodoro.focus_completed.title"
         case .breakCompleted:
@@ -611,21 +665,103 @@ private struct PomodoroReminderContentView: View {
         }
     }
 
-    private var detailKey: LocalizedStringKey {
+    @ViewBuilder
+    private var detailView: some View {
         switch content.kind {
+        case .sessionStarted:
+            HStack(spacing: 4) {
+                Text("pomodoro.work_label")
+                Text(durationText(content.focusDuration))
+                    .monospacedDigit()
+                Text("·")
+                Text("pomodoro.rest_label")
+                Text(durationText(content.breakDuration))
+                    .monospacedDigit()
+            }
+            .font(.caption2)
+            .foregroundStyle(.white.opacity(0.66))
+            .lineLimit(1)
+            .minimumScaleFactor(0.72)
         case .focusCompleted:
-            "pomodoro.focus_completed.detail"
+            Text("pomodoro.focus_completed.detail")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.62))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
         case .breakCompleted:
-            "pomodoro.break_completed.detail"
+            Text("pomodoro.break_completed.detail")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.62))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
         }
     }
 
     private var actionKey: LocalizedStringKey {
         switch content.kind {
+        case .sessionStarted:
+            "pomodoro.dismiss"
         case .focusCompleted:
             "pomodoro.start_break"
         case .breakCompleted:
             "pomodoro.done"
+        }
+    }
+
+    private func durationText(_ duration: TimeInterval) -> String {
+        let minutes = max(Int(round(duration / 60)), 1)
+        return "\(minutes)m"
+    }
+}
+
+private struct PomodoroProgressTimelineView: View {
+    let reminderStartDate: Date
+    let reminderDuration: TimeInterval
+    let kind: PomodoroReminderContent.Kind
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            let progress = reminderProgress(
+                at: context.date,
+                reminderStartDate: reminderStartDate,
+                reminderDuration: reminderDuration
+            )
+
+            ProgressRingView(
+                progress: progress,
+                size: 32,
+                lineWidth: 2.5,
+                tint: tint,
+                trackTint: .orange.opacity(0.16)
+            )
+            .overlay {
+                Image(systemName: symbolName)
+                    .font(.caption)
+                    .foregroundStyle(tint)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+        }
+    }
+
+    private var tint: Color {
+        switch kind {
+        case .sessionStarted:
+            .yellow
+        case .focusCompleted:
+            .orange
+        case .breakCompleted:
+            .mint
+        }
+    }
+
+    private var symbolName: String {
+        switch kind {
+        case .sessionStarted:
+            "timer"
+        case .focusCompleted:
+            "cup.and.saucer.fill"
+        case .breakCompleted:
+            "checkmark.circle.fill"
         }
     }
 }
@@ -740,7 +876,7 @@ private final class PreviewIdleProvider: IdleTimeProviding {
 
 @MainActor
 private struct PreviewSoundPlayer: SoundPlaying {
-    func playReminderSound() {}
+    func playSound(_ cue: ReminderSoundCue) {}
 }
 
 #Preview {

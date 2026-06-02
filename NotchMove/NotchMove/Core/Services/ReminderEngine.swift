@@ -13,8 +13,14 @@ protocol IdleTimeProviding: AnyObject {
     var idleSeconds: TimeInterval { get }
 }
 
+enum ReminderSoundCue: Equatable {
+    case breakReminder
+    case scheduleReminder
+    case pomodoro
+}
+
 protocol SoundPlaying {
-    func playReminderSound()
+    func playSound(_ cue: ReminderSoundCue)
 }
 
 protocol Clock {
@@ -70,8 +76,14 @@ final class ReminderEngine {
         }
     }
 
+    struct BreakCompletionCountdownContent: Equatable {
+        let startedAt: Date
+        let duration: TimeInterval
+    }
+
     enum OverlayContent: Equatable {
         case breakReminder
+        case breakCompletionCountdown(BreakCompletionCountdownContent)
         case schedule(ScheduleReminderContent)
         case pomodoro(PomodoroReminderContent)
     }
@@ -122,6 +134,7 @@ final class ReminderEngine {
     @ObservationIgnored private var presentationTask: Task<Void, Never>?
     @ObservationIgnored private var hoverPreviewTask: Task<Void, Never>?
     @ObservationIgnored private var settleTask: Task<Void, Never>?
+    @ObservationIgnored private var breakCompletionCountdownTask: Task<Void, Never>?
     @ObservationIgnored private var activeScheduleActions: DailyScheduleReminderActions?
     @ObservationIgnored private nonisolated(unsafe) var preferencesObserver: NSObjectProtocol?
     private var lastTickDate: Date?
@@ -136,6 +149,7 @@ final class ReminderEngine {
         presentationTask?.cancel()
         hoverPreviewTask?.cancel()
         settleTask?.cancel()
+        breakCompletionCountdownTask?.cancel()
         if let observer = preferencesObserver {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -199,6 +213,14 @@ final class ReminderEngine {
         isReminderPresenting && overlayState.content == .breakReminder
     }
 
+    var isBreakCompletionCountdownActive: Bool {
+        if case .breakCompletionCountdown = overlayState.content {
+            return true
+        }
+
+        return false
+    }
+
     var reminderDuration: TimeInterval {
         overlayState.reminderDuration
     }
@@ -248,6 +270,8 @@ final class ReminderEngine {
             } else if isHoverPreviewActive {
                 hideHoverPreviewImmediately()
             }
+
+            clearBreakCompletionCountdown()
         }
 
         logger.notice("Pomodoro reminder suppression \(suppressed ? "enabled" : "disabled")")
@@ -266,9 +290,9 @@ final class ReminderEngine {
         case let .setManualPause(paused):
             handleManualPauseChange(paused)
         case .manualTrigger:
-            beginBreakReminderPresentation(playSound: true)
+            beginBreakReminderPresentation(soundCue: .breakReminder)
         case .completeBreak:
-            finishReminder(with: .completedBreak)
+            beginBreakCompletionCountdown()
         case .snoozeReminder(let duration):
             snoozeBreakReminder(duration: duration)
         case .dismissReminder:
@@ -311,6 +335,8 @@ final class ReminderEngine {
                 send(.cancelReminder)
             }
 
+            clearBreakCompletionCountdown()
+
             lastTickDate = now
             return
         }
@@ -338,9 +364,14 @@ final class ReminderEngine {
             state.breakSnoozedUntilDate = nil
             if activityState(for: idleResetThreshold) == .active {
                 logger.notice("Break reminder snooze expired")
-                beginBreakReminderPresentation(playSound: true)
+                beginBreakReminderPresentation(soundCue: .breakReminder)
                 return
             }
+        }
+
+        if isBreakCompletionCountdownActive {
+            lastTickDate = now
+            return
         }
 
         let elapsed = lastTickDate.map { now.timeIntervalSince($0) } ?? 5
@@ -360,7 +391,7 @@ final class ReminderEngine {
 
         if state.activeSeconds >= reminderInterval {
             logger.notice("Reminder fired — \(Int(self.state.activeSeconds))s active")
-            beginBreakReminderPresentation(playSound: true)
+            beginBreakReminderPresentation(soundCue: .breakReminder)
         }
     }
 
@@ -372,7 +403,8 @@ final class ReminderEngine {
                 hoverPreviewTask?.cancel()
                 hoverPreviewTask = nil
                 updatePresentation(.hoverPreview)
-            } else if overlayState.presentation == .hidden, preferencesStore.preferences.hoverPreviewEnabled {
+            } else if overlayState.presentation == .hidden,
+                      isBreakCompletionCountdownActive || preferencesStore.preferences.hoverPreviewEnabled {
                 beginHoverPreview()
             }
             return
@@ -402,16 +434,47 @@ final class ReminderEngine {
                 hideHoverPreviewImmediately()
             }
             state.breakSnoozedUntilDate = nil
+            clearBreakCompletionCountdown()
         }
 
         logger.notice("Manual pause \(paused ? "enabled" : "disabled")")
     }
 
-    private func beginBreakReminderPresentation(playSound: Bool) {
+    private func beginBreakReminderPresentation(soundCue: ReminderSoundCue?) {
         guard overlayState.content == .breakReminder || !isReminderPresenting else { return }
         state.breakSnoozedUntilDate = nil
-        beginReminderPresentation(content: .breakReminder, playSound: playSound, resetActiveSeconds: true)
+        beginReminderPresentation(content: .breakReminder, soundCue: soundCue, resetActiveSeconds: true)
         logger.notice("Reminder presentation began")
+    }
+
+    private func beginBreakCompletionCountdown() {
+        guard isBreakReminderPresenting else {
+            finishReminder(with: .completedBreak)
+            return
+        }
+
+        let now = clock.now
+        let elapsed = max(now.timeIntervalSince(overlayState.reminderStartDate), 0)
+        let remaining = max(overlayState.reminderDuration - elapsed, 1)
+        let content = BreakCompletionCountdownContent(startedAt: now, duration: remaining)
+
+        autoDismissTask?.cancel()
+        autoDismissTask = nil
+        presentationTask?.cancel()
+        presentationTask = nil
+        hoverPreviewTask?.cancel()
+        hoverPreviewTask = nil
+        settleTask?.cancel()
+        settleTask = nil
+        breakCompletionCountdownTask?.cancel()
+
+        state.breakSnoozedUntilDate = nil
+        updateContent(.breakCompletionCountdown(content))
+        updatePresentation(.hidden)
+        lastTickDate = now
+        breakStatsStore.recordIfCompleted(.completedBreak)
+        scheduleBreakCompletionCountdownClear(for: content)
+        logger.notice("Break completion countdown began for \(Int(remaining))s")
     }
 
     private func snoozeBreakReminder(duration: TimeInterval) {
@@ -427,23 +490,24 @@ final class ReminderEngine {
     }
 
     private func beginScheduleReminderPresentation(_ content: ScheduleReminderContent) {
-        beginReminderPresentation(content: .schedule(content), playSound: false, resetActiveSeconds: false)
+        beginReminderPresentation(content: .schedule(content), soundCue: nil, resetActiveSeconds: false)
         logger.notice("Schedule reminder presentation began for \(content.title, privacy: .public)")
     }
 
     private func beginPomodoroReminderPresentation(_ content: PomodoroReminderContent) {
-        guard !isReminderPresenting else {
+        guard !isReminderPresenting || isPomodoroReminderPresenting else {
             logger.notice("Skipped pomodoro reminder because another reminder is presenting")
             return
         }
 
-        beginReminderPresentation(content: .pomodoro(content), playSound: true, resetActiveSeconds: false)
+        let soundCue: ReminderSoundCue? = content.kind == .sessionStarted ? nil : .pomodoro
+        beginReminderPresentation(content: .pomodoro(content), soundCue: soundCue, resetActiveSeconds: false)
         logger.notice("Pomodoro reminder presentation began")
     }
 
     private func beginReminderPresentation(
         content: OverlayContent,
-        playSound: Bool,
+        soundCue: ReminderSoundCue?,
         resetActiveSeconds: Bool
     ) {
         autoDismissTask?.cancel()
@@ -451,6 +515,8 @@ final class ReminderEngine {
         hoverPreviewTask?.cancel()
         hoverPreviewTask = nil
         settleTask?.cancel()
+        breakCompletionCountdownTask?.cancel()
+        breakCompletionCountdownTask = nil
 
         if resetActiveSeconds {
             state.activeSeconds = 0
@@ -460,8 +526,8 @@ final class ReminderEngine {
         updatePresentation(.reminderPending)
         lastTickDate = clock.now
 
-        if playSound {
-            soundPlayer.playReminderSound()
+        if let soundCue {
+            soundPlayer.playSound(soundCue)
         }
 
         schedulePendingPromotion()
@@ -513,6 +579,9 @@ final class ReminderEngine {
         guard isReminderPresenting else {
             if isHoverPreviewActive {
                 hideHoverPreviewImmediately()
+            }
+            if isBreakCompletionCountdownActive {
+                clearBreakCompletionCountdown()
             }
             return
         }
@@ -596,6 +665,7 @@ final class ReminderEngine {
             if isBreakReminderPresenting {
                 send(.cancelReminder)
             }
+            clearBreakCompletionCountdown()
         }
 
         if overlayState.presentation == .presenting {
@@ -625,6 +695,16 @@ final class ReminderEngine {
         overlayState.presentation == .hoverPreviewPending ||
             overlayState.presentation == .hoverPreview ||
             overlayState.presentation == .hoverPreviewDismissing
+    }
+
+    private var isPomodoroReminderPresenting: Bool {
+        guard isReminderPresenting,
+              case .pomodoro = overlayState.content
+        else {
+            return false
+        }
+
+        return true
     }
 
     private func beginHoverPreview() {
@@ -661,6 +741,38 @@ final class ReminderEngine {
         hoverPreviewTask?.cancel()
         hoverPreviewTask = nil
         updatePresentation(.hidden)
+    }
+
+    private func scheduleBreakCompletionCountdownClear(for content: BreakCompletionCountdownContent) {
+        breakCompletionCountdownTask = Task { [weak self] in
+            guard let self else { return }
+            try? await self.clock.sleep(for: .seconds(content.duration))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self.clearBreakCompletionCountdown(matching: content)
+            }
+        }
+    }
+
+    private func clearBreakCompletionCountdown(matching expectedContent: BreakCompletionCountdownContent? = nil) {
+        if let expectedContent {
+            guard case .breakCompletionCountdown(let content) = overlayState.content,
+                  content == expectedContent
+            else {
+                return
+            }
+        } else if !isBreakCompletionCountdownActive {
+            return
+        }
+
+        breakCompletionCountdownTask?.cancel()
+        breakCompletionCountdownTask = nil
+        hoverPreviewTask?.cancel()
+        hoverPreviewTask = nil
+        updatePresentation(.hidden)
+        updateContent(.breakReminder)
+        lastTickDate = clock.now
+        logger.notice("Break completion countdown cleared")
     }
 
     private func updateReminderStartDate(_ date: Date) {

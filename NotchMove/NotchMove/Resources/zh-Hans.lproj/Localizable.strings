@@ -76,12 +76,17 @@
 "notch.later" = "稍后";
 "notch.snooze_10m" = "10 分钟";
 "notch.skip" = "跳过";
+"movement_countdown_title" = "活动倒计时";
+"pomodoro.session_started.title" = "番茄钟已开始";
 "pomodoro.focus_completed.title" = "专注完成";
 "pomodoro.focus_completed.detail" = "现在休息一下。";
 "pomodoro.break_completed.title" = "休息完成";
 "pomodoro.break_completed.detail" = "可以开始下一轮专注。";
+"pomodoro.work_label" = "工作";
+"pomodoro.rest_label" = "休息";
 "pomodoro.start_break" = "休息";
 "pomodoro.done" = "完成";
+"pomodoro.dismiss" = "好的";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "下次提醒：%@ 分钟";

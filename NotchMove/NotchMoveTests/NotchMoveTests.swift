@@ -354,6 +354,9 @@ struct PomodoroEngineTests {
         #expect(context.engine.state.runState == .running)
         #expect(context.engine.state.phase == .focus)
         #expect(context.probe.suppressions == [true])
+        #expect(context.probe.reminders.map(\.kind) == [.sessionStarted])
+        #expect(context.probe.reminders.first?.focusDuration == 60)
+        #expect(context.probe.reminders.first?.breakDuration == 60)
 
         await flushAsyncWork()
         await context.clock.advance(by: .seconds(60))
@@ -362,8 +365,8 @@ struct PomodoroEngineTests {
         #expect(context.engine.state.runState == .running)
         #expect(context.engine.state.phase == .rest)
         #expect(context.engine.state.remainingSeconds == 60)
-        #expect(context.probe.reminders.map(\.kind) == [.focusCompleted])
-        #expect(context.probe.reminders.first?.nextPhaseDuration == 60)
+        #expect(context.probe.reminders.map(\.kind) == [.sessionStarted, .focusCompleted])
+        #expect(context.probe.reminders.last?.nextPhaseDuration == 60)
     }
 
     @Test func pauseAndResumePreserveRemainingTime() async {
@@ -392,7 +395,7 @@ struct PomodoroEngineTests {
         await flushAsyncWork()
 
         #expect(context.engine.state.phase == .rest)
-        #expect(context.probe.reminders.map(\.kind) == [.focusCompleted])
+        #expect(context.probe.reminders.map(\.kind) == [.sessionStarted, .focusCompleted])
     }
 
     @Test func completedBreakRecordsBreakAndClearsSuppression() async {
@@ -413,7 +416,7 @@ struct PomodoroEngineTests {
         #expect(context.engine.state.runState == .idle)
         #expect(context.breakStatsStore.todayBreaks == 1)
         #expect(context.breakStatsStore.weekBreaks == 1)
-        #expect(context.probe.reminders.map(\.kind) == [.focusCompleted, .breakCompleted])
+        #expect(context.probe.reminders.map(\.kind) == [.sessionStarted, .focusCompleted, .breakCompleted])
         #expect(context.probe.suppressions == [true, false])
     }
 }
@@ -457,6 +460,7 @@ struct ReminderEngineTests {
         #expect(context.engine.state.presentation == .reminderPending)
         #expect(context.engine.isReminderPresenting)
         #expect(context.soundPlayer.playCount == 1)
+        #expect(context.soundPlayer.cues == [.breakReminder])
 
         await promotePendingReminder(in: context)
 
@@ -477,6 +481,7 @@ struct ReminderEngineTests {
         #expect(context.engine.isReminderPresenting)
         #expect(context.engine.overlayState.content == .breakReminder)
         #expect(context.soundPlayer.playCount == 1)
+        #expect(context.soundPlayer.cues == [.breakReminder])
 
         await promotePendingReminder(in: context)
 
@@ -540,9 +545,58 @@ struct ReminderEngineTests {
         context.engine.send(.manualTrigger)
         await promotePendingReminder(in: context)
         context.engine.send(.completeBreak)
-        await settleReminderDismissal(in: context)
 
         #expect(context.engine.state.presentation == .hidden)
+        #expect(context.engine.isBreakCompletionCountdownActive)
+        #expect(context.breakStatsStore.todayBreaks == 1)
+        #expect(context.breakStatsStore.weekBreaks == 1)
+    }
+
+    @Test func completedBreakCountdownCanBeHoveredAndThenTucksAgain() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.preferencesStore.preferences.hoverPreviewEnabled = false
+        context.engine.send(.manualTrigger)
+        await promotePendingReminder(in: context)
+        context.engine.send(.completeBreak)
+
+        #expect(context.engine.state.presentation == .hidden)
+        #expect(context.engine.isBreakCompletionCountdownActive)
+
+        context.engine.send(.hoverChanged(true))
+        #expect(context.engine.state.presentation == .hoverPreviewPending)
+
+        await promoteHoverPreview(in: context)
+        #expect(context.engine.state.presentation == .hoverPreview)
+
+        context.engine.send(.hoverChanged(false))
+        #expect(context.engine.state.presentation == .hoverPreviewDismissing)
+
+        await settleHoverPreviewDismissal(in: context)
+        #expect(context.engine.state.presentation == .hidden)
+        #expect(context.engine.isBreakCompletionCountdownActive)
+    }
+
+    @Test func completedBreakCountdownClearsAfterRemainingDurationWithoutDoubleCounting() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.engine.send(.manualTrigger)
+        await promotePendingReminder(in: context)
+        context.engine.send(.completeBreak)
+
+        guard case .breakCompletionCountdown(let content) = context.engine.overlayState.content else {
+            Issue.record("Expected break completion countdown content")
+            return
+        }
+
+        await context.clock.advance(by: .seconds(content.duration))
+        await flushAsyncWork()
+
+        #expect(context.engine.state.presentation == .hidden)
+        #expect(!context.engine.isBreakCompletionCountdownActive)
+        #expect(context.engine.overlayState.content == .breakReminder)
         #expect(context.breakStatsStore.todayBreaks == 1)
         #expect(context.breakStatsStore.weekBreaks == 1)
     }
@@ -743,6 +797,55 @@ struct ReminderEngineTests {
         } else {
             Issue.record("Expected schedule overlay content")
         }
+
+        await promotePendingReminder(in: context)
+        #expect(context.engine.state.presentation == .presenting)
+    }
+
+    @Test func pomodoroSessionStartStagesWithoutSound() async {
+        let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+        let content = PomodoroReminderContent(
+            kind: .sessionStarted,
+            occurredAt: now,
+            nextPhaseDuration: 25 * 60,
+            focusDuration: 25 * 60,
+            breakDuration: 5 * 60
+        )
+
+        context.engine.presentPomodoroReminder(content)
+
+        #expect(context.engine.state.presentation == .reminderPending)
+        #expect(context.soundPlayer.cues.isEmpty)
+        if case .pomodoro(let activeContent) = context.engine.overlayState.content {
+            #expect(activeContent.kind == .sessionStarted)
+            #expect(activeContent.focusDuration == 25 * 60)
+            #expect(activeContent.breakDuration == 5 * 60)
+        } else {
+            Issue.record("Expected pomodoro overlay content")
+        }
+
+        await promotePendingReminder(in: context)
+        #expect(context.engine.state.presentation == .presenting)
+    }
+
+    @Test func pomodoroCompletionUsesPomodoroSoundCue() async {
+        let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 25)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+        let content = PomodoroReminderContent(
+            kind: .focusCompleted,
+            occurredAt: now,
+            nextPhaseDuration: 5 * 60,
+            focusDuration: 25 * 60,
+            breakDuration: 5 * 60
+        )
+
+        context.engine.presentPomodoroReminder(content)
+
+        #expect(context.engine.state.presentation == .reminderPending)
+        #expect(context.soundPlayer.cues == [.pomodoro])
 
         await promotePendingReminder(in: context)
         #expect(context.engine.state.presentation == .presenting)
@@ -1240,10 +1343,14 @@ private final class TestIdleProvider: IdleTimeProviding {
 
 @MainActor
 private final class TestSoundPlayer: SoundPlaying {
-    private(set) var playCount = 0
+    private(set) var cues: [ReminderSoundCue] = []
 
-    func playReminderSound() {
-        playCount += 1
+    var playCount: Int {
+        cues.count
+    }
+
+    func playSound(_ cue: ReminderSoundCue) {
+        cues.append(cue)
     }
 }
 

@@ -130,7 +130,7 @@ final class DailyScheduleReminderEngine {
         guard let item = eligibleItems.first else { return [] }
 
         activeReminderIDs.insert(item.id)
-        soundPlayer.playReminderSound()
+        soundPlayer.playSound(.scheduleReminder)
         presenter.presentReminder(
             for: item,
             actions: DailyScheduleReminderActions(

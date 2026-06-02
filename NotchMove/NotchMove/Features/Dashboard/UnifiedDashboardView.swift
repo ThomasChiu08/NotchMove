@@ -499,5 +499,5 @@ private final class PreviewDashboardIdleProvider: IdleTimeProviding {
 
 @MainActor
 private struct PreviewDashboardSoundPlayer: SoundPlaying {
-    func playReminderSound() {}
+    func playSound(_ cue: ReminderSoundCue) {}
 }

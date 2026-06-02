@@ -76,12 +76,17 @@
 "notch.later" = "Later";
 "notch.snooze_10m" = "10 min";
 "notch.skip" = "Skip";
+"movement_countdown_title" = "Move timer";
+"pomodoro.session_started.title" = "Pomodoro started";
 "pomodoro.focus_completed.title" = "Focus complete";
 "pomodoro.focus_completed.detail" = "Take a short break now.";
 "pomodoro.break_completed.title" = "Break complete";
 "pomodoro.break_completed.detail" = "Ready for another focus session.";
+"pomodoro.work_label" = "Work";
+"pomodoro.rest_label" = "Rest";
 "pomodoro.start_break" = "Rest";
 "pomodoro.done" = "Done";
+"pomodoro.dismiss" = "OK";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "Next reminder: %@ min";

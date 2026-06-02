@@ -30,13 +30,16 @@ struct PomodoroState: Equatable {
 
 struct PomodoroReminderContent: Equatable {
     enum Kind: Equatable {
+        case sessionStarted
         case focusCompleted
         case breakCompleted
     }
 
     let kind: Kind
-    let completedAt: Date
+    let occurredAt: Date
     let nextPhaseDuration: TimeInterval
+    let focusDuration: TimeInterval
+    let breakDuration: TimeInterval
 }
 
 @MainActor
@@ -94,7 +97,17 @@ final class PomodoroEngine {
     func startFocusSession() {
         guard !isActive else { return }
         onSuppressionChanged(true)
-        beginPhase(.focus, duration: focusDuration, at: clock.now)
+        let now = clock.now
+        let currentFocusDuration = focusDuration
+        let currentBreakDuration = breakDuration
+        beginPhase(.focus, duration: currentFocusDuration, at: now)
+        onReminder(PomodoroReminderContent(
+            kind: .sessionStarted,
+            occurredAt: now,
+            nextPhaseDuration: currentFocusDuration,
+            focusDuration: currentFocusDuration,
+            breakDuration: currentBreakDuration
+        ))
         logger.notice("Pomodoro focus session started")
     }
 
@@ -169,8 +182,10 @@ final class PomodoroEngine {
         case .focus:
             onReminder(PomodoroReminderContent(
                 kind: .focusCompleted,
-                completedAt: date,
-                nextPhaseDuration: breakDuration
+                occurredAt: date,
+                nextPhaseDuration: breakDuration,
+                focusDuration: focusDuration,
+                breakDuration: breakDuration
             ))
             beginPhase(.rest, duration: breakDuration, at: date)
             logger.notice("Pomodoro focus completed; break started")
@@ -178,8 +193,10 @@ final class PomodoroEngine {
             breakStatsStore.recordIfCompleted(.completedBreak)
             onReminder(PomodoroReminderContent(
                 kind: .breakCompleted,
-                completedAt: date,
-                nextPhaseDuration: focusDuration
+                occurredAt: date,
+                nextPhaseDuration: focusDuration,
+                focusDuration: focusDuration,
+                breakDuration: breakDuration
             ))
             resetState()
             onSuppressionChanged(false)

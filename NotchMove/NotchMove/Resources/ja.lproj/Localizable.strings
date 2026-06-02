@@ -76,12 +76,17 @@
 "notch.later" = "あとで";
 "notch.snooze_10m" = "10分";
 "notch.skip" = "スキップ";
+"movement_countdown_title" = "移動タイマー";
+"pomodoro.session_started.title" = "ポモドーロ開始";
 "pomodoro.focus_completed.title" = "集中完了";
 "pomodoro.focus_completed.detail" = "短い休憩を取りましょう。";
 "pomodoro.break_completed.title" = "休憩完了";
 "pomodoro.break_completed.detail" = "次の集中を始められます。";
+"pomodoro.work_label" = "作業";
+"pomodoro.rest_label" = "休憩";
 "pomodoro.start_break" = "休憩";
 "pomodoro.done" = "完了";
+"pomodoro.dismiss" = "OK";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "次のリマインド：%@ 分";
