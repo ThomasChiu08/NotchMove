@@ -11,6 +11,7 @@ struct UnifiedDashboardView: View {
     let languageManager: LanguageManager
     let loginItemManager: any LoginItemManaging
     let reminderEngine: ReminderEngine
+    @Bindable var pomodoroEngine: PomodoroEngine
     let aiAssistantService: AIScheduleAssistantService
     @Bindable var scheduleStore: DailyScheduleStore
     @Bindable var preferencesStore: PreferencesStore
@@ -100,6 +101,8 @@ struct UnifiedDashboardView: View {
             "dashboard.run_state.paused"
         case .scheduleBlocked:
             "dashboard.run_state.schedule_blocked"
+        case .pomodoroActive:
+            "dashboard.run_state.pomodoro"
         case .presentingReminder:
             "dashboard.run_state.reminding"
         case .idleSuppressed:
@@ -109,7 +112,7 @@ struct UnifiedDashboardView: View {
 
     private var sidebarStatusColor: Color {
         switch reminderEngine.runState {
-        case .tracking, .presentingReminder:
+        case .tracking, .presentingReminder, .pomodoroActive:
             .green
         case .manuallyPaused, .scheduleBlocked, .idleSuppressed:
             .secondary
@@ -471,6 +474,10 @@ private struct DashboardSettingsPage: View {
             activityMonitor: PreviewDashboardIdleProvider(),
             preferencesStore: preferencesStore,
             soundPlayer: PreviewDashboardSoundPlayer(),
+            breakStatsStore: breakStatsStore
+        ),
+        pomodoroEngine: PomodoroEngine(
+            preferencesStore: preferencesStore,
             breakStatsStore: breakStatsStore
         ),
         aiAssistantService: AIScheduleAssistantService(

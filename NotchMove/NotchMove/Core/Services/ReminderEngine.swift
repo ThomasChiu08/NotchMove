@@ -73,6 +73,7 @@ final class ReminderEngine {
     enum OverlayContent: Equatable {
         case breakReminder
         case schedule(ScheduleReminderContent)
+        case pomodoro(PomodoroReminderContent)
     }
 
     struct OverlayState: Equatable {
@@ -86,6 +87,7 @@ final class ReminderEngine {
         case tracking
         case manuallyPaused
         case scheduleBlocked
+        case pomodoroActive
         case presentingReminder
         case idleSuppressed
     }
@@ -104,6 +106,8 @@ final class ReminderEngine {
         case completeScheduleReminder
         case snoozeScheduleReminder(minutes: Int)
         case dismissScheduleReminder
+        case pomodoroTrigger(PomodoroReminderContent)
+        case dismissPomodoroReminder
     }
 
     private let activityMonitor: IdleTimeProviding
@@ -121,6 +125,7 @@ final class ReminderEngine {
     @ObservationIgnored private var activeScheduleActions: DailyScheduleReminderActions?
     @ObservationIgnored private nonisolated(unsafe) var preferencesObserver: NSObjectProtocol?
     private var lastTickDate: Date?
+    private var pomodoroSuppressesAutomaticReminders = false
 
     private(set) var state = ReminderState()
     private(set) var overlayState = OverlayState()
@@ -165,6 +170,10 @@ final class ReminderEngine {
 
         if state.scheduleState.blocksAutomaticReminders {
             return .scheduleBlocked
+        }
+
+        if pomodoroSuppressesAutomaticReminders {
+            return .pomodoroActive
         }
 
         switch activityState(for: idleResetThreshold) {
@@ -221,6 +230,29 @@ final class ReminderEngine {
         send(.scheduleTrigger(ScheduleReminderContent(item: item)))
     }
 
+    func presentPomodoroReminder(_ content: PomodoroReminderContent) {
+        send(.pomodoroTrigger(content))
+    }
+
+    func setPomodoroReminderSuppression(_ suppressed: Bool) {
+        guard pomodoroSuppressesAutomaticReminders != suppressed else { return }
+        pomodoroSuppressesAutomaticReminders = suppressed
+        lastTickDate = clock.now
+
+        if suppressed {
+            state.activeSeconds = 0
+            state.breakSnoozedUntilDate = nil
+
+            if isBreakReminderPresenting {
+                send(.cancelReminder)
+            } else if isHoverPreviewActive {
+                hideHoverPreviewImmediately()
+            }
+        }
+
+        logger.notice("Pomodoro reminder suppression \(suppressed ? "enabled" : "disabled")")
+    }
+
     func snoozeReminder(duration: TimeInterval) {
         send(.snoozeReminder(duration: duration))
     }
@@ -259,6 +291,10 @@ final class ReminderEngine {
             finishActiveScheduleReminder { actions in
                 actions.dismiss()
             }
+        case .pomodoroTrigger(let content):
+            beginPomodoroReminderPresentation(content)
+        case .dismissPomodoroReminder:
+            finishReminder(with: .dismissed)
         }
     }
 
@@ -275,6 +311,15 @@ final class ReminderEngine {
                 send(.cancelReminder)
             }
 
+            lastTickDate = now
+            return
+        }
+
+        if pomodoroSuppressesAutomaticReminders {
+            if state.activeSeconds > 0 {
+                state.activeSeconds = 0
+            }
+            state.breakSnoozedUntilDate = nil
             lastTickDate = now
             return
         }
@@ -384,6 +429,16 @@ final class ReminderEngine {
     private func beginScheduleReminderPresentation(_ content: ScheduleReminderContent) {
         beginReminderPresentation(content: .schedule(content), playSound: false, resetActiveSeconds: false)
         logger.notice("Schedule reminder presentation began for \(content.title, privacy: .public)")
+    }
+
+    private func beginPomodoroReminderPresentation(_ content: PomodoroReminderContent) {
+        guard !isReminderPresenting else {
+            logger.notice("Skipped pomodoro reminder because another reminder is presenting")
+            return
+        }
+
+        beginReminderPresentation(content: .pomodoro(content), playSound: true, resetActiveSeconds: false)
+        logger.notice("Pomodoro reminder presentation began")
     }
 
     private func beginReminderPresentation(

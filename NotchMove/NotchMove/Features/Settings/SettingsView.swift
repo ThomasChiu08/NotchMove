@@ -116,6 +116,8 @@ struct SettingsContentView: View {
 
     private let screenProvider = MainScreenProvider()
     private static let intervalOptions = [15, 20, 25, 30, 45, 60]
+    private static let pomodoroFocusOptions = [15, 20, 25, 30, 45, 60]
+    private static let pomodoroBreakOptions = [3, 5, 10, 15, 20]
     private static let dismissOptions = [30, 45, 60, 90, 120]
 
     init(
@@ -283,6 +285,34 @@ struct SettingsContentView: View {
                     Text("sit_aware_mode")
                 }
                 .labelsHidden()
+            }
+
+            SettingsPropertyRow("pomodoro_focus_duration", captionKey: "pomodoro_settings_caption") {
+                Picker(selection: $preferencesStore.preferences.pomodoroFocusMinutes) {
+                    ForEach(Self.pomodoroFocusOptions, id: \.self) { minutes in
+                        Text(String(format: localizedString("minutes_format"), minutes))
+                            .tag(minutes)
+                    }
+                } label: {
+                    Text("pomodoro_focus_duration")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 140, alignment: .leading)
+            }
+
+            SettingsPropertyRow("pomodoro_break_duration") {
+                Picker(selection: $preferencesStore.preferences.pomodoroBreakMinutes) {
+                    ForEach(Self.pomodoroBreakOptions, id: \.self) { minutes in
+                        Text(String(format: localizedString("minutes_format"), minutes))
+                            .tag(minutes)
+                    }
+                } label: {
+                    Text("pomodoro_break_duration")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 140, alignment: .leading)
             }
         } header: {
             sectionHeader("section.reminders")

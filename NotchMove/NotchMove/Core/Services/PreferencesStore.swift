@@ -41,6 +41,8 @@ final class PreferencesStore {
         }
 
         if oldValue.reminderIntervalMinutes != newValue.reminderIntervalMinutes ||
+            oldValue.pomodoroFocusMinutes != newValue.pomodoroFocusMinutes ||
+            oldValue.pomodoroBreakMinutes != newValue.pomodoroBreakMinutes ||
             oldValue.sitAwareEnabled != newValue.sitAwareEnabled ||
             oldValue.schedule != newValue.schedule ||
             oldValue.hoverPreviewEnabled != newValue.hoverPreviewEnabled ||

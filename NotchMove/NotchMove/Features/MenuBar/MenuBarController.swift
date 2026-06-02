@@ -18,6 +18,7 @@ import OSLog
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let reminderEngine: ReminderEngine
+    private let pomodoroEngine: PomodoroEngine
     private let breakStatsStore: BreakStatsStore
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
@@ -31,17 +32,22 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let pauseMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let soundMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let remindNowMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let pomodoroStartMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let pomodoroPauseMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let pomodoroStopMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let dashboardMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ",")
     private let quitMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "q")
 
     init(
         reminderEngine: ReminderEngine,
+        pomodoroEngine: PomodoroEngine,
         breakStatsStore: BreakStatsStore,
         languageManager: LanguageManager,
         preferencesStore: PreferencesStore,
         onOpenDashboard: @escaping () -> Void
     ) {
         self.reminderEngine = reminderEngine
+        self.pomodoroEngine = pomodoroEngine
         self.breakStatsStore = breakStatsStore
         self.languageManager = languageManager
         self.preferencesStore = preferencesStore
@@ -83,6 +89,21 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        // Pomodoro controls
+        pomodoroStartMenuItem.target = self
+        pomodoroStartMenuItem.action = #selector(startPomodoro)
+        menu.addItem(pomodoroStartMenuItem)
+
+        pomodoroPauseMenuItem.target = self
+        pomodoroPauseMenuItem.action = #selector(togglePomodoroPause)
+        menu.addItem(pomodoroPauseMenuItem)
+
+        pomodoroStopMenuItem.target = self
+        pomodoroStopMenuItem.action = #selector(stopPomodoro)
+        menu.addItem(pomodoroStopMenuItem)
+
+        menu.addItem(.separator())
+
         // Sound toggle
         soundMenuItem.target = self
         soundMenuItem.action = #selector(toggleSound)
@@ -120,12 +141,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private func refreshDynamicItems() {
         breakStatsStore.refresh()
 
-        let remindersActive = !reminderEngine.state.scheduleState.blocksAutomaticReminders &&
+        let remindersActive = !pomodoroEngine.isActive &&
+            !reminderEngine.state.scheduleState.blocksAutomaticReminders &&
             !reminderEngine.state.manualPause &&
             !reminderEngine.isReminderPresenting
 
         // Next-reminder label
-        if remindersActive {
+        if pomodoroEngine.isActive {
+            statusMenuItem.title = pomodoroStatusTitle
+        } else if remindersActive {
             let mins = reminderEngine.minutesRemaining
             if mins <= 1 {
                 statusMenuItem.title = L("menu.next_reminder_soon")
@@ -155,6 +179,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         // Remind now
         remindNowMenuItem.title = L("menu.remind_now")
+        remindNowMenuItem.isEnabled = !pomodoroEngine.isActive
+
+        refreshPomodoroItems()
 
         // Sound toggle
         soundMenuItem.title = L("menu.sound")
@@ -163,6 +190,40 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // Settings & Quit
         dashboardMenuItem.title = L("menu.dashboard")
         quitMenuItem.title = L("menu.quit")
+    }
+
+    private func refreshPomodoroItems() {
+        pomodoroStartMenuItem.title = L("menu.pomodoro_start")
+        pomodoroStartMenuItem.isHidden = pomodoroEngine.isActive
+        pomodoroStartMenuItem.isEnabled = !reminderEngine.isReminderPresenting
+
+        pomodoroPauseMenuItem.title = pomodoroEngine.isPaused ? L("menu.pomodoro_resume") : L("menu.pomodoro_pause")
+        pomodoroPauseMenuItem.isHidden = !pomodoroEngine.isActive
+        pomodoroPauseMenuItem.isEnabled = pomodoroEngine.isActive
+
+        pomodoroStopMenuItem.title = L("menu.pomodoro_stop")
+        pomodoroStopMenuItem.isHidden = !pomodoroEngine.isActive
+        pomodoroStopMenuItem.isEnabled = pomodoroEngine.isActive
+    }
+
+    private var pomodoroStatusTitle: String {
+        let remaining = formattedRemainingSeconds(pomodoroEngine.state.remainingSeconds)
+
+        if pomodoroEngine.isPaused {
+            return String(format: L("menu.pomodoro_paused_format"), remaining)
+        }
+
+        switch pomodoroEngine.state.phase {
+        case .focus:
+            return String(format: L("menu.pomodoro_focus_format"), remaining)
+        case .rest:
+            return String(format: L("menu.pomodoro_break_format"), remaining)
+        }
+    }
+
+    private func formattedRemainingSeconds(_ seconds: Int) -> String {
+        let safeSeconds = max(seconds, 0)
+        return String(format: "%02d:%02d", safeSeconds / 60, safeSeconds % 60)
     }
 
     // MARK: - Actions
@@ -176,6 +237,26 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func remindNow() {
         logger.notice("Manual reminder triggered from menu bar")
         reminderEngine.send(.manualTrigger)
+    }
+
+    @objc private func startPomodoro() {
+        logger.notice("Pomodoro started from menu bar")
+        pomodoroEngine.startFocusSession()
+    }
+
+    @objc private func togglePomodoroPause() {
+        if pomodoroEngine.isPaused {
+            logger.notice("Pomodoro resumed from menu bar")
+            pomodoroEngine.resume()
+        } else {
+            logger.notice("Pomodoro paused from menu bar")
+            pomodoroEngine.pause()
+        }
+    }
+
+    @objc private func stopPomodoro() {
+        logger.notice("Pomodoro stopped from menu bar")
+        pomodoroEngine.stop()
     }
 
     @objc private func openDashboard() {

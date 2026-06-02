@@ -19,6 +19,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     private var hostingView: NSHostingView<AnyView>?
     private let languageManager: LanguageManager
     private let reminderEngine: ReminderEngine
+    private let pomodoroEngine: PomodoroEngine
     private let aiAssistantService: AIScheduleAssistantService
     private let scheduleStore: DailyScheduleStore
     private let preferencesStore: PreferencesStore
@@ -31,6 +32,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     init(
         languageManager: LanguageManager,
         reminderEngine: ReminderEngine,
+        pomodoroEngine: PomodoroEngine,
         aiAssistantService: AIScheduleAssistantService,
         scheduleStore: DailyScheduleStore,
         preferencesStore: PreferencesStore,
@@ -41,6 +43,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     ) {
         self.languageManager = languageManager
         self.reminderEngine = reminderEngine
+        self.pomodoroEngine = pomodoroEngine
         self.aiAssistantService = aiAssistantService
         self.scheduleStore = scheduleStore
         self.preferencesStore = preferencesStore
@@ -120,6 +123,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
                 languageManager: languageManager,
                 loginItemManager: loginItemManager,
                 reminderEngine: reminderEngine,
+                pomodoroEngine: pomodoroEngine,
                 aiAssistantService: aiAssistantService,
                 scheduleStore: scheduleStore,
                 preferencesStore: preferencesStore,

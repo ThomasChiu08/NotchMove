@@ -171,6 +171,15 @@ struct NotchView: View {
             } onSnooze: {
                 reminderEngine.send(.snoozeScheduleReminder(minutes: 5))
             }
+        case .pomodoro(let content):
+            PomodoroReminderContentView(
+                content: content,
+                reminderStartDate: reminderEngine.overlayState.reminderStartDate,
+                reminderDuration: reminderEngine.overlayState.reminderDuration,
+                topInset: overlayMetrics.topInset
+            ) {
+                reminderEngine.send(.dismissPomodoroReminder)
+            }
         }
     }
 }
@@ -546,6 +555,77 @@ private struct ScheduleReminderContentView: View {
             "\(content.startDate.formatted(date: .omitted, time: .shortened))-\(endDate.formatted(date: .omitted, time: .shortened))"
         } else {
             content.startDate.formatted(date: .omitted, time: .shortened)
+        }
+    }
+}
+
+private struct PomodoroReminderContentView: View {
+    let content: PomodoroReminderContent
+    let reminderStartDate: Date
+    let reminderDuration: TimeInterval
+    let topInset: CGFloat
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ReminderProgressTimelineView(
+                reminderStartDate: reminderStartDate,
+                reminderDuration: reminderDuration
+            )
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(titleKey)
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                Text(detailKey)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+
+            Spacer(minLength: 6)
+
+            Button(action: onDismiss) {
+                Text(actionKey)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .controlSize(.small)
+            .buttonStyle(.bordered)
+            .tint(.green)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, topInset + 4)
+    }
+
+    private var titleKey: LocalizedStringKey {
+        switch content.kind {
+        case .focusCompleted:
+            "pomodoro.focus_completed.title"
+        case .breakCompleted:
+            "pomodoro.break_completed.title"
+        }
+    }
+
+    private var detailKey: LocalizedStringKey {
+        switch content.kind {
+        case .focusCompleted:
+            "pomodoro.focus_completed.detail"
+        case .breakCompleted:
+            "pomodoro.break_completed.detail"
+        }
+    }
+
+    private var actionKey: LocalizedStringKey {
+        switch content.kind {
+        case .focusCompleted:
+            "pomodoro.start_break"
+        case .breakCompleted:
+            "pomodoro.done"
         }
     }
 }

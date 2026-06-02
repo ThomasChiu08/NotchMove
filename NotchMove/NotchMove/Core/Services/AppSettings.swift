@@ -14,6 +14,8 @@ final class AppSettings {
         static let launchAtLoginEnabled = "launchAtLoginEnabled"
         static let hasSeenLaunchAtLoginPrompt = "hasSeenLaunchAtLoginPrompt"
         static let reminderIntervalMinutes = "reminderIntervalMinutes"
+        static let pomodoroFocusMinutes = "pomodoroFocusMinutes"
+        static let pomodoroBreakMinutes = "pomodoroBreakMinutes"
         static let sitAwareEnabled = "sitAwareEnabled"
         static let scheduleEnabled = "scheduleEnabled"
         static let scheduleStartHour = "scheduleStartHour"
@@ -49,6 +51,8 @@ final class AppSettings {
             Keys.launchAtLoginEnabled: Preferences.defaults.launchAtLoginEnabled,
             Keys.hasSeenLaunchAtLoginPrompt: Preferences.defaults.hasSeenLaunchAtLoginPrompt,
             Keys.reminderIntervalMinutes: Preferences.defaults.reminderIntervalMinutes,
+            Keys.pomodoroFocusMinutes: Preferences.defaults.pomodoroFocusMinutes,
+            Keys.pomodoroBreakMinutes: Preferences.defaults.pomodoroBreakMinutes,
             Keys.sitAwareEnabled: Preferences.defaults.sitAwareEnabled,
             Keys.scheduleEnabled: Preferences.defaults.schedule.isEnabled,
             Keys.scheduleStartHour: Preferences.defaults.schedule.startHour,
@@ -81,6 +85,14 @@ final class AppSettings {
             reminderIntervalMinutes: integer(
                 forKey: Keys.reminderIntervalMinutes,
                 default: Preferences.defaults.reminderIntervalMinutes
+            ),
+            pomodoroFocusMinutes: integer(
+                forKey: Keys.pomodoroFocusMinutes,
+                default: Preferences.defaults.pomodoroFocusMinutes
+            ),
+            pomodoroBreakMinutes: integer(
+                forKey: Keys.pomodoroBreakMinutes,
+                default: Preferences.defaults.pomodoroBreakMinutes
             ),
             sitAwareEnabled: bool(forKey: Keys.sitAwareEnabled, default: Preferences.defaults.sitAwareEnabled),
             schedule: Preferences.Schedule(
@@ -122,6 +134,8 @@ final class AppSettings {
         defaults.set(preferences.launchAtLoginEnabled, forKey: Keys.launchAtLoginEnabled)
         defaults.set(preferences.hasSeenLaunchAtLoginPrompt, forKey: Keys.hasSeenLaunchAtLoginPrompt)
         defaults.set(preferences.reminderIntervalMinutes, forKey: Keys.reminderIntervalMinutes)
+        defaults.set(preferences.pomodoroFocusMinutes, forKey: Keys.pomodoroFocusMinutes)
+        defaults.set(preferences.pomodoroBreakMinutes, forKey: Keys.pomodoroBreakMinutes)
         defaults.set(preferences.sitAwareEnabled, forKey: Keys.sitAwareEnabled)
         defaults.set(preferences.schedule.isEnabled, forKey: Keys.scheduleEnabled)
         defaults.set(preferences.schedule.startHour, forKey: Keys.scheduleStartHour)

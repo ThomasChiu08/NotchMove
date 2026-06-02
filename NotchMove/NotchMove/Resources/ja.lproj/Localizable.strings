@@ -14,6 +14,9 @@
 "sit_aware_mode" = "着席検知モード";
 "sit_aware_footer_on" = "3分以上アイドル状態になるとタイマーをリセットします（すでに立ち上がったと判断）。";
 "sit_aware_footer_off" = "間隔を長くすると中断が減りますが、長時間座り続ける可能性があります。";
+"pomodoro_focus_duration" = "ポモドーロ集中";
+"pomodoro_break_duration" = "ポモドーロ休憩";
+"pomodoro_settings_caption" = "メニューバーのポモドーロ集中モードで使います。";
 
 /* ─── Schedule ─── */
 "work_hours_only" = "勤務時間のみ有効";
@@ -73,6 +76,12 @@
 "notch.later" = "あとで";
 "notch.snooze_10m" = "10分";
 "notch.skip" = "スキップ";
+"pomodoro.focus_completed.title" = "集中完了";
+"pomodoro.focus_completed.detail" = "短い休憩を取りましょう。";
+"pomodoro.break_completed.title" = "休憩完了";
+"pomodoro.break_completed.detail" = "次の集中を始められます。";
+"pomodoro.start_break" = "休憩";
+"pomodoro.done" = "完了";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "次のリマインド：%@ 分";
@@ -85,6 +94,13 @@
 "menu.pause" = "リマインダーを停止";
 "menu.resume" = "リマインダーを再開";
 "menu.remind_now" = "今すぐリマインド";
+"menu.pomodoro_start" = "ポモドーロを開始";
+"menu.pomodoro_pause" = "ポモドーロを一時停止";
+"menu.pomodoro_resume" = "ポモドーロを再開";
+"menu.pomodoro_stop" = "ポモドーロを停止";
+"menu.pomodoro_focus_format" = "集中：%@";
+"menu.pomodoro_break_format" = "休憩：%@";
+"menu.pomodoro_paused_format" = "ポモドーロ一時停止：%@";
 "menu.voice_input_start" = "音声入力を開始";
 "menu.voice_input_stop" = "音声入力を停止";
 "menu.ai_add_schedule" = "AI で予定を追加…";
@@ -118,6 +134,7 @@
 "dashboard.run_state.paused" = "一時停止中";
 "dashboard.run_state.schedule_blocked" = "勤務時間外";
 "dashboard.run_state.reminding" = "通知中";
+"dashboard.run_state.pomodoro" = "ポモドーロ実行中";
 "dashboard.run_state.idle" = "アイドル";
 "dashboard.next_stand_soon" = "まもなく";
 "dashboard.next_stand_minutes_format" = "%d 分後";

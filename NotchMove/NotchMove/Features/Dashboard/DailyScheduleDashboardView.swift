@@ -155,6 +155,8 @@ struct TodayDashboardView: View {
             "dashboard.run_state.paused"
         case .scheduleBlocked:
             "dashboard.run_state.schedule_blocked"
+        case .pomodoroActive:
+            "dashboard.run_state.pomodoro"
         case .presentingReminder:
             "dashboard.run_state.reminding"
         case .idleSuppressed:
@@ -180,6 +182,8 @@ struct TodayDashboardView: View {
             return localizedString("dashboard.run_state.paused")
         case .scheduleBlocked:
             return localizedString("dashboard.run_state.schedule_blocked")
+        case .pomodoroActive:
+            return localizedString("dashboard.run_state.pomodoro")
         case .idleSuppressed:
             return localizedString("dashboard.run_state.idle")
         }

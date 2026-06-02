@@ -14,6 +14,9 @@
 "sit_aware_mode" = "Sit-aware mode";
 "sit_aware_footer_on" = "Resets the timer when you've been idle for 3+ minutes — you probably already stood up.";
 "sit_aware_footer_off" = "Longer intervals reduce interruptions but may allow more continuous sitting.";
+"pomodoro_focus_duration" = "Pomodoro focus";
+"pomodoro_break_duration" = "Pomodoro break";
+"pomodoro_settings_caption" = "Used by the menu bar Pomodoro focus mode.";
 
 /* ─── Schedule ─── */
 "work_hours_only" = "Active during work hours only";
@@ -73,6 +76,12 @@
 "notch.later" = "Later";
 "notch.snooze_10m" = "10 min";
 "notch.skip" = "Skip";
+"pomodoro.focus_completed.title" = "Focus complete";
+"pomodoro.focus_completed.detail" = "Take a short break now.";
+"pomodoro.break_completed.title" = "Break complete";
+"pomodoro.break_completed.detail" = "Ready for another focus session.";
+"pomodoro.start_break" = "Rest";
+"pomodoro.done" = "Done";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "Next reminder: %@ min";
@@ -85,6 +94,13 @@
 "menu.pause" = "Pause reminders";
 "menu.resume" = "Resume reminders";
 "menu.remind_now" = "Remind me now";
+"menu.pomodoro_start" = "Start Pomodoro";
+"menu.pomodoro_pause" = "Pause Pomodoro";
+"menu.pomodoro_resume" = "Resume Pomodoro";
+"menu.pomodoro_stop" = "Stop Pomodoro";
+"menu.pomodoro_focus_format" = "Focus: %@";
+"menu.pomodoro_break_format" = "Break: %@";
+"menu.pomodoro_paused_format" = "Pomodoro paused: %@";
 "menu.voice_input_start" = "Start Voice Input";
 "menu.voice_input_stop" = "Stop Voice Input";
 "menu.ai_add_schedule" = "AI Add Schedule…";
@@ -118,6 +134,7 @@
 "dashboard.run_state.paused" = "Paused";
 "dashboard.run_state.schedule_blocked" = "Outside work hours";
 "dashboard.run_state.reminding" = "Reminder active";
+"dashboard.run_state.pomodoro" = "Pomodoro active";
 "dashboard.run_state.idle" = "Idle";
 "dashboard.next_stand_soon" = "Soon";
 "dashboard.next_stand_minutes_format" = "In %d min";

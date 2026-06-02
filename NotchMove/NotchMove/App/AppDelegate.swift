@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var activityMonitor: ActivityMonitor?
     private var reminderEngine: ReminderEngine?
+    private var pomodoroEngine: PomodoroEngine?
     private var notchWindowController: NotchWindowController?
     private var menuBarController: MenuBarController?
     private var dashboardWindowController: DashboardWindowController?
@@ -40,6 +41,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferencesStore: preferencesStore,
             soundPlayer: soundPlayer,
             breakStatsStore: breakStatsStore
+        )
+        let pomodoro = PomodoroEngine(
+            preferencesStore: preferencesStore,
+            breakStatsStore: breakStatsStore,
+            onReminder: { [weak engine] content in
+                engine?.presentPomodoroReminder(content)
+            },
+            onSuppressionChanged: { [weak engine] suppressed in
+                engine?.setPomodoroReminderSuppression(suppressed)
+            }
         )
         let globalHotkeyController = GlobalAICaptureHotkeyController(
             onPress: { [weak self] in
@@ -58,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let dashboardWindow = DashboardWindowController(
             languageManager: languageManager,
             reminderEngine: engine,
+            pomodoroEngine: pomodoro,
             aiAssistantService: aiScheduleAssistantService,
             scheduleStore: dailyScheduleStore,
             preferencesStore: preferencesStore,
@@ -73,10 +85,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         self.activityMonitor = monitor
         self.reminderEngine = engine
+        self.pomodoroEngine = pomodoro
         self.notchWindowController = controller
         self.dashboardWindowController = dashboardWindow
         self.menuBarController = MenuBarController(
             reminderEngine: engine,
+            pomodoroEngine: pomodoro,
             breakStatsStore: breakStatsStore,
             languageManager: languageManager,
             preferencesStore: preferencesStore,

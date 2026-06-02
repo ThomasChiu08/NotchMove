@@ -31,6 +31,8 @@ struct Preferences: Equatable {
     var launchAtLoginEnabled: Bool
     var hasSeenLaunchAtLoginPrompt: Bool
     var reminderIntervalMinutes: Int
+    var pomodoroFocusMinutes: Int
+    var pomodoroBreakMinutes: Int
     var sitAwareEnabled: Bool
     var schedule: Schedule
     var notchExpansionEnabled: Bool
@@ -47,6 +49,8 @@ struct Preferences: Equatable {
         launchAtLoginEnabled: false,
         hasSeenLaunchAtLoginPrompt: false,
         reminderIntervalMinutes: 30,
+        pomodoroFocusMinutes: 25,
+        pomodoroBreakMinutes: 5,
         sitAwareEnabled: true,
         schedule: Schedule(
             isEnabled: false,

@@ -157,6 +157,33 @@ struct PreferencesStoreTests {
         #expect(loaded.aiGlobalHotkeyShortcutID == GlobalHotkeyShortcut.controlOptionA.rawValue)
     }
 
+    @Test func pomodoroDurationPreferencesPersistAndRestoreDefaults() {
+        let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let settings = AppSettings(defaults: defaults)
+        var preferences = settings.loadPreferences()
+
+        #expect(preferences.pomodoroFocusMinutes == 25)
+        #expect(preferences.pomodoroBreakMinutes == 5)
+
+        preferences.pomodoroFocusMinutes = 45
+        preferences.pomodoroBreakMinutes = 10
+        settings.save(preferences)
+
+        var loaded = settings.loadPreferences()
+        #expect(loaded.pomodoroFocusMinutes == 45)
+        #expect(loaded.pomodoroBreakMinutes == 10)
+
+        let store = PreferencesStore(settings: settings)
+        store.restoreDefaults()
+
+        loaded = settings.loadPreferences()
+        #expect(loaded.pomodoroFocusMinutes == Preferences.defaults.pomodoroFocusMinutes)
+        #expect(loaded.pomodoroBreakMinutes == Preferences.defaults.pomodoroBreakMinutes)
+    }
+
     @Test func postsTargetedNotificationsForRelevantPreferenceChanges() async {
         let suiteName = "NotchMoveTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -313,6 +340,85 @@ struct BreakStatsStoreTests {
 }
 
 @MainActor
+struct PomodoroEngineTests {
+    @Test func focusCompletionStartsBreakAndRequestsOverlay() async {
+        let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
+        let context = makePomodoroContext(now: now)
+        defer { context.cleanup() }
+
+        context.preferencesStore.preferences.pomodoroFocusMinutes = 1
+        context.preferencesStore.preferences.pomodoroBreakMinutes = 1
+
+        context.engine.startFocusSession()
+
+        #expect(context.engine.state.runState == .running)
+        #expect(context.engine.state.phase == .focus)
+        #expect(context.probe.suppressions == [true])
+
+        await flushAsyncWork()
+        await context.clock.advance(by: .seconds(60))
+        await flushAsyncWork()
+
+        #expect(context.engine.state.runState == .running)
+        #expect(context.engine.state.phase == .rest)
+        #expect(context.engine.state.remainingSeconds == 60)
+        #expect(context.probe.reminders.map(\.kind) == [.focusCompleted])
+        #expect(context.probe.reminders.first?.nextPhaseDuration == 60)
+    }
+
+    @Test func pauseAndResumePreserveRemainingTime() async {
+        let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
+        let context = makePomodoroContext(now: now)
+        defer { context.cleanup() }
+
+        context.preferencesStore.preferences.pomodoroFocusMinutes = 1
+        context.engine.startFocusSession()
+
+        await flushAsyncWork()
+        await context.clock.advance(by: .seconds(10))
+        await flushAsyncWork()
+        context.engine.pause()
+        let pausedRemaining = context.engine.state.remainingSeconds
+
+        await context.clock.advance(by: .seconds(60))
+        await flushAsyncWork()
+
+        #expect(context.engine.state.runState == .paused)
+        #expect(context.engine.state.remainingSeconds == pausedRemaining)
+
+        context.engine.resume()
+        await flushAsyncWork()
+        await context.clock.advance(by: .seconds(Int64(pausedRemaining)))
+        await flushAsyncWork()
+
+        #expect(context.engine.state.phase == .rest)
+        #expect(context.probe.reminders.map(\.kind) == [.focusCompleted])
+    }
+
+    @Test func completedBreakRecordsBreakAndClearsSuppression() async {
+        let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
+        let context = makePomodoroContext(now: now)
+        defer { context.cleanup() }
+
+        context.preferencesStore.preferences.pomodoroFocusMinutes = 1
+        context.preferencesStore.preferences.pomodoroBreakMinutes = 1
+
+        context.engine.startFocusSession()
+        await flushAsyncWork()
+        await context.clock.advance(by: .seconds(60))
+        await flushAsyncWork()
+        await context.clock.advance(by: .seconds(60))
+        await flushAsyncWork()
+
+        #expect(context.engine.state.runState == .idle)
+        #expect(context.breakStatsStore.todayBreaks == 1)
+        #expect(context.breakStatsStore.weekBreaks == 1)
+        #expect(context.probe.reminders.map(\.kind) == [.focusCompleted, .breakCompleted])
+        #expect(context.probe.suppressions == [true, false])
+    }
+}
+
+@MainActor
 struct ReminderEngineTests {
     @Test func manualPauseAndScheduleBlockingComposePredictably() {
         let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 22, minute: 0))
@@ -396,6 +502,35 @@ struct ReminderEngineTests {
 
         #expect(context.engine.state.presentation == .presenting)
         #expect(context.soundPlayer.playCount == 1)
+    }
+
+    @Test func pomodoroSuppressionBlocksAutomaticBreakRemindersUntilCleared() async {
+        let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+
+        context.preferencesStore.preferences.reminderIntervalMinutes = 1
+        context.idleProvider.idleSeconds = 0
+        context.engine.setPomodoroReminderSuppression(true)
+
+        context.engine.send(.tick(now))
+        context.clock.now = now.addingTimeInterval(60)
+        context.engine.send(.tick(context.clock.now))
+
+        #expect(context.engine.runState == .pomodoroActive)
+        #expect(context.engine.state.presentation == .hidden)
+        #expect(context.engine.state.activeSeconds == 0)
+        #expect(context.soundPlayer.playCount == 0)
+
+        context.engine.setPomodoroReminderSuppression(false)
+        context.clock.now = now.addingTimeInterval(120)
+        context.engine.send(.tick(context.clock.now))
+
+        #expect(context.engine.state.presentation == .reminderPending)
+        #expect(context.soundPlayer.playCount == 1)
+
+        await promotePendingReminder(in: context)
+        #expect(context.engine.state.presentation == .presenting)
     }
 
     @Test func completedBreakIncrementsStatistics() async {
@@ -968,6 +1103,38 @@ private func makeReminderContext(now: Date) -> ReminderTestContext {
     )
 }
 
+@MainActor
+private func makePomodoroContext(now: Date) -> PomodoroTestContext {
+    let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    let settings = AppSettings(defaults: defaults)
+    let preferencesStore = PreferencesStore(settings: settings)
+    let breakStatsStore = BreakStatsStore(defaults: defaults)
+    let clock = TestClock(now: now)
+    let probe = PomodoroTestProbe()
+    let engine = PomodoroEngine(
+        preferencesStore: preferencesStore,
+        breakStatsStore: breakStatsStore,
+        clock: clock,
+        onReminder: { content in
+            probe.reminders.append(content)
+        },
+        onSuppressionChanged: { suppressed in
+            probe.suppressions.append(suppressed)
+        }
+    )
+
+    return PomodoroTestContext(
+        suiteName: suiteName,
+        defaults: defaults,
+        preferencesStore: preferencesStore,
+        breakStatsStore: breakStatsStore,
+        clock: clock,
+        probe: probe,
+        engine: engine
+    )
+}
+
 private func makeDate(year: Int, month: Int, day: Int, hour: Int, minute: Int) -> Date {
     var components = DateComponents()
     components.calendar = Calendar(identifier: .gregorian)
@@ -1025,6 +1192,28 @@ private func makeScreen(
         notchFrame: notchFrame,
         menuBarHeight: notchFrame?.height ?? 24
     )
+}
+
+@MainActor
+private struct PomodoroTestContext {
+    let suiteName: String
+    let defaults: UserDefaults
+    let preferencesStore: PreferencesStore
+    let breakStatsStore: BreakStatsStore
+    let clock: TestClock
+    let probe: PomodoroTestProbe
+    let engine: PomodoroEngine
+
+    func cleanup() {
+        engine.stop()
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+}
+
+@MainActor
+private final class PomodoroTestProbe {
+    var reminders: [PomodoroReminderContent] = []
+    var suppressions: [Bool] = []
 }
 
 @MainActor

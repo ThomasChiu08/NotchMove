@@ -14,6 +14,9 @@
 "sit_aware_mode" = "久坐感知模式";
 "sit_aware_footer_on" = "空闲 3 分钟以上自动重置计时器——你可能已经站起来了。";
 "sit_aware_footer_off" = "较长的间隔会减少打扰，但可能导致久坐时间过长。";
+"pomodoro_focus_duration" = "番茄专注";
+"pomodoro_break_duration" = "番茄休息";
+"pomodoro_settings_caption" = "用于菜单栏里的番茄专注模式。";
 
 /* ─── Schedule ─── */
 "work_hours_only" = "仅在工作时间提醒";
@@ -73,6 +76,12 @@
 "notch.later" = "稍后";
 "notch.snooze_10m" = "10 分钟";
 "notch.skip" = "跳过";
+"pomodoro.focus_completed.title" = "专注完成";
+"pomodoro.focus_completed.detail" = "现在休息一下。";
+"pomodoro.break_completed.title" = "休息完成";
+"pomodoro.break_completed.detail" = "可以开始下一轮专注。";
+"pomodoro.start_break" = "休息";
+"pomodoro.done" = "完成";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "下次提醒：%@ 分钟";
@@ -85,6 +94,13 @@
 "menu.pause" = "暂停提醒";
 "menu.resume" = "恢复提醒";
 "menu.remind_now" = "立即提醒";
+"menu.pomodoro_start" = "开始番茄钟";
+"menu.pomodoro_pause" = "暂停番茄钟";
+"menu.pomodoro_resume" = "继续番茄钟";
+"menu.pomodoro_stop" = "停止番茄钟";
+"menu.pomodoro_focus_format" = "专注：%@";
+"menu.pomodoro_break_format" = "休息：%@";
+"menu.pomodoro_paused_format" = "番茄钟已暂停：%@";
 "menu.voice_input_start" = "开始语音输入";
 "menu.voice_input_stop" = "停止语音输入";
 "menu.ai_add_schedule" = "AI 添加日程…";
@@ -118,6 +134,7 @@
 "dashboard.run_state.paused" = "已暂停";
 "dashboard.run_state.schedule_blocked" = "非工作时间";
 "dashboard.run_state.reminding" = "提醒中";
+"dashboard.run_state.pomodoro" = "番茄钟运行中";
 "dashboard.run_state.idle" = "空闲";
 "dashboard.next_stand_soon" = "即将提醒";
 "dashboard.next_stand_minutes_format" = "%d 分钟后";
