@@ -96,6 +96,32 @@ final class ReminderEngine {
         var content: OverlayContent = .breakReminder
     }
 
+    struct NextReminderPreview: Equatable {
+        let breakRow: Row
+        let pomodoroRow: Row
+
+        struct Row: Equatable {
+            enum Mode: Equatable {
+                case breakReminder
+                case pomodoro
+            }
+
+            enum Status: Equatable {
+                case scheduled(targetDate: Date, remainingSeconds: Int)
+                case snoozed(targetDate: Date, remainingSeconds: Int)
+                case paused(remainingSeconds: Int?)
+                case disabled
+                case idle
+                case scheduleBlocked
+                case idleSuppressed
+            }
+
+            let mode: Mode
+            let status: Status
+            let phase: PomodoroPhase?
+        }
+    }
+
     enum RunState: Equatable {
         case tracking
         case manuallyPaused
@@ -244,6 +270,13 @@ final class ReminderEngine {
 
     var idleResetThreshold: TimeInterval {
         preferencesStore.preferences.sitAwareEnabled ? 180 : .greatestFiniteMagnitude
+    }
+
+    func nextReminderPreview(at date: Date) -> NextReminderPreview {
+        NextReminderPreview(
+            breakRow: nextBreakPreview(at: date),
+            pomodoroRow: nextPomodoroPreview(at: date)
+        )
     }
 
     func start() {
@@ -400,6 +433,84 @@ final class ReminderEngine {
             logger.notice("Reminder fired — \(Int(self.state.activeSeconds))s active")
             beginBreakReminderPresentation(soundCue: .breakReminder)
         }
+    }
+
+    private func nextBreakPreview(at date: Date) -> NextReminderPreview.Row {
+        guard preferencesStore.preferences.breakReminderEnabled else {
+            return NextReminderPreview.Row(mode: .breakReminder, status: .disabled, phase: nil)
+        }
+
+        if state.manualPause {
+            return NextReminderPreview.Row(mode: .breakReminder, status: .paused(remainingSeconds: nil), phase: nil)
+        }
+
+        if currentScheduleState(at: date).blocksAutomaticReminders {
+            return NextReminderPreview.Row(mode: .breakReminder, status: .scheduleBlocked, phase: nil)
+        }
+
+        if let snoozedUntilDate = state.breakSnoozedUntilDate,
+           date < snoozedUntilDate {
+            return NextReminderPreview.Row(
+                mode: .breakReminder,
+                status: .snoozed(
+                    targetDate: snoozedUntilDate,
+                    remainingSeconds: safeRemainingSeconds(until: snoozedUntilDate, at: date)
+                ),
+                phase: nil
+            )
+        }
+
+        guard activityState(for: idleResetThreshold) == .active else {
+            return NextReminderPreview.Row(mode: .breakReminder, status: .idleSuppressed, phase: nil)
+        }
+
+        let remaining = max(reminderInterval - state.activeSeconds, 0)
+        let targetDate = date.addingTimeInterval(remaining)
+        return NextReminderPreview.Row(
+            mode: .breakReminder,
+            status: .scheduled(
+                targetDate: targetDate,
+                remainingSeconds: Int(ceil(remaining))
+            ),
+            phase: nil
+        )
+    }
+
+    private func nextPomodoroPreview(at date: Date) -> NextReminderPreview.Row {
+        guard preferencesStore.preferences.pomodoroEnabled else {
+            return NextReminderPreview.Row(mode: .pomodoro, status: .disabled, phase: nil)
+        }
+
+        guard let content = activePomodoroCountdownContent else {
+            return NextReminderPreview.Row(mode: .pomodoro, status: .idle, phase: nil)
+        }
+
+        if let pausedRemainingSeconds = content.pausedRemainingSeconds {
+            return NextReminderPreview.Row(
+                mode: .pomodoro,
+                status: .paused(remainingSeconds: max(pausedRemainingSeconds, 0)),
+                phase: content.phase
+            )
+        }
+
+        let remaining = pomodoroRemainingSeconds(at: date, content: content)
+        return NextReminderPreview.Row(
+            mode: .pomodoro,
+            status: .scheduled(
+                targetDate: date.addingTimeInterval(TimeInterval(remaining)),
+                remainingSeconds: remaining
+            ),
+            phase: content.phase
+        )
+    }
+
+    private func pomodoroRemainingSeconds(at date: Date, content: PomodoroCountdownContent) -> Int {
+        let elapsed = max(date.timeIntervalSince(content.startedAt), 0)
+        return max(Int(ceil(content.duration - elapsed)), 0)
+    }
+
+    private func safeRemainingSeconds(until targetDate: Date, at date: Date) -> Int {
+        max(Int(ceil(targetDate.timeIntervalSince(date))), 0)
     }
 
     private func handleHoverChange(_ hovering: Bool) {

@@ -31,6 +31,7 @@ struct OverlayPlacement: Equatable {
 
 enum OverlaySizingRole: Equatable {
     case standard
+    case dualPreview
     case prominentCountdown
 }
 
@@ -38,11 +39,14 @@ struct ScreenPlacementService {
     private enum Sizing {
         static let fallbackTuckedWidth: CGFloat = 164
         static let previewExtraWidth: CGFloat = 48
+        static let dualPreviewExtraWidth: CGFloat = 160
         static let reminderCollapsedExtraWidth: CGFloat = 88
         static let reminderExpandedExtraWidth: CGFloat = 120
         static let prominentCountdownExtraWidth: CGFloat = 144
         static let previewMinWidth: CGFloat = 240
         static let previewMaxWidth: CGFloat = 280
+        static let dualPreviewMinWidth: CGFloat = 332
+        static let dualPreviewMaxWidth: CGFloat = 360
         static let reminderCollapsedMinWidth: CGFloat = 280
         static let reminderCollapsedMaxWidth: CGFloat = 320
         static let reminderExpandedMinWidth: CGFloat = 300
@@ -55,6 +59,9 @@ struct ScreenPlacementService {
         static let prominentCountdownMinHeight: CGFloat = 88
         static let prominentCountdownMaxHeight: CGFloat = 104
         static let prominentCountdownExtraHeight: CGFloat = 58
+        static let dualPreviewMinHeight: CGFloat = 88
+        static let dualPreviewMaxHeight: CGFloat = 104
+        static let dualPreviewExtraHeight: CGFloat = 58
     }
 
     func placement(
@@ -102,6 +109,13 @@ struct ScreenPlacementService {
         case .hidden, .reminderPending:
             return tuckedSize(on: screen)
         case .hoverPreviewPending, .hoverPreview, .hoverPreviewDismissing:
+            if sizingRole == .dualPreview {
+                return dualPreviewSize(
+                    notchWidth: notchWidth,
+                    baseHeight: baseHeight
+                )
+            }
+
             if sizingRole == .prominentCountdown {
                 return prominentCountdownSize(
                     notchWidth: notchWidth,
@@ -130,6 +144,24 @@ struct ScreenPlacementService {
                 notchExpansionEnabled: notchExpansionEnabled
             )
         }
+    }
+
+    private func dualPreviewSize(
+        notchWidth: CGFloat,
+        baseHeight: CGFloat
+    ) -> CGSize {
+        CGSize(
+            width: clamped(
+                notchWidth + Sizing.dualPreviewExtraWidth,
+                min: Sizing.dualPreviewMinWidth,
+                max: Sizing.dualPreviewMaxWidth
+            ),
+            height: clamped(
+                baseHeight + Sizing.dualPreviewExtraHeight,
+                min: Sizing.dualPreviewMinHeight,
+                max: Sizing.dualPreviewMaxHeight
+            )
+        )
     }
 
     private func prominentCountdownSize(

@@ -72,6 +72,19 @@
 
 /* ─── Notch ─── */
 "next_reminder_soon" = "Next reminder soon";
+"notch.preview.break_title" = "Stand";
+"notch.preview.pomodoro_title" = "Pomodoro";
+"notch.preview.disabled" = "Off";
+"notch.preview.paused" = "Paused";
+"notch.preview.idle" = "Not started";
+"notch.preview.schedule_blocked" = "Outside hours";
+"notch.preview.idle_suppressed" = "Active after idle";
+"notch.preview.snoozed" = "Snoozed";
+"notch.preview.less_than_minute" = "< 1 min";
+"notch.preview.minutes_format" = "%d min";
+"notch.preview.after_format" = "%@ later";
+"notch.preview.focus_remaining_format" = "Focus %@ left";
+"notch.preview.rest_remaining_format" = "Break %@ left";
 "time_to_stretch" = "Time to stretch!";
 "stand_and_move" = "Stand & Move";
 "schedule_reminder_title" = "Schedule reminder";

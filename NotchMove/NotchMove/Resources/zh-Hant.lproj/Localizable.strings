@@ -72,6 +72,19 @@
 
 /* ─── Notch ─── */
 "next_reminder_soon" = "即將提醒";
+"notch.preview.break_title" = "久坐提醒";
+"notch.preview.pomodoro_title" = "番茄鐘";
+"notch.preview.disabled" = "已關閉";
+"notch.preview.paused" = "已暫停";
+"notch.preview.idle" = "未開始";
+"notch.preview.schedule_blocked" = "不在時段";
+"notch.preview.idle_suppressed" = "活動後繼續";
+"notch.preview.snoozed" = "已稍後";
+"notch.preview.less_than_minute" = "不到 1 分鐘";
+"notch.preview.minutes_format" = "%d 分鐘";
+"notch.preview.after_format" = "%@後";
+"notch.preview.focus_remaining_format" = "專注剩%@";
+"notch.preview.rest_remaining_format" = "休息剩%@";
 "time_to_stretch" = "該活動一下了！";
 "stand_and_move" = "站起來動一動";
 "schedule_reminder_title" = "行程提醒";

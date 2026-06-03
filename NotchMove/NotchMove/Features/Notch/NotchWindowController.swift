@@ -146,11 +146,28 @@ final class NotchWindowController {
     }
 
     private var activeSizingRole: OverlaySizingRole {
+        if isHoverPreviewPresentation {
+            if case .breakCompletionCountdown = reminderEngine.overlayState.content {
+                return .standard
+            }
+
+            return .dualPreview
+        }
+
         if case .pomodoroCountdown = reminderEngine.overlayState.content {
             return .prominentCountdown
         }
 
         return .standard
+    }
+
+    private var isHoverPreviewPresentation: Bool {
+        switch activePresentation {
+        case .hoverPreviewPending, .hoverPreview, .hoverPreviewDismissing:
+            true
+        case .hidden, .reminderPending, .presenting, .dismissAnimating:
+            false
+        }
     }
 
     private func updateOverlayMetrics(with placement: OverlayPlacement) {

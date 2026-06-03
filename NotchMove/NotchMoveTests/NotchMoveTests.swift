@@ -988,6 +988,120 @@ struct ReminderEngineTests {
 
         #expect(context.engine.overlayState.reminderDuration == 90)
     }
+
+    @Test func nextReminderPreviewReportsTrackingBreakTargetTime() {
+        let now = makeDate(year: 2026, month: 6, day: 3, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+
+        context.preferencesStore.preferences.reminderIntervalMinutes = 30
+        context.idleProvider.idleSeconds = 0
+
+        context.engine.send(.tick(now))
+
+        let preview = context.engine.nextReminderPreview(at: now)
+
+        guard case .scheduled(let targetDate, let remainingSeconds) = preview.breakRow.status else {
+            Issue.record("Expected scheduled break preview")
+            return
+        }
+
+        let expectedRemaining = Int(ceil(context.engine.reminderInterval - context.engine.state.activeSeconds))
+        #expect(remainingSeconds == expectedRemaining)
+        #expect(targetDate == now.addingTimeInterval(TimeInterval(expectedRemaining)))
+    }
+
+    @Test func nextReminderPreviewPrefersSnoozedBreakTargetTime() async {
+        let now = makeDate(year: 2026, month: 6, day: 3, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+
+        context.engine.send(.manualTrigger)
+        await promotePendingReminder(in: context)
+        let snoozeStart = context.clock.now
+        context.engine.snoozeReminder(duration: 10 * 60)
+
+        let preview = context.engine.nextReminderPreview(at: snoozeStart)
+
+        guard case .snoozed(let targetDate, let remainingSeconds) = preview.breakRow.status else {
+            Issue.record("Expected snoozed break preview")
+            return
+        }
+
+        #expect(targetDate == snoozeStart.addingTimeInterval(10 * 60))
+        #expect(remainingSeconds == 10 * 60)
+    }
+
+    @Test func nextReminderPreviewReportsBreakUnavailableStates() {
+        let now = makeDate(year: 2026, month: 6, day: 3, hour: 22, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+
+        context.preferencesStore.preferences.breakReminderEnabled = false
+        #expect(context.engine.nextReminderPreview(at: now).breakRow.status == .disabled)
+
+        context.preferencesStore.preferences.breakReminderEnabled = true
+        context.engine.send(.setManualPause(true))
+        #expect(context.engine.nextReminderPreview(at: now).breakRow.status == .paused(remainingSeconds: nil))
+
+        context.engine.send(.setManualPause(false))
+        context.preferencesStore.preferences.schedule = Preferences.Schedule(
+            isEnabled: true,
+            startHour: 9,
+            startMinute: 0,
+            endHour: 18,
+            endMinute: 0,
+            weekdaysOnly: false
+        )
+        #expect(context.engine.nextReminderPreview(at: now).breakRow.status == .scheduleBlocked)
+
+        context.preferencesStore.preferences.schedule = Preferences.defaults.schedule
+        context.idleProvider.idleSeconds = 600
+        #expect(context.engine.nextReminderPreview(at: now).breakRow.status == .idleSuppressed)
+    }
+
+    @Test func nextReminderPreviewReportsPomodoroRunningPausedIdleAndDisabledStates() {
+        let now = makeDate(year: 2026, month: 6, day: 3, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+
+        #expect(context.engine.nextReminderPreview(at: now).pomodoroRow.status == .idle)
+
+        let runningContent = PomodoroCountdownContent(
+            phase: .focus,
+            startedAt: now,
+            duration: 25 * 60,
+            pausedRemainingSeconds: nil
+        )
+        let previewDate = now.addingTimeInterval(60)
+        context.engine.updatePomodoroCountdown(runningContent)
+
+        let runningRow = context.engine.nextReminderPreview(at: previewDate).pomodoroRow
+        guard case .scheduled(let targetDate, let remainingSeconds) = runningRow.status else {
+            Issue.record("Expected scheduled pomodoro preview")
+            return
+        }
+
+        #expect(runningRow.phase == .focus)
+        #expect(remainingSeconds == 24 * 60)
+        #expect(targetDate == now.addingTimeInterval(25 * 60))
+
+        let pausedContent = PomodoroCountdownContent(
+            phase: .rest,
+            startedAt: previewDate,
+            duration: 5 * 60,
+            pausedRemainingSeconds: 4 * 60
+        )
+        context.engine.updatePomodoroCountdown(pausedContent)
+        #expect(context.engine.nextReminderPreview(at: previewDate).pomodoroRow.status == .paused(remainingSeconds: 4 * 60))
+        #expect(context.engine.nextReminderPreview(at: previewDate).pomodoroRow.phase == .rest)
+
+        context.engine.updatePomodoroCountdown(nil)
+        #expect(context.engine.nextReminderPreview(at: previewDate).pomodoroRow.status == .idle)
+
+        context.preferencesStore.preferences.pomodoroEnabled = false
+        #expect(context.engine.nextReminderPreview(at: previewDate).pomodoroRow.status == .disabled)
+    }
 }
 
 @MainActor
@@ -1190,6 +1304,60 @@ struct ScreenPlacementServiceTests {
         #expect(placement.visibleSize == CGSize(width: 344, height: 96))
     }
 
+    @Test func dualPreviewHoverUsesTwoColumnCanvas() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hoverPreview,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .dualPreview
+        )
+
+        #expect(placement.topInset == 38)
+        #expect(placement.frame.origin.x == 576)
+        #expect(placement.frame.size == CGSize(width: 360, height: 96))
+        #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
+        #expect(placement.visibleSize == CGSize(width: 360, height: 96))
+    }
+
+    @Test func dualPreviewPendingAndDismissingKeepTuckedVisibleIsland() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+        let service = ScreenPlacementService()
+
+        let pending = service.placement(
+            for: .hoverPreviewPending,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .dualPreview
+        )
+        let dismissing = service.placement(
+            for: .hoverPreviewDismissing,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .dualPreview
+        )
+
+        #expect(pending.frame.size == CGSize(width: 360, height: 96))
+        #expect(pending.visibleSize == CGSize(width: 200, height: 38))
+        #expect(dismissing.frame.size == pending.frame.size)
+        #expect(dismissing.visibleSize == pending.visibleSize)
+    }
+
     @Test func prominentCountdownPendingAndDismissingKeepTuckedVisibleIsland() {
         let screen = ScreenDescriptor(
             displayID: 1,
@@ -1263,6 +1431,29 @@ struct ScreenPlacementServiceTests {
         #expect(placement.frame.origin.x == 564)
         #expect(placement.frame.size == CGSize(width: 312, height: 88))
         #expect(placement.visibleSize == CGSize(width: 312, height: 88))
+    }
+
+    @Test func dualPreviewNonNotchedScreenFallsBackToCenteredClampedCanvas() {
+        let screen = ScreenDescriptor(
+            displayID: 2,
+            localizedName: "Studio Display",
+            isBuiltIn: false,
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            notchFrame: nil,
+            menuBarHeight: 24
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hoverPreview,
+            on: screen,
+            notchExpansionEnabled: false,
+            sizingRole: .dualPreview
+        )
+
+        #expect(placement.topInset == 24)
+        #expect(placement.frame.origin.x == 554)
+        #expect(placement.frame.size == CGSize(width: 332, height: 88))
+        #expect(placement.visibleSize == CGSize(width: 332, height: 88))
     }
 
     @Test func compactPresentingReminderKeepsMinimumUsableWidth() {

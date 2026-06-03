@@ -72,6 +72,19 @@
 
 /* ─── Notch ─── */
 "next_reminder_soon" = "まもなくリマインド";
+"notch.preview.break_title" = "着席";
+"notch.preview.pomodoro_title" = "ポモドーロ";
+"notch.preview.disabled" = "オフ";
+"notch.preview.paused" = "一時停止";
+"notch.preview.idle" = "未開始";
+"notch.preview.schedule_blocked" = "時間外";
+"notch.preview.idle_suppressed" = "活動後に再開";
+"notch.preview.snoozed" = "延期中";
+"notch.preview.less_than_minute" = "1 分以内";
+"notch.preview.minutes_format" = "%d 分";
+"notch.preview.after_format" = "%@後";
+"notch.preview.focus_remaining_format" = "集中 残り%@";
+"notch.preview.rest_remaining_format" = "休憩 残り%@";
 "time_to_stretch" = "ストレッチの時間です！";
 "stand_and_move" = "立ち上がろう";
 "schedule_reminder_title" = "予定リマインダー";

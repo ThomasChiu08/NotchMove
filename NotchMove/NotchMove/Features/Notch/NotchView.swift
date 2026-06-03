@@ -142,13 +142,11 @@ struct NotchView: View {
                 content: content,
                 topInset: overlayMetrics.topInset
             )
-        case .pomodoroCountdown(let content):
-            PomodoroCountdownContentView(
-                content: content,
+        default:
+            NextReminderPreviewView(
+                reminderEngine: reminderEngine,
                 topInset: overlayMetrics.topInset
             )
-        default:
-            HoverPreviewView(topInset: overlayMetrics.topInset)
         }
     }
 
@@ -418,21 +416,192 @@ private struct VoiceErrorContentView: View {
     }
 }
 
-private struct HoverPreviewView: View {
+private struct NextReminderPreviewView: View {
+    let reminderEngine: ReminderEngine
     let topInset: CGFloat
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "figure.stand")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.5))
-            Text("next_reminder_soon")
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.6))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            let preview = reminderEngine.nextReminderPreview(at: context.date)
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 0) {
+                    NextReminderPreviewRowView(row: preview.breakRow)
+
+                    Rectangle()
+                        .fill(.white.opacity(0.08))
+                        .frame(width: 1, height: 34)
+                        .padding(.horizontal, 8)
+
+                    NextReminderPreviewRowView(row: preview.pomodoroRow)
+                }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    NextReminderPreviewRowView(row: preview.breakRow)
+                    NextReminderPreviewRowView(row: preview.pomodoroRow)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, topInset + 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.top, topInset + 4)
+    }
+}
+
+private struct NextReminderPreviewRowView: View {
+    let row: ReminderEngine.NextReminderPreview.Row
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbolName)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(titleKey)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white.opacity(isMuted ? 0.48 : 0.76))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                HStack(spacing: 4) {
+                    Text(primaryText)
+                        .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(.white.opacity(isMuted ? 0.54 : 0.92))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    if let secondaryText {
+                        Text("·")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.26))
+
+                        Text(secondaryText)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.white.opacity(isMuted ? 0.42 : 0.62))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.68)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+        }
+        .frame(minWidth: 130, maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var titleKey: LocalizedStringKey {
+        switch row.mode {
+        case .breakReminder:
+            "notch.preview.break_title"
+        case .pomodoro:
+            "notch.preview.pomodoro_title"
+        }
+    }
+
+    private var symbolName: String {
+        switch row.mode {
+        case .breakReminder:
+            "figure.stand"
+        case .pomodoro:
+            "timer"
+        }
+    }
+
+    private var tint: Color {
+        if isMuted {
+            return .white.opacity(0.38)
+        }
+
+        switch row.mode {
+        case .breakReminder:
+            return Color(red: 0.48, green: 0.86, blue: 0.62)
+        case .pomodoro:
+            switch row.phase {
+            case .focus:
+                return Color(red: 1.0, green: 0.66, blue: 0.28)
+            case .rest:
+                return Color(red: 0.38, green: 0.82, blue: 0.94)
+            case nil:
+                return Color(red: 1.0, green: 0.74, blue: 0.38)
+            }
+        }
+    }
+
+    private var isMuted: Bool {
+        switch row.status {
+        case .scheduled, .snoozed:
+            false
+        case .paused, .disabled, .idle, .scheduleBlocked, .idleSuppressed:
+            true
+        }
+    }
+
+    private var primaryText: String {
+        switch row.status {
+        case .scheduled(let targetDate, _), .snoozed(let targetDate, _):
+            targetDate.formatted(date: .omitted, time: .shortened)
+        case .paused:
+            localizedString("notch.preview.paused")
+        case .disabled:
+            localizedString("notch.preview.disabled")
+        case .idle:
+            localizedString("notch.preview.idle")
+        case .scheduleBlocked:
+            localizedString("notch.preview.schedule_blocked")
+        case .idleSuppressed:
+            localizedString("notch.preview.idle_suppressed")
+        }
+    }
+
+    private var secondaryText: String? {
+        switch row.status {
+        case .scheduled(_, let remainingSeconds):
+            scheduledSecondaryText(remainingSeconds: remainingSeconds)
+        case .snoozed:
+            localizedString("notch.preview.snoozed")
+        case .paused(let remainingSeconds):
+            remainingSeconds.map { durationText(seconds: $0) }
+        case .disabled, .idle, .scheduleBlocked, .idleSuppressed:
+            nil
+        }
+    }
+
+    private func scheduledSecondaryText(remainingSeconds: Int) -> String {
+        let duration = durationText(seconds: remainingSeconds)
+
+        switch row.mode {
+        case .breakReminder:
+            return formattedLocalizedString("notch.preview.after_format", duration)
+        case .pomodoro:
+            switch row.phase {
+            case .focus:
+                return formattedLocalizedString("notch.preview.focus_remaining_format", duration)
+            case .rest:
+                return formattedLocalizedString("notch.preview.rest_remaining_format", duration)
+            case nil:
+                return formattedLocalizedString("notch.preview.after_format", duration)
+            }
+        }
+    }
+
+    private func durationText(seconds: Int) -> String {
+        let safeSeconds = max(seconds, 0)
+        guard safeSeconds >= 60 else {
+            return localizedString("notch.preview.less_than_minute")
+        }
+
+        let minutes = max(Int(ceil(Double(safeSeconds) / 60)), 1)
+        return String(format: localizedString("notch.preview.minutes_format"), minutes)
+    }
+
+    private func localizedString(_ key: String) -> String {
+        NSLocalizedString(key, comment: "")
+    }
+
+    private func formattedLocalizedString(_ key: String, _ value: String) -> String {
+        String(format: localizedString(key), value)
     }
 }
 
