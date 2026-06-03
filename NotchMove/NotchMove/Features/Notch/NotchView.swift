@@ -67,16 +67,6 @@ struct NotchView: View {
             return Color(red: 0.08, green: 0.015, blue: 0.018)
         }
 
-        if case .pomodoro = reminderEngine.overlayState.content,
-           activePresentation == .presenting {
-            return Color(red: 0.055, green: 0.033, blue: 0.012)
-        }
-
-        if case .pomodoroCountdown = reminderEngine.overlayState.content,
-           activePresentation == .hoverPreview || activePresentation == .presenting {
-            return Color(red: 0.055, green: 0.033, blue: 0.012)
-        }
-
         return Color(red: 0.02, green: 0.02, blue: 0.02)
     }
 
@@ -637,60 +627,45 @@ private struct PomodoroCountdownContentView: View {
         TimelineView(.periodic(from: content.startedAt, by: 1)) { context in
             let remaining = pomodoroRemainingSeconds(at: context.date, content: content)
 
-            HStack(spacing: 14) {
+            HStack(spacing: 12) {
                 PomodoroCountdownProgressView(
                     content: content,
                     remainingSeconds: remaining
                 )
 
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 7) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
                         Text(titleKey)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.58))
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.62))
                             .lineLimit(1)
-                            .minimumScaleFactor(0.78)
+                            .minimumScaleFactor(0.8)
+                            .textCase(.uppercase)
 
                         if content.isPaused {
-                            Text("pomodoro.paused_label")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(tint.opacity(0.86))
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(
-                                    Capsule()
-                                        .fill(tint.opacity(0.13))
-                                )
-                                .overlay(
-                                    Capsule()
-                                        .stroke(tint.opacity(0.22), lineWidth: 0.5)
-                                )
-                                .lineLimit(1)
+                            PomodoroPausedBadge(tint: tint)
                         }
                     }
 
                     Text(formattedCountdownSeconds(remaining))
-                        .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
+                        .font(.system(size: 24, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(.white.opacity(0.92))
                         .lineLimit(1)
+                        .minimumScaleFactor(0.86)
                         .contentTransition(.numericText(value: Double(remaining)))
                         .animation(.easeOut(duration: 0.16), value: remaining)
                 }
-                .fixedSize(horizontal: true, vertical: false)
+                .frame(minWidth: 82, alignment: .leading)
+                .layoutPriority(1)
             }
             .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, 18)
-            .padding(.top, topInset + 8)
+            .padding(.horizontal, 16)
+            .padding(.top, topInset + 10)
         }
     }
 
     private var tint: Color {
-        switch content.phase {
-        case .focus:
-            Color(red: 1.0, green: 0.72, blue: 0.13)
-        case .rest:
-            Color(red: 0.32, green: 0.88, blue: 0.69)
-        }
+        PomodoroOverlayStyle.tint(for: content.phase)
     }
 
     private var titleKey: LocalizedStringKey {
@@ -710,15 +685,16 @@ private struct PomodoroCountdownProgressView: View {
     var body: some View {
         ProgressRingView(
             progress: progress,
-            size: 42,
-            lineWidth: 3,
+            size: 34,
+            lineWidth: 2.6,
             tint: tint,
-            trackTint: tint.opacity(0.11)
+            trackTint: .white.opacity(0.13)
         )
         .overlay {
             Image(systemName: symbolName)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(tint)
+                .contentTransition(.symbolEffect(.replace))
         }
     }
 
@@ -728,12 +704,7 @@ private struct PomodoroCountdownProgressView: View {
     }
 
     private var tint: Color {
-        switch content.phase {
-        case .focus:
-            Color(red: 1.0, green: 0.72, blue: 0.13)
-        case .rest:
-            Color(red: 0.32, green: 0.88, blue: 0.69)
-        }
+        PomodoroOverlayStyle.tint(for: content.phase)
     }
 
     private var symbolName: String {
@@ -746,6 +717,33 @@ private struct PomodoroCountdownProgressView: View {
     }
 }
 
+private struct PomodoroPausedBadge: View {
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "pause.fill")
+                .font(.system(size: 7, weight: .bold))
+
+            Text("pomodoro.paused_label")
+                .font(.system(size: 9, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .foregroundStyle(tint.opacity(0.9))
+        .padding(.horizontal, 5)
+        .padding(.vertical, 1.5)
+        .background(
+            Capsule()
+                .fill(tint.opacity(0.12))
+        )
+        .overlay(
+            Capsule()
+                .stroke(tint.opacity(0.2), lineWidth: 0.5)
+        )
+    }
+}
+
 private struct PomodoroReminderContentView: View {
     let content: PomodoroReminderContent
     let reminderStartDate: Date
@@ -754,23 +752,25 @@ private struct PomodoroReminderContentView: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             PomodoroReminderTimingView(
                 content: content,
                 reminderStartDate: reminderStartDate,
                 reminderDuration: reminderDuration
             )
+            .layoutPriority(1)
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 6)
 
             Button(action: onDismiss) {
                 Text(actionKey)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.72)
+                    .minimumScaleFactor(0.68)
             }
             .controlSize(.small)
             .buttonStyle(.bordered)
-            .tint(.green)
+            .tint(actionTint)
+            .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.horizontal, 14)
         .padding(.top, topInset + 4)
@@ -785,6 +785,10 @@ private struct PomodoroReminderContentView: View {
         case .breakCompleted:
             "pomodoro.done"
         }
+    }
+
+    private var actionTint: Color {
+        PomodoroOverlayStyle.tint(for: content.kind)
     }
 }
 
@@ -810,6 +814,7 @@ private struct PomodoroReminderTimingView: View {
 
                 detailView
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -880,7 +885,7 @@ private struct PomodoroProgressTimelineView: View {
                 size: 32,
                 lineWidth: 2.5,
                 tint: tint,
-                trackTint: .orange.opacity(0.16)
+                trackTint: .white.opacity(0.14)
             )
             .overlay {
                 Image(systemName: symbolName)
@@ -892,14 +897,7 @@ private struct PomodoroProgressTimelineView: View {
     }
 
     private var tint: Color {
-        switch kind {
-        case .sessionStarted:
-            .yellow
-        case .focusCompleted:
-            .orange
-        case .breakCompleted:
-            .mint
-        }
+        PomodoroOverlayStyle.tint(for: kind)
     }
 
     private var symbolName: String {
@@ -910,6 +908,26 @@ private struct PomodoroProgressTimelineView: View {
             "cup.and.saucer.fill"
         case .breakCompleted:
             "checkmark.circle.fill"
+        }
+    }
+}
+
+private enum PomodoroOverlayStyle {
+    static func tint(for phase: PomodoroPhase) -> Color {
+        switch phase {
+        case .focus:
+            Color(red: 0.68, green: 0.80, blue: 1.0)
+        case .rest:
+            Color(red: 0.48, green: 0.86, blue: 0.62)
+        }
+    }
+
+    static func tint(for kind: PomodoroReminderContent.Kind) -> Color {
+        switch kind {
+        case .sessionStarted:
+            tint(for: .focus)
+        case .focusCompleted, .breakCompleted:
+            tint(for: .rest)
         }
     }
 }
