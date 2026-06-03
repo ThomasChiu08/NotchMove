@@ -9,11 +9,15 @@
 "section.ai_assistant" = "AI Assistant";
 
 /* ─── Reminders ─── */
+"sedentary_reminders" = "Sedentary reminders";
+"sedentary_reminders_caption" = "Tracks active time and reminds you to stand or move.";
 "remind_every" = "Remind me every";
 "minutes_format" = "%d minutes";
 "sit_aware_mode" = "Sit-aware mode";
 "sit_aware_footer_on" = "Resets the timer when you've been idle for 3+ minutes — you probably already stood up.";
 "sit_aware_footer_off" = "Longer intervals reduce interruptions but may allow more continuous sitting.";
+"pomodoro_enabled" = "Pomodoro timer";
+"pomodoro_enabled_caption" = "Enables menu bar Pomodoro sessions and notch countdowns.";
 "pomodoro_focus_duration" = "Pomodoro focus";
 "pomodoro_break_duration" = "Pomodoro break";
 "pomodoro_settings_caption" = "Used by the menu bar Pomodoro focus mode.";
@@ -77,21 +81,25 @@
 "notch.snooze_10m" = "10 min";
 "notch.skip" = "Skip";
 "movement_countdown_title" = "Move timer";
-"pomodoro.session_started.title" = "Pomodoro started";
-"pomodoro.focus_completed.title" = "Focus complete";
-"pomodoro.focus_completed.detail" = "Take a short break now.";
-"pomodoro.break_completed.title" = "Break complete";
-"pomodoro.break_completed.detail" = "Ready for another focus session.";
+"pomodoro.session_started.title" = "Focus started";
+"pomodoro.focus_completed.title" = "Time for a break";
+"pomodoro.focus_completed.detail" = "Focus is done. Step away for a few minutes.";
+"pomodoro.break_completed.title" = "Break finished";
+"pomodoro.break_completed.detail" = "Start another focus session when you're ready.";
 "pomodoro.work_label" = "Work";
 "pomodoro.rest_label" = "Rest";
-"pomodoro.start_break" = "Rest";
-"pomodoro.done" = "Done";
+"pomodoro.countdown.focus_title" = "Focus";
+"pomodoro.countdown.break_title" = "Break";
+"pomodoro.paused_label" = "Paused";
+"pomodoro.start_break" = "Take break";
+"pomodoro.done" = "OK";
 "pomodoro.dismiss" = "OK";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "Next reminder: %@ min";
 "menu.next_reminder_soon" = "Next reminder: < 1 min";
 "menu.reminders_paused" = "Reminders paused";
+"menu.reminders_disabled" = "Sedentary reminders off";
 "menu.reminder_active" = "Stand-up reminder active";
 "menu.no_breaks" = "No breaks yet today";
 "menu.breaks_format" = "%d breaks today · %d this week";
@@ -137,6 +145,7 @@
 "dashboard.property.next_schedule" = "Next schedule";
 "dashboard.run_state.tracking" = "Tracking";
 "dashboard.run_state.paused" = "Paused";
+"dashboard.run_state.break_disabled" = "Sedentary reminders off";
 "dashboard.run_state.schedule_blocked" = "Outside work hours";
 "dashboard.run_state.reminding" = "Reminder active";
 "dashboard.run_state.pomodoro" = "Pomodoro active";

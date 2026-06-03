@@ -105,6 +105,7 @@ final class NotchWindowController {
     private func observeReminderState() {
         withObservationTracking {
             _ = reminderEngine.overlayState.presentation
+            _ = reminderEngine.overlayState.content
         } onChange: {
             Task { @MainActor [weak self] in
                 self?.applyCurrentPlacement(animated: true)
@@ -134,13 +135,22 @@ final class NotchWindowController {
         let placement = placementService.placement(
             for: activePresentation,
             on: screen,
-            notchExpansionEnabled: preferencesStore.preferences.notchExpansionEnabled
+            notchExpansionEnabled: preferencesStore.preferences.notchExpansionEnabled,
+            sizingRole: activeSizingRole
         )
         updateOverlayMetrics(with: placement)
         updateInteractiveFrame(with: placement)
 
         guard panel.frame != placement.frame else { return }
         panel.setFrame(placement.frame, display: true, animate: false)
+    }
+
+    private var activeSizingRole: OverlaySizingRole {
+        if case .pomodoroCountdown = reminderEngine.overlayState.content {
+            return .prominentCountdown
+        }
+
+        return .standard
     }
 
     private func updateOverlayMetrics(with placement: OverlayPlacement) {

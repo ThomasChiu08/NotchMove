@@ -72,6 +72,11 @@ struct NotchView: View {
             return Color(red: 0.055, green: 0.033, blue: 0.012)
         }
 
+        if case .pomodoroCountdown = reminderEngine.overlayState.content,
+           activePresentation == .hoverPreview || activePresentation == .presenting {
+            return Color(red: 0.055, green: 0.033, blue: 0.012)
+        }
+
         return Color(red: 0.02, green: 0.02, blue: 0.02)
     }
 
@@ -147,6 +152,11 @@ struct NotchView: View {
                 content: content,
                 topInset: overlayMetrics.topInset
             )
+        case .pomodoroCountdown(let content):
+            PomodoroCountdownContentView(
+                content: content,
+                topInset: overlayMetrics.topInset
+            )
         default:
             HoverPreviewView(topInset: overlayMetrics.topInset)
         }
@@ -194,6 +204,11 @@ struct NotchView: View {
             ) {
                 reminderEngine.send(.dismissPomodoroReminder)
             }
+        case .pomodoroCountdown(let content):
+            PomodoroCountdownContentView(
+                content: content,
+                topInset: overlayMetrics.topInset
+            )
         case .breakCompletionCountdown:
             EmptyView()
         }
@@ -614,12 +629,169 @@ private struct ScheduleReminderContentView: View {
     }
 }
 
+private struct PomodoroCountdownContentView: View {
+    let content: PomodoroCountdownContent
+    let topInset: CGFloat
+
+    var body: some View {
+        TimelineView(.periodic(from: content.startedAt, by: 1)) { context in
+            let remaining = pomodoroRemainingSeconds(at: context.date, content: content)
+
+            HStack(spacing: 14) {
+                PomodoroCountdownProgressView(
+                    content: content,
+                    remainingSeconds: remaining
+                )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 7) {
+                        Text(titleKey)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.58))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+
+                        if content.isPaused {
+                            Text("pomodoro.paused_label")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(tint.opacity(0.86))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(
+                                    Capsule()
+                                        .fill(tint.opacity(0.13))
+                                )
+                                .overlay(
+                                    Capsule()
+                                        .stroke(tint.opacity(0.22), lineWidth: 0.5)
+                                )
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Text(formattedCountdownSeconds(remaining))
+                        .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(.white.opacity(0.92))
+                        .lineLimit(1)
+                        .contentTransition(.numericText(value: Double(remaining)))
+                        .animation(.easeOut(duration: 0.16), value: remaining)
+                }
+                .fixedSize(horizontal: true, vertical: false)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, 18)
+            .padding(.top, topInset + 8)
+        }
+    }
+
+    private var tint: Color {
+        switch content.phase {
+        case .focus:
+            Color(red: 1.0, green: 0.72, blue: 0.13)
+        case .rest:
+            Color(red: 0.32, green: 0.88, blue: 0.69)
+        }
+    }
+
+    private var titleKey: LocalizedStringKey {
+        switch content.phase {
+        case .focus:
+            "pomodoro.countdown.focus_title"
+        case .rest:
+            "pomodoro.countdown.break_title"
+        }
+    }
+}
+
+private struct PomodoroCountdownProgressView: View {
+    let content: PomodoroCountdownContent
+    let remainingSeconds: Int
+
+    var body: some View {
+        ProgressRingView(
+            progress: progress,
+            size: 42,
+            lineWidth: 3,
+            tint: tint,
+            trackTint: tint.opacity(0.11)
+        )
+        .overlay {
+            Image(systemName: symbolName)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint)
+        }
+    }
+
+    private var progress: Double {
+        guard content.duration > 0 else { return 0 }
+        return clampedProgress((content.duration - TimeInterval(remainingSeconds)) / content.duration)
+    }
+
+    private var tint: Color {
+        switch content.phase {
+        case .focus:
+            Color(red: 1.0, green: 0.72, blue: 0.13)
+        case .rest:
+            Color(red: 0.32, green: 0.88, blue: 0.69)
+        }
+    }
+
+    private var symbolName: String {
+        switch content.phase {
+        case .focus:
+            "timer"
+        case .rest:
+            "cup.and.saucer.fill"
+        }
+    }
+}
+
 private struct PomodoroReminderContentView: View {
     let content: PomodoroReminderContent
     let reminderStartDate: Date
     let reminderDuration: TimeInterval
     let topInset: CGFloat
     let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            PomodoroReminderTimingView(
+                content: content,
+                reminderStartDate: reminderStartDate,
+                reminderDuration: reminderDuration
+            )
+
+            Spacer(minLength: 4)
+
+            Button(action: onDismiss) {
+                Text(actionKey)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .controlSize(.small)
+            .buttonStyle(.bordered)
+            .tint(.green)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, topInset + 4)
+    }
+
+    private var actionKey: LocalizedStringKey {
+        switch content.kind {
+        case .sessionStarted:
+            "pomodoro.dismiss"
+        case .focusCompleted:
+            "pomodoro.start_break"
+        case .breakCompleted:
+            "pomodoro.done"
+        }
+    }
+}
+
+private struct PomodoroReminderTimingView: View {
+    let content: PomodoroReminderContent
+    let reminderStartDate: Date
+    let reminderDuration: TimeInterval
 
     var body: some View {
         HStack(spacing: 10) {
@@ -638,20 +810,7 @@ private struct PomodoroReminderContentView: View {
 
                 detailView
             }
-
-            Spacer(minLength: 6)
-
-            Button(action: onDismiss) {
-                Text(actionKey)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-            }
-            .controlSize(.small)
-            .buttonStyle(.bordered)
-            .tint(.green)
         }
-        .padding(.horizontal, 14)
-        .padding(.top, topInset + 4)
     }
 
     private var titleKey: LocalizedStringKey {
@@ -694,17 +853,6 @@ private struct PomodoroReminderContentView: View {
                 .foregroundStyle(.white.opacity(0.62))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
-        }
-    }
-
-    private var actionKey: LocalizedStringKey {
-        switch content.kind {
-        case .sessionStarted:
-            "pomodoro.dismiss"
-        case .focusCompleted:
-            "pomodoro.start_break"
-        case .breakCompleted:
-            "pomodoro.done"
         }
     }
 
@@ -854,6 +1002,20 @@ private func remainingSeconds(
     )
 
     return Int(ceil(reminderDuration * (1 - progress)))
+}
+
+private func pomodoroRemainingSeconds(at date: Date, content: PomodoroCountdownContent) -> Int {
+    if let pausedRemainingSeconds = content.pausedRemainingSeconds {
+        return max(pausedRemainingSeconds, 0)
+    }
+
+    let elapsed = max(date.timeIntervalSince(content.startedAt), 0)
+    return max(Int(ceil(content.duration - elapsed)), 0)
+}
+
+private func formattedCountdownSeconds(_ seconds: Int) -> String {
+    let safeSeconds = max(seconds, 0)
+    return String(format: "%02d:%02d", safeSeconds / 60, safeSeconds % 60)
 }
 
 private func stretchSymbol(for progress: Double) -> String {

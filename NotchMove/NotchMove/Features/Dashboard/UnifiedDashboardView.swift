@@ -99,6 +99,8 @@ struct UnifiedDashboardView: View {
             "dashboard.run_state.tracking"
         case .manuallyPaused:
             "dashboard.run_state.paused"
+        case .breakRemindersDisabled:
+            "dashboard.run_state.break_disabled"
         case .scheduleBlocked:
             "dashboard.run_state.schedule_blocked"
         case .pomodoroActive:
@@ -114,7 +116,7 @@ struct UnifiedDashboardView: View {
         switch reminderEngine.runState {
         case .tracking, .presentingReminder, .pomodoroActive:
             .green
-        case .manuallyPaused, .scheduleBlocked, .idleSuppressed:
+        case .manuallyPaused, .breakRemindersDisabled, .scheduleBlocked, .idleSuppressed:
             .secondary
         }
     }

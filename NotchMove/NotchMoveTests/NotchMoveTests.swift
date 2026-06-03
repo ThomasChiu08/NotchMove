@@ -80,6 +80,8 @@ struct PreferencesStoreTests {
 
         store.preferences.soundEnabled = false
         store.preferences.launchAtLoginEnabled = false
+        store.preferences.breakReminderEnabled = false
+        store.preferences.pomodoroEnabled = false
         store.preferences.reminderIntervalMinutes = 60
         store.preferences.appLanguage = "ja"
         store.preferences.overlayDisplayMode = .display(CGDirectDisplayID(42))
@@ -157,7 +159,7 @@ struct PreferencesStoreTests {
         #expect(loaded.aiGlobalHotkeyShortcutID == GlobalHotkeyShortcut.controlOptionA.rawValue)
     }
 
-    @Test func pomodoroDurationPreferencesPersistAndRestoreDefaults() {
+    @Test func reminderModeAndPomodoroPreferencesPersistAndRestoreDefaults() {
         let suiteName = "NotchMoveTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -165,14 +167,20 @@ struct PreferencesStoreTests {
         let settings = AppSettings(defaults: defaults)
         var preferences = settings.loadPreferences()
 
+        #expect(preferences.breakReminderEnabled)
+        #expect(preferences.pomodoroEnabled)
         #expect(preferences.pomodoroFocusMinutes == 25)
         #expect(preferences.pomodoroBreakMinutes == 5)
 
+        preferences.breakReminderEnabled = false
+        preferences.pomodoroEnabled = false
         preferences.pomodoroFocusMinutes = 45
         preferences.pomodoroBreakMinutes = 10
         settings.save(preferences)
 
         var loaded = settings.loadPreferences()
+        #expect(!loaded.breakReminderEnabled)
+        #expect(!loaded.pomodoroEnabled)
         #expect(loaded.pomodoroFocusMinutes == 45)
         #expect(loaded.pomodoroBreakMinutes == 10)
 
@@ -180,6 +188,8 @@ struct PreferencesStoreTests {
         store.restoreDefaults()
 
         loaded = settings.loadPreferences()
+        #expect(loaded.breakReminderEnabled == Preferences.defaults.breakReminderEnabled)
+        #expect(loaded.pomodoroEnabled == Preferences.defaults.pomodoroEnabled)
         #expect(loaded.pomodoroFocusMinutes == Preferences.defaults.pomodoroFocusMinutes)
         #expect(loaded.pomodoroBreakMinutes == Preferences.defaults.pomodoroBreakMinutes)
     }
@@ -258,7 +268,7 @@ struct PreferencesStoreTests {
         #expect(globalHotkeyNotifications.count == 2)
     }
 
-    @Test func intervalAndSitAwareChangesPostReminderRuntimeNotifications() async {
+    @Test func reminderRuntimePreferenceChangesPostRuntimeNotifications() async {
         let suiteName = "NotchMoveTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -280,12 +290,14 @@ struct PreferencesStoreTests {
             NotificationCenter.default.removeObserver(observer)
         }
 
+        store.preferences.breakReminderEnabled = false
+        store.preferences.pomodoroEnabled = false
         store.preferences.reminderIntervalMinutes = 45
         store.preferences.sitAwareEnabled = false
 
         await flushAsyncWork()
 
-        #expect(reminderRuntimeNotifications.count == 2)
+        #expect(reminderRuntimeNotifications.count == 4)
     }
 
     @Test func overlayDisplayPreferencePostsLayoutNotification() async {
@@ -353,10 +365,9 @@ struct PomodoroEngineTests {
 
         #expect(context.engine.state.runState == .running)
         #expect(context.engine.state.phase == .focus)
-        #expect(context.probe.suppressions == [true])
-        #expect(context.probe.reminders.map(\.kind) == [.sessionStarted])
-        #expect(context.probe.reminders.first?.focusDuration == 60)
-        #expect(context.probe.reminders.first?.breakDuration == 60)
+        #expect(context.probe.reminders.isEmpty)
+        #expect(context.probe.countdowns.compactMap { $0?.phase } == [.focus])
+        #expect(context.probe.countdowns.compactMap { $0 }.last?.duration == 60)
 
         await flushAsyncWork()
         await context.clock.advance(by: .seconds(60))
@@ -365,8 +376,9 @@ struct PomodoroEngineTests {
         #expect(context.engine.state.runState == .running)
         #expect(context.engine.state.phase == .rest)
         #expect(context.engine.state.remainingSeconds == 60)
-        #expect(context.probe.reminders.map(\.kind) == [.sessionStarted, .focusCompleted])
+        #expect(context.probe.reminders.map(\.kind) == [.focusCompleted])
         #expect(context.probe.reminders.last?.nextPhaseDuration == 60)
+        #expect(context.probe.countdowns.compactMap { $0?.phase } == [.focus, .rest])
     }
 
     @Test func pauseAndResumePreserveRemainingTime() async {
@@ -382,6 +394,7 @@ struct PomodoroEngineTests {
         await flushAsyncWork()
         context.engine.pause()
         let pausedRemaining = context.engine.state.remainingSeconds
+        #expect(context.probe.countdowns.compactMap { $0 }.last?.pausedRemainingSeconds == pausedRemaining)
 
         await context.clock.advance(by: .seconds(60))
         await flushAsyncWork()
@@ -390,15 +403,16 @@ struct PomodoroEngineTests {
         #expect(context.engine.state.remainingSeconds == pausedRemaining)
 
         context.engine.resume()
+        #expect(context.probe.countdowns.compactMap { $0 }.last?.pausedRemainingSeconds == nil)
         await flushAsyncWork()
         await context.clock.advance(by: .seconds(Int64(pausedRemaining)))
         await flushAsyncWork()
 
         #expect(context.engine.state.phase == .rest)
-        #expect(context.probe.reminders.map(\.kind) == [.sessionStarted, .focusCompleted])
+        #expect(context.probe.reminders.map(\.kind) == [.focusCompleted])
     }
 
-    @Test func completedBreakRecordsBreakAndClearsSuppression() async {
+    @Test func completedBreakRecordsBreakAndClearsCountdown() async {
         let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
         let context = makePomodoroContext(now: now)
         defer { context.cleanup() }
@@ -416,8 +430,25 @@ struct PomodoroEngineTests {
         #expect(context.engine.state.runState == .idle)
         #expect(context.breakStatsStore.todayBreaks == 1)
         #expect(context.breakStatsStore.weekBreaks == 1)
-        #expect(context.probe.reminders.map(\.kind) == [.sessionStarted, .focusCompleted, .breakCompleted])
-        #expect(context.probe.suppressions == [true, false])
+        #expect(context.probe.reminders.map(\.kind) == [.focusCompleted, .breakCompleted])
+        if let lastCountdown = context.probe.countdowns.last {
+            #expect(lastCountdown == nil)
+        } else {
+            Issue.record("Expected cleared pomodoro countdown event")
+        }
+    }
+
+    @Test func disabledPomodoroDoesNotStartSession() {
+        let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
+        let context = makePomodoroContext(now: now)
+        defer { context.cleanup() }
+
+        context.preferencesStore.preferences.pomodoroEnabled = false
+        context.engine.startFocusSession()
+
+        #expect(context.engine.state.runState == .idle)
+        #expect(context.probe.reminders.isEmpty)
+        #expect(context.probe.countdowns.isEmpty)
     }
 }
 
@@ -509,25 +540,30 @@ struct ReminderEngineTests {
         #expect(context.soundPlayer.playCount == 1)
     }
 
-    @Test func pomodoroSuppressionBlocksAutomaticBreakRemindersUntilCleared() async {
+    @Test func disabledBreakRemindersBlockAutomaticAndManualBreakRemindersUntilReenabled() async {
         let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
         let context = makeReminderContext(now: now)
         defer { context.cleanup() }
 
         context.preferencesStore.preferences.reminderIntervalMinutes = 1
+        context.preferencesStore.preferences.breakReminderEnabled = false
         context.idleProvider.idleSeconds = 0
-        context.engine.setPomodoroReminderSuppression(true)
 
         context.engine.send(.tick(now))
         context.clock.now = now.addingTimeInterval(60)
         context.engine.send(.tick(context.clock.now))
 
-        #expect(context.engine.runState == .pomodoroActive)
+        #expect(context.engine.runState == .breakRemindersDisabled)
         #expect(context.engine.state.presentation == .hidden)
         #expect(context.engine.state.activeSeconds == 0)
         #expect(context.soundPlayer.playCount == 0)
 
-        context.engine.setPomodoroReminderSuppression(false)
+        context.engine.send(.manualTrigger)
+        #expect(context.engine.state.presentation == .hidden)
+        #expect(context.soundPlayer.playCount == 0)
+
+        context.preferencesStore.preferences.breakReminderEnabled = true
+        await flushAsyncWork()
         context.clock.now = now.addingTimeInterval(120)
         context.engine.send(.tick(context.clock.now))
 
@@ -536,6 +572,83 @@ struct ReminderEngineTests {
 
         await promotePendingReminder(in: context)
         #expect(context.engine.state.presentation == .presenting)
+    }
+
+    @Test func pomodoroCountdownTucksAndCanBeHoveredUntilCleared() async {
+        let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+        let content = PomodoroCountdownContent(
+            phase: .focus,
+            startedAt: now,
+            duration: 25 * 60,
+            pausedRemainingSeconds: nil
+        )
+
+        context.engine.updatePomodoroCountdown(content)
+
+        #expect(context.engine.isPomodoroCountdownActive)
+        #expect(context.engine.state.presentation == .hoverPreview)
+        if case .pomodoroCountdown(let activeContent) = context.engine.overlayState.content {
+            #expect(activeContent == content)
+        } else {
+            Issue.record("Expected pomodoro countdown content")
+        }
+
+        await flushAsyncWork()
+        await context.clock.advance(by: .seconds(60))
+        await flushAsyncWork()
+
+        #expect(context.engine.state.presentation == .hidden)
+        #expect(context.engine.isPomodoroCountdownActive)
+
+        context.engine.send(.hoverChanged(true))
+        #expect(context.engine.state.presentation == .hoverPreviewPending)
+
+        await promoteHoverPreview(in: context)
+        #expect(context.engine.state.presentation == .hoverPreview)
+
+        context.engine.send(.hoverChanged(false))
+        await settleHoverPreviewDismissal(in: context)
+
+        #expect(context.engine.state.presentation == .hidden)
+        #expect(context.engine.isPomodoroCountdownActive)
+
+        context.engine.updatePomodoroCountdown(nil)
+        #expect(!context.engine.isPomodoroCountdownActive)
+        #expect(context.engine.overlayState.content == .breakReminder)
+    }
+
+    @Test func pomodoroCountdownRestoresAfterBreakReminderDismissal() async {
+        let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+        let content = PomodoroCountdownContent(
+            phase: .focus,
+            startedAt: now,
+            duration: 25 * 60,
+            pausedRemainingSeconds: nil
+        )
+
+        context.engine.updatePomodoroCountdown(content)
+        await flushAsyncWork()
+        await context.clock.advance(by: .seconds(60))
+        await flushAsyncWork()
+        context.engine.send(.manualTrigger)
+
+        #expect(context.engine.state.presentation == .reminderPending)
+        #expect(context.engine.overlayState.content == .breakReminder)
+
+        await promotePendingReminder(in: context)
+        context.engine.send(.dismissReminder)
+        await settleReminderDismissal(in: context)
+
+        #expect(context.engine.state.presentation == .hidden)
+        if case .pomodoroCountdown(let restoredContent) = context.engine.overlayState.content {
+            #expect(restoredContent == content)
+        } else {
+            Issue.record("Expected restored pomodoro countdown content")
+        }
     }
 
     @Test func completedBreakIncrementsStatistics() async {
@@ -591,8 +704,7 @@ struct ReminderEngineTests {
             return
         }
 
-        await context.clock.advance(by: .seconds(content.duration))
-        await flushAsyncWork()
+        await advanceClockAndFlush(context.clock, by: .seconds(content.duration))
 
         #expect(context.engine.state.presentation == .hidden)
         #expect(!context.engine.isBreakCompletionCountdownActive)
@@ -1054,6 +1166,60 @@ struct ScreenPlacementServiceTests {
         #expect(dismissing.visibleSize == pending.visibleSize)
     }
 
+    @Test func prominentCountdownHoverUsesLargerCanvas() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hoverPreview,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .prominentCountdown
+        )
+
+        #expect(placement.topInset == 38)
+        #expect(placement.frame.origin.x == 584)
+        #expect(placement.frame.size == CGSize(width: 344, height: 96))
+        #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
+        #expect(placement.visibleSize == CGSize(width: 344, height: 96))
+    }
+
+    @Test func prominentCountdownPendingAndDismissingKeepTuckedVisibleIsland() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+        let service = ScreenPlacementService()
+
+        let pending = service.placement(
+            for: .hoverPreviewPending,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .prominentCountdown
+        )
+        let dismissing = service.placement(
+            for: .hoverPreviewDismissing,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .prominentCountdown
+        )
+
+        #expect(pending.frame.size == CGSize(width: 344, height: 96))
+        #expect(pending.visibleSize == CGSize(width: 200, height: 38))
+        #expect(dismissing.frame.size == pending.frame.size)
+        #expect(dismissing.visibleSize == pending.visibleSize)
+    }
+
     @Test func nonNotchedScreenFallsBackToScreenCenter() {
         let screen = ScreenDescriptor(
             displayID: 2,
@@ -1074,6 +1240,29 @@ struct ScreenPlacementServiceTests {
         #expect(placement.frame.origin.x == 600)
         #expect(placement.frame.size == CGSize(width: 240, height: 64))
         #expect(placement.visibleSize == CGSize(width: 240, height: 64))
+    }
+
+    @Test func prominentCountdownNonNotchedScreenFallsBackToCenteredClampedCanvas() {
+        let screen = ScreenDescriptor(
+            displayID: 2,
+            localizedName: "Studio Display",
+            isBuiltIn: false,
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            notchFrame: nil,
+            menuBarHeight: 24
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hoverPreview,
+            on: screen,
+            notchExpansionEnabled: false,
+            sizingRole: .prominentCountdown
+        )
+
+        #expect(placement.topInset == 24)
+        #expect(placement.frame.origin.x == 564)
+        #expect(placement.frame.size == CGSize(width: 312, height: 88))
+        #expect(placement.visibleSize == CGSize(width: 312, height: 88))
     }
 
     @Test func compactPresentingReminderKeepsMinimumUsableWidth() {
@@ -1222,8 +1411,8 @@ private func makePomodoroContext(now: Date) -> PomodoroTestContext {
         onReminder: { content in
             probe.reminders.append(content)
         },
-        onSuppressionChanged: { suppressed in
-            probe.suppressions.append(suppressed)
+        onCountdownChanged: { content in
+            probe.countdowns.append(content)
         }
     )
 
@@ -1282,6 +1471,12 @@ private func settleHoverPreviewDismissal(in context: ReminderTestContext) async 
     await flushAsyncWork()
 }
 
+private func advanceClockAndFlush(_ clock: TestClock, by duration: Duration) async {
+    await flushAsyncWork()
+    await clock.advance(by: duration)
+    await flushAsyncWork()
+}
+
 private func makeScreen(
     displayID: CGDirectDisplayID,
     isBuiltIn: Bool,
@@ -1316,7 +1511,7 @@ private struct PomodoroTestContext {
 @MainActor
 private final class PomodoroTestProbe {
     var reminders: [PomodoroReminderContent] = []
-    var suppressions: [Bool] = []
+    var countdowns: [PomodoroCountdownContent?] = []
 }
 
 @MainActor

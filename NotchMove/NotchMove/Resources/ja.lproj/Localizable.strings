@@ -9,11 +9,15 @@
 "section.ai_assistant" = "AI アシスタント";
 
 /* ─── Reminders ─── */
+"sedentary_reminders" = "着席リマインダー";
+"sedentary_reminders_caption" = "活動時間を記録し、立ち上がりや移動を促します。";
 "remind_every" = "リマインド間隔";
 "minutes_format" = "%d 分";
 "sit_aware_mode" = "着席検知モード";
 "sit_aware_footer_on" = "3分以上アイドル状態になるとタイマーをリセットします（すでに立ち上がったと判断）。";
 "sit_aware_footer_off" = "間隔を長くすると中断が減りますが、長時間座り続ける可能性があります。";
+"pomodoro_enabled" = "ポモドーロタイマー";
+"pomodoro_enabled_caption" = "メニューバーのポモドーロとノッチのカウントダウンを有効にします。";
 "pomodoro_focus_duration" = "ポモドーロ集中";
 "pomodoro_break_duration" = "ポモドーロ休憩";
 "pomodoro_settings_caption" = "メニューバーのポモドーロ集中モードで使います。";
@@ -77,21 +81,25 @@
 "notch.snooze_10m" = "10分";
 "notch.skip" = "スキップ";
 "movement_countdown_title" = "移動タイマー";
-"pomodoro.session_started.title" = "ポモドーロ開始";
-"pomodoro.focus_completed.title" = "集中完了";
-"pomodoro.focus_completed.detail" = "短い休憩を取りましょう。";
-"pomodoro.break_completed.title" = "休憩完了";
-"pomodoro.break_completed.detail" = "次の集中を始められます。";
+"pomodoro.session_started.title" = "集中開始";
+"pomodoro.focus_completed.title" = "休憩の時間です";
+"pomodoro.focus_completed.detail" = "集中が終わりました。画面から少し離れましょう。";
+"pomodoro.break_completed.title" = "休憩終了";
+"pomodoro.break_completed.detail" = "準備ができたら次の集中へ。";
 "pomodoro.work_label" = "作業";
 "pomodoro.rest_label" = "休憩";
-"pomodoro.start_break" = "休憩";
-"pomodoro.done" = "完了";
+"pomodoro.countdown.focus_title" = "集中";
+"pomodoro.countdown.break_title" = "休憩";
+"pomodoro.paused_label" = "一時停止";
+"pomodoro.start_break" = "休憩する";
+"pomodoro.done" = "OK";
 "pomodoro.dismiss" = "OK";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "次のリマインド：%@ 分";
 "menu.next_reminder_soon" = "次のリマインド：1 分以内";
 "menu.reminders_paused" = "リマインダー停止中";
+"menu.reminders_disabled" = "着席リマインダーはオフ";
 "menu.reminder_active" = "スタンドアップ中";
 "menu.no_breaks" = "今日はまだ休憩していません";
 "menu.breaks_format" = "今日 %d 回 · 今週 %d 回";
@@ -137,6 +145,7 @@
 "dashboard.property.next_schedule" = "次の予定";
 "dashboard.run_state.tracking" = "記録中";
 "dashboard.run_state.paused" = "一時停止中";
+"dashboard.run_state.break_disabled" = "着席リマインダーはオフ";
 "dashboard.run_state.schedule_blocked" = "勤務時間外";
 "dashboard.run_state.reminding" = "通知中";
 "dashboard.run_state.pomodoro" = "ポモドーロ実行中";

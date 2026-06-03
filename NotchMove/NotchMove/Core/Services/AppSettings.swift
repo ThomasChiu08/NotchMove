@@ -13,6 +13,8 @@ final class AppSettings {
         static let soundEnabled = "soundEnabled"
         static let launchAtLoginEnabled = "launchAtLoginEnabled"
         static let hasSeenLaunchAtLoginPrompt = "hasSeenLaunchAtLoginPrompt"
+        static let breakReminderEnabled = "breakReminderEnabled"
+        static let pomodoroEnabled = "pomodoroEnabled"
         static let reminderIntervalMinutes = "reminderIntervalMinutes"
         static let pomodoroFocusMinutes = "pomodoroFocusMinutes"
         static let pomodoroBreakMinutes = "pomodoroBreakMinutes"
@@ -50,6 +52,8 @@ final class AppSettings {
             Keys.soundEnabled: Preferences.defaults.soundEnabled,
             Keys.launchAtLoginEnabled: Preferences.defaults.launchAtLoginEnabled,
             Keys.hasSeenLaunchAtLoginPrompt: Preferences.defaults.hasSeenLaunchAtLoginPrompt,
+            Keys.breakReminderEnabled: Preferences.defaults.breakReminderEnabled,
+            Keys.pomodoroEnabled: Preferences.defaults.pomodoroEnabled,
             Keys.reminderIntervalMinutes: Preferences.defaults.reminderIntervalMinutes,
             Keys.pomodoroFocusMinutes: Preferences.defaults.pomodoroFocusMinutes,
             Keys.pomodoroBreakMinutes: Preferences.defaults.pomodoroBreakMinutes,
@@ -81,6 +85,14 @@ final class AppSettings {
             hasSeenLaunchAtLoginPrompt: bool(
                 forKey: Keys.hasSeenLaunchAtLoginPrompt,
                 default: Preferences.defaults.hasSeenLaunchAtLoginPrompt
+            ),
+            breakReminderEnabled: bool(
+                forKey: Keys.breakReminderEnabled,
+                default: Preferences.defaults.breakReminderEnabled
+            ),
+            pomodoroEnabled: bool(
+                forKey: Keys.pomodoroEnabled,
+                default: Preferences.defaults.pomodoroEnabled
             ),
             reminderIntervalMinutes: integer(
                 forKey: Keys.reminderIntervalMinutes,
@@ -133,6 +145,8 @@ final class AppSettings {
         defaults.set(preferences.soundEnabled, forKey: Keys.soundEnabled)
         defaults.set(preferences.launchAtLoginEnabled, forKey: Keys.launchAtLoginEnabled)
         defaults.set(preferences.hasSeenLaunchAtLoginPrompt, forKey: Keys.hasSeenLaunchAtLoginPrompt)
+        defaults.set(preferences.breakReminderEnabled, forKey: Keys.breakReminderEnabled)
+        defaults.set(preferences.pomodoroEnabled, forKey: Keys.pomodoroEnabled)
         defaults.set(preferences.reminderIntervalMinutes, forKey: Keys.reminderIntervalMinutes)
         defaults.set(preferences.pomodoroFocusMinutes, forKey: Keys.pomodoroFocusMinutes)
         defaults.set(preferences.pomodoroBreakMinutes, forKey: Keys.pomodoroBreakMinutes)

@@ -141,7 +141,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private func refreshDynamicItems() {
         breakStatsStore.refresh()
 
-        let remindersActive = !pomodoroEngine.isActive &&
+        let breakReminderEnabled = preferencesStore.preferences.breakReminderEnabled
+        let remindersActive = breakReminderEnabled &&
             !reminderEngine.state.scheduleState.blocksAutomaticReminders &&
             !reminderEngine.state.manualPause &&
             !reminderEngine.isReminderPresenting
@@ -149,6 +150,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // Next-reminder label
         if pomodoroEngine.isActive {
             statusMenuItem.title = pomodoroStatusTitle
+        } else if !breakReminderEnabled {
+            statusMenuItem.title = L("menu.reminders_disabled")
         } else if remindersActive {
             let mins = reminderEngine.minutesRemaining
             if mins <= 1 {
@@ -176,10 +179,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         // Pause/Resume label
         pauseMenuItem.title = reminderEngine.state.manualPause ? L("menu.resume") : L("menu.pause")
+        pauseMenuItem.isEnabled = breakReminderEnabled
 
         // Remind now
         remindNowMenuItem.title = L("menu.remind_now")
-        remindNowMenuItem.isEnabled = !pomodoroEngine.isActive
+        remindNowMenuItem.isEnabled = breakReminderEnabled && !reminderEngine.isReminderPresenting
 
         refreshPomodoroItems()
 
@@ -195,7 +199,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private func refreshPomodoroItems() {
         pomodoroStartMenuItem.title = L("menu.pomodoro_start")
         pomodoroStartMenuItem.isHidden = pomodoroEngine.isActive
-        pomodoroStartMenuItem.isEnabled = !reminderEngine.isReminderPresenting
+        pomodoroStartMenuItem.isEnabled = preferencesStore.preferences.pomodoroEnabled && !reminderEngine.isReminderPresenting
 
         pomodoroPauseMenuItem.title = pomodoroEngine.isPaused ? L("menu.pomodoro_resume") : L("menu.pomodoro_pause")
         pomodoroPauseMenuItem.isHidden = !pomodoroEngine.isActive

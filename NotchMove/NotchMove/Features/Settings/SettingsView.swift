@@ -266,6 +266,13 @@ struct SettingsContentView: View {
 
     private var remindersSection: some View {
         Section {
+            SettingsPropertyRow("sedentary_reminders", captionKey: "sedentary_reminders_caption") {
+                Toggle(isOn: $preferencesStore.preferences.breakReminderEnabled) {
+                    Text("sedentary_reminders")
+                }
+                .labelsHidden()
+            }
+
             SettingsPropertyRow("remind_every", captionKey: sitAwareCaptionKey) {
                 Picker(selection: $preferencesStore.preferences.reminderIntervalMinutes) {
                     ForEach(Self.intervalOptions, id: \.self) { minutes in
@@ -279,10 +286,19 @@ struct SettingsContentView: View {
                 .pickerStyle(.menu)
                 .frame(maxWidth: 140, alignment: .leading)
             }
+            .disabled(!preferencesStore.preferences.breakReminderEnabled)
 
             SettingsPropertyRow("sit_aware_mode") {
                 Toggle(isOn: $preferencesStore.preferences.sitAwareEnabled) {
                     Text("sit_aware_mode")
+                }
+                .labelsHidden()
+            }
+            .disabled(!preferencesStore.preferences.breakReminderEnabled)
+
+            SettingsPropertyRow("pomodoro_enabled", captionKey: "pomodoro_enabled_caption") {
+                Toggle(isOn: $preferencesStore.preferences.pomodoroEnabled) {
+                    Text("pomodoro_enabled")
                 }
                 .labelsHidden()
             }
@@ -300,6 +316,7 @@ struct SettingsContentView: View {
                 .pickerStyle(.menu)
                 .frame(maxWidth: 140, alignment: .leading)
             }
+            .disabled(!preferencesStore.preferences.pomodoroEnabled)
 
             SettingsPropertyRow("pomodoro_break_duration") {
                 Picker(selection: $preferencesStore.preferences.pomodoroBreakMinutes) {
@@ -314,6 +331,7 @@ struct SettingsContentView: View {
                 .pickerStyle(.menu)
                 .frame(maxWidth: 140, alignment: .leading)
             }
+            .disabled(!preferencesStore.preferences.pomodoroEnabled)
         } header: {
             sectionHeader("section.reminders")
         }

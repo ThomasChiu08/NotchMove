@@ -30,6 +30,8 @@ struct Preferences: Equatable {
     var soundEnabled: Bool
     var launchAtLoginEnabled: Bool
     var hasSeenLaunchAtLoginPrompt: Bool
+    var breakReminderEnabled: Bool
+    var pomodoroEnabled: Bool
     var reminderIntervalMinutes: Int
     var pomodoroFocusMinutes: Int
     var pomodoroBreakMinutes: Int
@@ -48,6 +50,8 @@ struct Preferences: Equatable {
         soundEnabled: true,
         launchAtLoginEnabled: false,
         hasSeenLaunchAtLoginPrompt: false,
+        breakReminderEnabled: true,
+        pomodoroEnabled: true,
         reminderIntervalMinutes: 30,
         pomodoroFocusMinutes: 25,
         pomodoroBreakMinutes: 5,

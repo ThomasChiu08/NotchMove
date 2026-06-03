@@ -29,30 +29,47 @@ struct OverlayPlacement: Equatable {
     let topInset: CGFloat
 }
 
+enum OverlaySizingRole: Equatable {
+    case standard
+    case prominentCountdown
+}
+
 struct ScreenPlacementService {
     private enum Sizing {
         static let fallbackTuckedWidth: CGFloat = 164
         static let previewExtraWidth: CGFloat = 48
         static let reminderCollapsedExtraWidth: CGFloat = 88
         static let reminderExpandedExtraWidth: CGFloat = 120
+        static let prominentCountdownExtraWidth: CGFloat = 144
         static let previewMinWidth: CGFloat = 240
         static let previewMaxWidth: CGFloat = 280
         static let reminderCollapsedMinWidth: CGFloat = 280
         static let reminderCollapsedMaxWidth: CGFloat = 320
         static let reminderExpandedMinWidth: CGFloat = 300
         static let reminderExpandedMaxWidth: CGFloat = 340
+        static let prominentCountdownMinWidth: CGFloat = 312
+        static let prominentCountdownMaxWidth: CGFloat = 360
         static let previewMinHeight: CGFloat = 64
         static let reminderCollapsedMinHeight: CGFloat = 88
         static let reminderExpandedMinHeight: CGFloat = 96
+        static let prominentCountdownMinHeight: CGFloat = 88
+        static let prominentCountdownMaxHeight: CGFloat = 104
+        static let prominentCountdownExtraHeight: CGFloat = 58
     }
 
     func placement(
         for presentation: ReminderState.PresentationPhase,
         on screen: ScreenDescriptor,
-        notchExpansionEnabled: Bool
+        notchExpansionEnabled: Bool,
+        sizingRole: OverlaySizingRole = .standard
     ) -> OverlayPlacement {
         let centerX = screen.notchFrame?.midX ?? screen.frame.midX
-        let size = size(for: presentation, on: screen, notchExpansionEnabled: notchExpansionEnabled)
+        let size = size(
+            for: presentation,
+            on: screen,
+            notchExpansionEnabled: notchExpansionEnabled,
+            sizingRole: sizingRole
+        )
         let tuckedSize = tuckedSize(on: screen)
         let visibleSize = visibleSize(
             for: presentation,
@@ -75,7 +92,8 @@ struct ScreenPlacementService {
     private func size(
         for presentation: ReminderState.PresentationPhase,
         on screen: ScreenDescriptor,
-        notchExpansionEnabled: Bool
+        notchExpansionEnabled: Bool,
+        sizingRole: OverlaySizingRole
     ) -> CGSize {
         let notchWidth = screen.notchFrame?.width ?? Sizing.fallbackTuckedWidth
         let baseHeight = screen.notchFrame?.height ?? screen.menuBarHeight
@@ -84,6 +102,13 @@ struct ScreenPlacementService {
         case .hidden, .reminderPending:
             return tuckedSize(on: screen)
         case .hoverPreviewPending, .hoverPreview, .hoverPreviewDismissing:
+            if sizingRole == .prominentCountdown {
+                return prominentCountdownSize(
+                    notchWidth: notchWidth,
+                    baseHeight: baseHeight
+                )
+            }
+
             return CGSize(
                 width: clamped(
                     notchWidth + Sizing.previewExtraWidth,
@@ -93,11 +118,36 @@ struct ScreenPlacementService {
                 height: max(baseHeight + 34, Sizing.previewMinHeight)
             )
         case .presenting, .dismissAnimating:
+            if sizingRole == .prominentCountdown {
+                return prominentCountdownSize(
+                    notchWidth: notchWidth,
+                    baseHeight: baseHeight
+                )
+            }
+
             return reminderSize(
                 notchWidth: notchWidth,
                 notchExpansionEnabled: notchExpansionEnabled
             )
         }
+    }
+
+    private func prominentCountdownSize(
+        notchWidth: CGFloat,
+        baseHeight: CGFloat
+    ) -> CGSize {
+        CGSize(
+            width: clamped(
+                notchWidth + Sizing.prominentCountdownExtraWidth,
+                min: Sizing.prominentCountdownMinWidth,
+                max: Sizing.prominentCountdownMaxWidth
+            ),
+            height: clamped(
+                baseHeight + Sizing.prominentCountdownExtraHeight,
+                min: Sizing.prominentCountdownMinHeight,
+                max: Sizing.prominentCountdownMaxHeight
+            )
+        )
     }
 
     private func visibleSize(

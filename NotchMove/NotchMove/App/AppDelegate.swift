@@ -48,8 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onReminder: { [weak engine] content in
                 engine?.presentPomodoroReminder(content)
             },
-            onSuppressionChanged: { [weak engine] suppressed in
-                engine?.setPomodoroReminderSuppression(suppressed)
+            onCountdownChanged: { [weak engine] content in
+                engine?.updatePomodoroCountdown(content)
             }
         )
         let globalHotkeyController = GlobalAICaptureHotkeyController(

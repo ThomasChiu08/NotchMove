@@ -40,7 +40,9 @@ final class PreferencesStore {
             NotificationCenter.default.post(name: Self.notchLayoutDidChangeNotification, object: self)
         }
 
-        if oldValue.reminderIntervalMinutes != newValue.reminderIntervalMinutes ||
+        if oldValue.breakReminderEnabled != newValue.breakReminderEnabled ||
+            oldValue.pomodoroEnabled != newValue.pomodoroEnabled ||
+            oldValue.reminderIntervalMinutes != newValue.reminderIntervalMinutes ||
             oldValue.pomodoroFocusMinutes != newValue.pomodoroFocusMinutes ||
             oldValue.pomodoroBreakMinutes != newValue.pomodoroBreakMinutes ||
             oldValue.sitAwareEnabled != newValue.sitAwareEnabled ||

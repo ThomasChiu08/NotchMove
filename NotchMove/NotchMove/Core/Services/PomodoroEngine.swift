@@ -42,6 +42,17 @@ struct PomodoroReminderContent: Equatable {
     let breakDuration: TimeInterval
 }
 
+struct PomodoroCountdownContent: Equatable {
+    let phase: PomodoroPhase
+    let startedAt: Date
+    let duration: TimeInterval
+    let pausedRemainingSeconds: Int?
+
+    var isPaused: Bool {
+        pausedRemainingSeconds != nil
+    }
+}
+
 @MainActor
 @Observable
 final class PomodoroEngine {
@@ -49,10 +60,11 @@ final class PomodoroEngine {
     private let breakStatsStore: BreakStatsStore
     private let clock: Clock
     private let onReminder: (PomodoroReminderContent) -> Void
-    private let onSuppressionChanged: (Bool) -> Void
+    private let onCountdownChanged: (PomodoroCountdownContent?) -> Void
     private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "pomodoro")
 
     @ObservationIgnored private var tickTask: Task<Void, Never>?
+    @ObservationIgnored private nonisolated(unsafe) var preferencesObserver: NSObjectProtocol?
 
     private(set) var state = PomodoroState()
 
@@ -61,17 +73,21 @@ final class PomodoroEngine {
         breakStatsStore: BreakStatsStore,
         clock: Clock = SystemClock(),
         onReminder: @escaping (PomodoroReminderContent) -> Void = { _ in },
-        onSuppressionChanged: @escaping (Bool) -> Void = { _ in }
+        onCountdownChanged: @escaping (PomodoroCountdownContent?) -> Void = { _ in }
     ) {
         self.preferencesStore = preferencesStore
         self.breakStatsStore = breakStatsStore
         self.clock = clock
         self.onReminder = onReminder
-        self.onSuppressionChanged = onSuppressionChanged
+        self.onCountdownChanged = onCountdownChanged
+        observePreferences()
     }
 
     deinit {
         tickTask?.cancel()
+        if let observer = preferencesObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     var isActive: Bool {
@@ -95,19 +111,10 @@ final class PomodoroEngine {
     }
 
     func startFocusSession() {
-        guard !isActive else { return }
-        onSuppressionChanged(true)
+        guard !isActive, preferencesStore.preferences.pomodoroEnabled else { return }
         let now = clock.now
         let currentFocusDuration = focusDuration
-        let currentBreakDuration = breakDuration
         beginPhase(.focus, duration: currentFocusDuration, at: now)
-        onReminder(PomodoroReminderContent(
-            kind: .sessionStarted,
-            occurredAt: now,
-            nextPhaseDuration: currentFocusDuration,
-            focusDuration: currentFocusDuration,
-            breakDuration: currentBreakDuration
-        ))
         logger.notice("Pomodoro focus session started")
     }
 
@@ -117,7 +124,7 @@ final class PomodoroEngine {
         state.runState = .paused
         tickTask?.cancel()
         tickTask = nil
-        onSuppressionChanged(true)
+        publishCountdown(startedAt: clock.now, duration: TimeInterval(max(state.remainingSeconds, 1)), pausedRemainingSeconds: state.remainingSeconds)
         logger.notice("Pomodoro paused with \(self.state.remainingSeconds)s remaining")
     }
 
@@ -127,7 +134,7 @@ final class PomodoroEngine {
         state.runState = .running
         state.phaseStartDate = now
         state.phaseEndDate = now.addingTimeInterval(TimeInterval(max(state.remainingSeconds, 1)))
-        onSuppressionChanged(true)
+        publishCountdown(startedAt: now, duration: TimeInterval(max(state.remainingSeconds, 1)))
         startTicking()
         logger.notice("Pomodoro resumed")
     }
@@ -135,7 +142,7 @@ final class PomodoroEngine {
     func stop() {
         guard isActive else { return }
         resetState()
-        onSuppressionChanged(false)
+        onCountdownChanged(nil)
         logger.notice("Pomodoro stopped")
     }
 
@@ -148,6 +155,7 @@ final class PomodoroEngine {
             phaseEndDate: date.addingTimeInterval(safeDuration),
             remainingSeconds: Int(ceil(safeDuration))
         )
+        publishCountdown(startedAt: date, duration: safeDuration)
         startTicking()
     }
 
@@ -199,7 +207,7 @@ final class PomodoroEngine {
                 breakDuration: breakDuration
             ))
             resetState()
-            onSuppressionChanged(false)
+            onCountdownChanged(nil)
             logger.notice("Pomodoro break completed")
         }
     }
@@ -212,5 +220,33 @@ final class PomodoroEngine {
 
     private func duration(minutes: Int) -> TimeInterval {
         TimeInterval(max(minutes, 1)) * 60
+    }
+
+    private func publishCountdown(
+        startedAt: Date,
+        duration: TimeInterval,
+        pausedRemainingSeconds: Int? = nil
+    ) {
+        onCountdownChanged(PomodoroCountdownContent(
+            phase: state.phase,
+            startedAt: startedAt,
+            duration: max(duration, 1),
+            pausedRemainingSeconds: pausedRemainingSeconds
+        ))
+    }
+
+    private func observePreferences() {
+        preferencesObserver = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.reminderRuntimeDidChangeNotification,
+            object: preferencesStore,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if !self.preferencesStore.preferences.pomodoroEnabled {
+                    self.stop()
+                }
+            }
+        }
     }
 }

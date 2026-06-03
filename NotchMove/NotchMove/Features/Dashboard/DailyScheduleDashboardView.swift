@@ -153,6 +153,8 @@ struct TodayDashboardView: View {
             "dashboard.run_state.tracking"
         case .manuallyPaused:
             "dashboard.run_state.paused"
+        case .breakRemindersDisabled:
+            "dashboard.run_state.break_disabled"
         case .scheduleBlocked:
             "dashboard.run_state.schedule_blocked"
         case .pomodoroActive:
@@ -180,6 +182,8 @@ struct TodayDashboardView: View {
             return localizedString("dashboard.run_state.reminding")
         case .manuallyPaused:
             return localizedString("dashboard.run_state.paused")
+        case .breakRemindersDisabled:
+            return localizedString("dashboard.run_state.break_disabled")
         case .scheduleBlocked:
             return localizedString("dashboard.run_state.schedule_blocked")
         case .pomodoroActive:

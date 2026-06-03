@@ -9,11 +9,15 @@
 "section.ai_assistant" = "AI 助手";
 
 /* ─── Reminders ─── */
+"sedentary_reminders" = "久坐提醒";
+"sedentary_reminders_caption" = "追蹤連續活動時間，並提醒你站起來或活動。";
 "remind_every" = "提醒間隔";
 "minutes_format" = "%d 分鐘";
 "sit_aware_mode" = "久坐感知模式";
 "sit_aware_footer_on" = "閒置 3 分鐘以上自動重置計時器——你可能已經站起來了。";
 "sit_aware_footer_off" = "較長的間隔會減少打擾，但可能導致久坐時間過長。";
+"pomodoro_enabled" = "番茄鬧鐘";
+"pomodoro_enabled_caption" = "啟用選單列番茄鐘和瀏海倒數。";
 "pomodoro_focus_duration" = "番茄專注";
 "pomodoro_break_duration" = "番茄休息";
 "pomodoro_settings_caption" = "用於選單列裡的番茄專注模式。";
@@ -77,21 +81,25 @@
 "notch.snooze_10m" = "10 分鐘";
 "notch.skip" = "略過";
 "movement_countdown_title" = "活動倒數";
-"pomodoro.session_started.title" = "番茄鐘已開始";
-"pomodoro.focus_completed.title" = "專注完成";
-"pomodoro.focus_completed.detail" = "現在休息一下。";
-"pomodoro.break_completed.title" = "休息完成";
-"pomodoro.break_completed.detail" = "可以開始下一輪專注。";
+"pomodoro.session_started.title" = "開始專注";
+"pomodoro.focus_completed.title" = "該休息了";
+"pomodoro.focus_completed.detail" = "專注結束，離開螢幕放鬆一下。";
+"pomodoro.break_completed.title" = "休息結束";
+"pomodoro.break_completed.detail" = "準備好後開始下一輪專注。";
 "pomodoro.work_label" = "工作";
 "pomodoro.rest_label" = "休息";
-"pomodoro.start_break" = "休息";
-"pomodoro.done" = "完成";
+"pomodoro.countdown.focus_title" = "專注中";
+"pomodoro.countdown.break_title" = "休息中";
+"pomodoro.paused_label" = "已暫停";
+"pomodoro.start_break" = "去休息";
+"pomodoro.done" = "好的";
 "pomodoro.dismiss" = "好的";
 
 /* ─── Menu Bar ─── */
 "menu.next_reminder" = "下次提醒：%@ 分鐘";
 "menu.next_reminder_soon" = "下次提醒：不到 1 分鐘";
 "menu.reminders_paused" = "提醒已暫停";
+"menu.reminders_disabled" = "久坐提醒已關閉";
 "menu.reminder_active" = "正在提醒站立";
 "menu.no_breaks" = "今天還沒有休息";
 "menu.breaks_format" = "今日 %d 次 · 本週 %d 次";
@@ -137,6 +145,7 @@
 "dashboard.property.next_schedule" = "下一項行程";
 "dashboard.run_state.tracking" = "追蹤中";
 "dashboard.run_state.paused" = "已暫停";
+"dashboard.run_state.break_disabled" = "久坐提醒已關閉";
 "dashboard.run_state.schedule_blocked" = "非工作時間";
 "dashboard.run_state.reminding" = "提醒中";
 "dashboard.run_state.pomodoro" = "番茄鐘執行中";
