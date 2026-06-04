@@ -98,6 +98,7 @@ final class NotchWindowController {
         installScreenChangeObserver()
         observeReminderState()
         observeVoiceInputState()
+        observeOverlayContentFit()
     }
 
     // MARK: - State Observation
@@ -132,12 +133,15 @@ final class NotchWindowController {
             return
         }
 
+        let sizingRole = activeSizingRole
         let placement = placementService.placement(
             for: activePresentation,
             on: screen,
             notchExpansionEnabled: preferencesStore.preferences.notchExpansionEnabled,
-            sizingRole: activeSizingRole
+            sizingRole: sizingRole,
+            contentFitSize: contentFitSize(for: sizingRole)
         )
+        clearStaleContentFitRequestIfNeeded(sizingRole: sizingRole)
         updateOverlayMetrics(with: placement)
         updateInteractiveFrame(with: placement)
 
@@ -159,6 +163,32 @@ final class NotchWindowController {
         }
 
         return .standard
+    }
+
+    private func observeOverlayContentFit() {
+        withObservationTracking {
+            _ = overlayMetrics.contentFitRequest
+        } onChange: {
+            Task { @MainActor [weak self] in
+                self?.applyCurrentPlacement(animated: true)
+                self?.observeOverlayContentFit()
+            }
+        }
+    }
+
+    private func contentFitSize(for sizingRole: OverlaySizingRole) -> CGSize? {
+        guard activePresentation == .hoverPreview,
+              sizingRole == .dualPreview
+        else {
+            return nil
+        }
+
+        return overlayMetrics.contentFitRequest?.size
+    }
+
+    private func clearStaleContentFitRequestIfNeeded(sizingRole: OverlaySizingRole) {
+        guard activePresentation != .hoverPreview || sizingRole != .dualPreview else { return }
+        overlayMetrics.clearContentFitRequest()
     }
 
     private var isHoverPreviewPresentation: Bool {

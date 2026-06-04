@@ -145,7 +145,8 @@ struct NotchView: View {
         default:
             NextReminderPreviewView(
                 reminderEngine: reminderEngine,
-                topInset: overlayMetrics.topInset
+                topInset: overlayMetrics.topInset,
+                overlayMetrics: overlayMetrics
             )
         }
     }
@@ -419,44 +420,82 @@ private struct VoiceErrorContentView: View {
 private struct NextReminderPreviewView: View {
     let reminderEngine: ReminderEngine
     let topInset: CGFloat
+    let overlayMetrics: NotchOverlayMetrics
+
+    @Environment(\.displayScale) private var displayScale
+
+    private enum Layout {
+        static let horizontalPadding: CGFloat = 22
+        static let topPadding: CGFloat = 7
+        static let bottomPadding: CGFloat = 12
+        static let rowSpacing: CGFloat = 7
+    }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             let preview = reminderEngine.nextReminderPreview(at: context.date)
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 0) {
-                    NextReminderPreviewRowView(row: preview.breakRow)
-
-                    Rectangle()
-                        .fill(.white.opacity(0.08))
-                        .frame(width: 1, height: 34)
-                        .padding(.horizontal, 8)
-
-                    NextReminderPreviewRowView(row: preview.pomodoroRow)
+            previewContent(preview)
+                .background {
+                    fitProbe(preview)
                 }
-
-                VStack(alignment: .leading, spacing: 5) {
-                    NextReminderPreviewRowView(row: preview.breakRow)
-                    NextReminderPreviewRowView(row: preview.pomodoroRow)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, topInset + 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .onPreferenceChange(OverlayContentFitSizePreferenceKey.self) { size in
+            guard size.width > 0, size.height > 0 else { return }
+            overlayMetrics.requestContentFit(size: size, displayScale: displayScale)
+        }
+        .onDisappear {
+            overlayMetrics.clearContentFitRequest()
+        }
+    }
+
+    private func previewContent(_ preview: ReminderEngine.NextReminderPreview) -> some View {
+        VStack(alignment: .leading, spacing: Layout.rowSpacing) {
+            NextReminderPreviewRowView(row: preview.breakRow)
+            NextReminderPreviewRowView(row: preview.pomodoroRow)
+        }
+        .padding(.horizontal, Layout.horizontalPadding)
+        .padding(.top, topInset + Layout.topPadding)
+        .padding(.bottom, Layout.bottomPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func fitProbe(_ preview: ReminderEngine.NextReminderPreview) -> some View {
+        VStack(alignment: .leading, spacing: Layout.rowSpacing) {
+            NextReminderPreviewRowView(row: preview.breakRow, fillsAvailableWidth: false)
+            NextReminderPreviewRowView(row: preview.pomodoroRow, fillsAvailableWidth: false)
+        }
+        .padding(.horizontal, Layout.horizontalPadding)
+        .padding(.top, topInset + Layout.topPadding)
+        .padding(.bottom, Layout.bottomPadding)
+        .fixedSize(horizontal: true, vertical: true)
+        .overlayContentFitSizeReporter()
+        .hidden()
     }
 }
 
 private struct NextReminderPreviewRowView: View {
     let row: ReminderEngine.NextReminderPreview.Row
+    var fillsAvailableWidth = true
 
+    @ViewBuilder
     var body: some View {
+        if fillsAvailableWidth {
+            rowContent
+                .frame(minWidth: 180, maxWidth: .infinity, alignment: .leading)
+        } else {
+            rowContent
+                .frame(minWidth: 180, alignment: .leading)
+                .fixedSize(horizontal: true, vertical: true)
+        }
+    }
+
+    private var rowContent: some View {
         HStack(spacing: 8) {
             Image(systemName: symbolName)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(tint)
-                .frame(width: 18)
+                .frame(width: 22)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(titleKey)
@@ -485,10 +524,8 @@ private struct NextReminderPreviewRowView: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
         }
-        .frame(minWidth: 130, maxWidth: .infinity, alignment: .leading)
     }
 
     private var titleKey: LocalizedStringKey {
@@ -602,6 +639,31 @@ private struct NextReminderPreviewRowView: View {
 
     private func formattedLocalizedString(_ key: String, _ value: String) -> String {
         String(format: localizedString(key), value)
+    }
+}
+
+private struct OverlayContentFitSizePreferenceKey: PreferenceKey {
+    static var defaultValue = CGSize.zero
+
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        let next = nextValue()
+        value = CGSize(
+            width: max(value.width, next.width),
+            height: max(value.height, next.height)
+        )
+    }
+}
+
+private extension View {
+    func overlayContentFitSizeReporter() -> some View {
+        background {
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: OverlayContentFitSizePreferenceKey.self,
+                    value: proxy.size
+                )
+            }
+        }
     }
 }
 

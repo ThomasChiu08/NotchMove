@@ -62,20 +62,25 @@ struct ScreenPlacementService {
         static let dualPreviewMinHeight: CGFloat = 88
         static let dualPreviewMaxHeight: CGFloat = 104
         static let dualPreviewExtraHeight: CGFloat = 58
+        static let dualPreviewAdaptiveMaxWidth: CGFloat = 640
+        static let dualPreviewAdaptiveHorizontalScreenInset: CGFloat = 80
+        static let dualPreviewAdaptiveMaxHeight: CGFloat = 128
     }
 
     func placement(
         for presentation: ReminderState.PresentationPhase,
         on screen: ScreenDescriptor,
         notchExpansionEnabled: Bool,
-        sizingRole: OverlaySizingRole = .standard
+        sizingRole: OverlaySizingRole = .standard,
+        contentFitSize: CGSize? = nil
     ) -> OverlayPlacement {
         let centerX = screen.notchFrame?.midX ?? screen.frame.midX
         let size = size(
             for: presentation,
             on: screen,
             notchExpansionEnabled: notchExpansionEnabled,
-            sizingRole: sizingRole
+            sizingRole: sizingRole,
+            contentFitSize: contentFitSize
         )
         let tuckedSize = tuckedSize(on: screen)
         let visibleSize = visibleSize(
@@ -83,9 +88,17 @@ struct ScreenPlacementService {
             panelSize: size,
             tuckedSize: tuckedSize
         )
-        let x = centerX - size.width / 2
+        let x = clampedOriginX(
+            centerX - size.width / 2,
+            panelWidth: size.width,
+            on: screen
+        )
         let y = screen.frame.maxY - size.height
-        let tuckedX = centerX - tuckedSize.width / 2
+        let tuckedX = clampedOriginX(
+            centerX - tuckedSize.width / 2,
+            panelWidth: tuckedSize.width,
+            on: screen
+        )
         let tuckedY = screen.frame.maxY - tuckedSize.height
 
         return OverlayPlacement(
@@ -100,7 +113,8 @@ struct ScreenPlacementService {
         for presentation: ReminderState.PresentationPhase,
         on screen: ScreenDescriptor,
         notchExpansionEnabled: Bool,
-        sizingRole: OverlaySizingRole
+        sizingRole: OverlaySizingRole,
+        contentFitSize: CGSize?
     ) -> CGSize {
         let notchWidth = screen.notchFrame?.width ?? Sizing.fallbackTuckedWidth
         let baseHeight = screen.notchFrame?.height ?? screen.menuBarHeight
@@ -112,7 +126,9 @@ struct ScreenPlacementService {
             if sizingRole == .dualPreview {
                 return dualPreviewSize(
                     notchWidth: notchWidth,
-                    baseHeight: baseHeight
+                    baseHeight: baseHeight,
+                    screenWidth: screen.frame.width,
+                    contentFitSize: contentFitSize
                 )
             }
 
@@ -148,19 +164,33 @@ struct ScreenPlacementService {
 
     private func dualPreviewSize(
         notchWidth: CGFloat,
-        baseHeight: CGFloat
+        baseHeight: CGFloat,
+        screenWidth: CGFloat,
+        contentFitSize: CGSize?
     ) -> CGSize {
-        CGSize(
-            width: clamped(
-                notchWidth + Sizing.dualPreviewExtraWidth,
-                min: Sizing.dualPreviewMinWidth,
-                max: Sizing.dualPreviewMaxWidth
-            ),
-            height: clamped(
-                baseHeight + Sizing.dualPreviewExtraHeight,
-                min: Sizing.dualPreviewMinHeight,
-                max: Sizing.dualPreviewMaxHeight
+        let baseWidth = clamped(
+            notchWidth + Sizing.dualPreviewExtraWidth,
+            min: Sizing.dualPreviewMinWidth,
+            max: Sizing.dualPreviewMaxWidth
+        )
+        let basePreviewHeight = clamped(
+            baseHeight + Sizing.dualPreviewExtraHeight,
+            min: Sizing.dualPreviewMinHeight,
+            max: Sizing.dualPreviewMaxHeight
+        )
+        let adaptiveMaxWidth = max(
+            1,
+            min(
+                Sizing.dualPreviewAdaptiveMaxWidth,
+                screenWidth - Sizing.dualPreviewAdaptiveHorizontalScreenInset
             )
+        )
+        let desiredWidth = max(baseWidth, contentFitSize?.width ?? 0)
+        let desiredHeight = max(basePreviewHeight, contentFitSize?.height ?? 0)
+
+        return CGSize(
+            width: min(desiredWidth, adaptiveMaxWidth),
+            height: min(desiredHeight, Sizing.dualPreviewAdaptiveMaxHeight)
         )
     }
 
@@ -233,6 +263,19 @@ struct ScreenPlacementService {
 
     private func clamped(_ value: CGFloat, min minValue: CGFloat, max maxValue: CGFloat) -> CGFloat {
         Swift.min(Swift.max(value, minValue), maxValue)
+    }
+
+    private func clampedOriginX(
+        _ value: CGFloat,
+        panelWidth: CGFloat,
+        on screen: ScreenDescriptor
+    ) -> CGFloat {
+        let minX = screen.frame.minX
+        let maxX = screen.frame.maxX - panelWidth
+
+        guard maxX >= minX else { return minX }
+
+        return clamped(value, min: minX, max: maxX)
     }
 }
 

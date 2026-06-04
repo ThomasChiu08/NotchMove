@@ -1304,7 +1304,7 @@ struct ScreenPlacementServiceTests {
         #expect(placement.visibleSize == CGSize(width: 344, height: 96))
     }
 
-    @Test func dualPreviewHoverUsesTwoColumnCanvas() {
+    @Test func dualPreviewHoverUsesBaseCanvas() {
         let screen = ScreenDescriptor(
             displayID: 1,
             localizedName: "Built-in Display",
@@ -1326,6 +1326,151 @@ struct ScreenPlacementServiceTests {
         #expect(placement.frame.size == CGSize(width: 360, height: 96))
         #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
         #expect(placement.visibleSize == CGSize(width: 360, height: 96))
+    }
+
+    @Test func dualPreviewHoverExpandsToFitMeasuredContent() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hoverPreview,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .dualPreview,
+            contentFitSize: CGSize(width: 520, height: 118)
+        )
+
+        #expect(placement.topInset == 38)
+        #expect(placement.frame.origin.x == 496)
+        #expect(placement.frame.size == CGSize(width: 520, height: 118))
+        #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
+        #expect(placement.visibleSize == CGSize(width: 520, height: 118))
+    }
+
+    @Test func dualPreviewHoverClampsMeasuredContentToAdaptiveMaximum() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hoverPreview,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .dualPreview,
+            contentFitSize: CGSize(width: 900, height: 180)
+        )
+
+        #expect(placement.frame.origin.x == 436)
+        #expect(placement.frame.size == CGSize(width: 640, height: 128))
+        #expect(placement.visibleSize == CGSize(width: 640, height: 128))
+    }
+
+    @Test func dualPreviewHoverClampsMeasuredContentInsideNarrowScreen() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 500, height: 800),
+            notchFrame: CGRect(x: 190, y: 762, width: 120, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hoverPreview,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .dualPreview,
+            contentFitSize: CGSize(width: 600, height: 180)
+        )
+
+        #expect(placement.frame.origin.x == 40)
+        #expect(placement.frame.size == CGSize(width: 420, height: 128))
+        #expect(placement.frame.minX >= screen.frame.minX)
+        #expect(placement.frame.maxX <= screen.frame.maxX)
+        #expect(placement.visibleSize == CGSize(width: 420, height: 128))
+    }
+
+    @Test func dualPreviewHoverUsesMeasuredContentOnNonNotchedScreenWithoutOverflow() {
+        let screen = ScreenDescriptor(
+            displayID: 2,
+            localizedName: "Studio Display",
+            isBuiltIn: false,
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            notchFrame: nil,
+            menuBarHeight: 24
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hoverPreview,
+            on: screen,
+            notchExpansionEnabled: false,
+            sizingRole: .dualPreview,
+            contentFitSize: CGSize(width: 480, height: 112)
+        )
+
+        #expect(placement.topInset == 24)
+        #expect(placement.frame.origin.x == 480)
+        #expect(placement.frame.size == CGSize(width: 480, height: 112))
+        #expect(placement.frame.minX >= screen.frame.minX)
+        #expect(placement.frame.maxX <= screen.frame.maxX)
+        #expect(placement.visibleSize == CGSize(width: 480, height: 112))
+    }
+
+    @Test func contentFitRequestDoesNotAffectStandardHoverSizing() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hoverPreview,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .standard,
+            contentFitSize: CGSize(width: 640, height: 128)
+        )
+
+        #expect(placement.frame.origin.x == 632)
+        #expect(placement.frame.size == CGSize(width: 248, height: 72))
+        #expect(placement.visibleSize == CGSize(width: 248, height: 72))
+    }
+
+    @Test func contentFitRequestDoesNotAffectPresentingReminderSizing() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .presenting,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .standard,
+            contentFitSize: CGSize(width: 640, height: 128)
+        )
+
+        #expect(placement.frame.origin.x == 596)
+        #expect(placement.frame.size == CGSize(width: 320, height: 96))
+        #expect(placement.visibleSize == CGSize(width: 320, height: 96))
     }
 
     @Test func dualPreviewPendingAndDismissingKeepTuckedVisibleIsland() {
