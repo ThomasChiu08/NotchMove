@@ -92,6 +92,8 @@ struct SettingsView: View {
 struct SettingsContentView: View {
     let languageManager: LanguageManager
     let loginItemManager: any LoginItemManaging
+    let reminderEngine: ReminderEngine?
+    let pomodoroEngine: PomodoroEngine?
     @Bindable var preferencesStore: PreferencesStore
     @Bindable var aiProviderPreferences: AIProviderPreferences
     @Bindable var breakStatsStore: BreakStatsStore
@@ -123,6 +125,8 @@ struct SettingsContentView: View {
     init(
         languageManager: LanguageManager,
         loginItemManager: any LoginItemManaging,
+        reminderEngine: ReminderEngine? = nil,
+        pomodoroEngine: PomodoroEngine? = nil,
         preferencesStore: PreferencesStore,
         aiProviderPreferences: AIProviderPreferences,
         breakStatsStore: BreakStatsStore,
@@ -132,6 +136,8 @@ struct SettingsContentView: View {
     ) {
         self.languageManager = languageManager
         self.loginItemManager = loginItemManager
+        self.reminderEngine = reminderEngine
+        self.pomodoroEngine = pomodoroEngine
         self.preferencesStore = preferencesStore
         self.aiProviderPreferences = aiProviderPreferences
         self.breakStatsStore = breakStatsStore
@@ -301,6 +307,17 @@ struct SettingsContentView: View {
                     Text("pomodoro_enabled")
                 }
                 .labelsHidden()
+            }
+
+            if let reminderEngine, let pomodoroEngine {
+                SettingsPropertyRow("pomodoro_session", captionKey: "pomodoro_session_caption") {
+                    PomodoroSessionControls(
+                        reminderEngine: reminderEngine,
+                        pomodoroEngine: pomodoroEngine,
+                        preferencesStore: preferencesStore,
+                        localizedString: localizedString
+                    )
+                }
             }
 
             SettingsPropertyRow("pomodoro_focus_duration", captionKey: "pomodoro_settings_caption") {
@@ -1597,6 +1614,76 @@ struct SettingsContentView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
+    }
+}
+
+private struct PomodoroSessionControls: View {
+    let reminderEngine: ReminderEngine
+    let pomodoroEngine: PomodoroEngine
+    let preferencesStore: PreferencesStore
+    let localizedString: (String) -> String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(statusText)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(minWidth: 120, alignment: .leading)
+
+            if pomodoroEngine.isActive {
+                Button(pomodoroEngine.isPaused ? "menu.pomodoro_resume" : "menu.pomodoro_pause") {
+                    togglePause()
+                }
+
+                Button("menu.pomodoro_stop", role: .destructive) {
+                    pomodoroEngine.stop()
+                }
+            } else {
+                Button("menu.pomodoro_start") {
+                    pomodoroEngine.startFocusSession()
+                }
+                .disabled(!canStart)
+            }
+        }
+    }
+
+    private var canStart: Bool {
+        preferencesStore.preferences.pomodoroEnabled && !reminderEngine.isReminderPresenting
+    }
+
+    private var statusText: String {
+        guard preferencesStore.preferences.pomodoroEnabled else {
+            return localizedString("pomodoro_session_status_disabled")
+        }
+
+        guard pomodoroEngine.isActive else {
+            return localizedString("pomodoro_session_status_ready")
+        }
+
+        let remaining = formattedRemainingSeconds(pomodoroEngine.state.remainingSeconds)
+        if pomodoroEngine.isPaused {
+            return String(format: localizedString("menu.pomodoro_paused_format"), remaining)
+        }
+
+        switch pomodoroEngine.state.phase {
+        case .focus:
+            return String(format: localizedString("menu.pomodoro_focus_format"), remaining)
+        case .rest:
+            return String(format: localizedString("menu.pomodoro_break_format"), remaining)
+        }
+    }
+
+    private func togglePause() {
+        if pomodoroEngine.isPaused {
+            pomodoroEngine.resume()
+        } else {
+            pomodoroEngine.pause()
+        }
+    }
+
+    private func formattedRemainingSeconds(_ seconds: Int) -> String {
+        let safeSeconds = max(seconds, 0)
+        return String(format: "%02d:%02d", safeSeconds / 60, safeSeconds % 60)
     }
 }
 

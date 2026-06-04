@@ -155,6 +155,8 @@ struct UnifiedDashboardView: View {
                 section: section,
                 languageManager: languageManager,
                 loginItemManager: loginItemManager,
+                reminderEngine: reminderEngine,
+                pomodoroEngine: pomodoroEngine,
                 preferencesStore: preferencesStore,
                 aiProviderPreferences: aiProviderPreferences,
                 breakStatsStore: breakStatsStore,
@@ -443,6 +445,8 @@ private struct DashboardSettingsPage: View {
     let section: SettingsPageSection
     let languageManager: LanguageManager
     let loginItemManager: any LoginItemManaging
+    let reminderEngine: ReminderEngine
+    let pomodoroEngine: PomodoroEngine
     let preferencesStore: PreferencesStore
     let aiProviderPreferences: AIProviderPreferences
     let breakStatsStore: BreakStatsStore
@@ -457,6 +461,8 @@ private struct DashboardSettingsPage: View {
             SettingsContentView(
                 languageManager: languageManager,
                 loginItemManager: loginItemManager,
+                reminderEngine: reminderEngine,
+                pomodoroEngine: pomodoroEngine,
                 preferencesStore: preferencesStore,
                 aiProviderPreferences: aiProviderPreferences,
                 breakStatsStore: breakStatsStore,

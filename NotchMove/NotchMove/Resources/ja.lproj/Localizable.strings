@@ -18,6 +18,10 @@
 "sit_aware_footer_off" = "間隔を長くすると中断が減りますが、長時間座り続ける可能性があります。";
 "pomodoro_enabled" = "ポモドーロタイマー";
 "pomodoro_enabled_caption" = "メニューバーのポモドーロとノッチのカウントダウンを有効にします。";
+"pomodoro_session" = "ポモドーロセッション";
+"pomodoro_session_caption" = "ダッシュボードから現在のポモドーロを開始、一時停止、停止します。";
+"pomodoro_session_status_disabled" = "オフ";
+"pomodoro_session_status_ready" = "開始できます";
 "pomodoro_focus_duration" = "ポモドーロ集中";
 "pomodoro_break_duration" = "ポモドーロ休憩";
 "pomodoro_settings_caption" = "メニューバーのポモドーロ集中モードで使います。";

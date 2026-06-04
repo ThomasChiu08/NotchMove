@@ -18,6 +18,10 @@
 "sit_aware_footer_off" = "較長的間隔會減少打擾，但可能導致久坐時間過長。";
 "pomodoro_enabled" = "番茄鬧鐘";
 "pomodoro_enabled_caption" = "啟用選單列番茄鐘和瀏海倒數。";
+"pomodoro_session" = "番茄鐘會話";
+"pomodoro_session_caption" = "在控制台開始、暫停或停止目前番茄鐘。";
+"pomodoro_session_status_disabled" = "已關閉";
+"pomodoro_session_status_ready" = "可開始";
 "pomodoro_focus_duration" = "番茄專注";
 "pomodoro_break_duration" = "番茄休息";
 "pomodoro_settings_caption" = "用於選單列裡的番茄專注模式。";

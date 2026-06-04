@@ -18,6 +18,10 @@
 "sit_aware_footer_off" = "Longer intervals reduce interruptions but may allow more continuous sitting.";
 "pomodoro_enabled" = "Pomodoro timer";
 "pomodoro_enabled_caption" = "Enables menu bar Pomodoro sessions and notch countdowns.";
+"pomodoro_session" = "Pomodoro session";
+"pomodoro_session_caption" = "Start, pause, or stop the current Pomodoro session from the dashboard.";
+"pomodoro_session_status_disabled" = "Off";
+"pomodoro_session_status_ready" = "Ready";
 "pomodoro_focus_duration" = "Pomodoro focus";
 "pomodoro_break_duration" = "Pomodoro break";
 "pomodoro_settings_caption" = "Used by the menu bar Pomodoro focus mode.";

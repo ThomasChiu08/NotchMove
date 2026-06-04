@@ -367,6 +367,23 @@ struct BreakStatsStoreTests {
 
 @MainActor
 struct PomodoroEngineTests {
+    @Test func enabledPomodoroStartsFocusSessionAndCountdown() {
+        let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
+        let context = makePomodoroContext(now: now)
+        defer { context.cleanup() }
+
+        context.preferencesStore.preferences.pomodoroEnabled = true
+        context.preferencesStore.preferences.pomodoroFocusMinutes = 25
+        context.engine.startFocusSession()
+
+        #expect(context.engine.state.runState == .running)
+        #expect(context.engine.state.phase == .focus)
+        #expect(context.engine.state.remainingSeconds == 25 * 60)
+        #expect(context.probe.reminders.isEmpty)
+        #expect(context.probe.countdowns.compactMap { $0?.phase } == [.focus])
+        #expect(context.probe.countdowns.compactMap { $0 }.last?.duration == TimeInterval(25 * 60))
+    }
+
     @Test func focusCompletionStartsBreakAndRequestsOverlay() async {
         let now = makeDate(year: 2026, month: 6, day: 2, hour: 9, minute: 0)
         let context = makePomodoroContext(now: now)
