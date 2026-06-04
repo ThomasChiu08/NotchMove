@@ -135,6 +135,7 @@
 "menu.no_schedule_today" = "今天沒有更多行程";
 "menu.dashboard" = "控制台…";
 "menu.settings" = "設定…";
+"notch.settings.open" = "開啟設定";
 "menu.quit" = "結束 NotchMove";
 
 /* ─── Settings Window ─── */

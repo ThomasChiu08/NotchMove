@@ -135,6 +135,7 @@
 "menu.no_schedule_today" = "No more schedule today";
 "menu.dashboard" = "Dashboard…";
 "menu.settings" = "Settings…";
+"notch.settings.open" = "Open Settings";
 "menu.quit" = "Quit NotchMove";
 
 /* ─── Settings Window ─── */

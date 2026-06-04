@@ -76,6 +76,16 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         }
     }
 
+    func openSettings(section: SettingsPageSection = .reminders) {
+        DispatchQueue.main.async { [weak self] in
+            UserDefaults.standard.set(
+                UnifiedDashboardPage.settings(section).id,
+                forKey: UnifiedDashboardSelectionStorage.selectedPageKey
+            )
+            self?.presentWindow()
+        }
+    }
+
     func openAICapture() {
         DispatchQueue.main.async { [weak self] in
             self?.presentWindow()

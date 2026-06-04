@@ -7,6 +7,10 @@
 
 import SwiftUI
 
+enum UnifiedDashboardSelectionStorage {
+    static let selectedPageKey = "unifiedDashboardSelectedPage"
+}
+
 struct UnifiedDashboardView: View {
     let languageManager: LanguageManager
     let loginItemManager: any LoginItemManaging
@@ -19,7 +23,7 @@ struct UnifiedDashboardView: View {
     @Bindable var breakStatsStore: BreakStatsStore
     @Bindable var globalHotkeyController: GlobalAICaptureHotkeyController
 
-    @AppStorage("unifiedDashboardSelectedPage") private var selectedPageID = UnifiedDashboardPage.breaks.id
+    @AppStorage(UnifiedDashboardSelectionStorage.selectedPageKey) private var selectedPageID = UnifiedDashboardPage.breaks.id
 
     var body: some View {
         NavigationSplitView {

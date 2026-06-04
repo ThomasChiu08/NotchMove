@@ -79,6 +79,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferencesStore: preferencesStore,
             onOpenDashboard: { [weak dashboardWindow] in
                 dashboardWindow?.openDashboard()
+            },
+            onOpenSettings: { [weak dashboardWindow] in
+                dashboardWindow?.openSettings(section: .reminders)
             }
         )
 

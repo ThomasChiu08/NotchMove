@@ -13,6 +13,7 @@ struct NotchView: View {
     let voiceInputSession: VoiceInputSessionController
     let overlayMetrics: NotchOverlayMetrics
     let onOpenDashboard: () -> Void
+    let onOpenSettings: () -> Void
 
     private enum Motion {
         static let expansion = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.82, blendDuration: 0)
@@ -193,8 +194,18 @@ struct NotchView: View {
             NextReminderPreviewView(
                 reminderEngine: reminderEngine,
                 topInset: overlayMetrics.topInset,
-                overlayMetrics: overlayMetrics
+                overlayMetrics: overlayMetrics,
+                onOpenSettings: openSettingsFromHoverPreview
             )
+        }
+    }
+
+    private func openSettingsFromHoverPreview() {
+        reminderEngine.send(.hoverChanged(false))
+
+        Task { @MainActor in
+            try? await Task.sleep(for: ReminderEngine.hoverPreviewDismissalDelay)
+            onOpenSettings()
         }
     }
 
@@ -468,6 +479,7 @@ private struct NextReminderPreviewView: View {
     let reminderEngine: ReminderEngine
     let topInset: CGFloat
     let overlayMetrics: NotchOverlayMetrics
+    let onOpenSettings: () -> Void
 
     @Environment(\.displayScale) private var displayScale
 
@@ -476,6 +488,10 @@ private struct NextReminderPreviewView: View {
         static let topPadding: CGFloat = 7
         static let bottomPadding: CGFloat = 12
         static let rowSpacing: CGFloat = 7
+        static let settingsButtonSize: CGFloat = 26
+        static let settingsButtonTopPadding: CGFloat = 5
+        static let settingsButtonTrailingPadding: CGFloat = 8
+        static let settingsReservationWidth: CGFloat = 34
     }
 
     var body: some View {
@@ -497,27 +513,72 @@ private struct NextReminderPreviewView: View {
     }
 
     private func previewContent(_ preview: ReminderEngine.NextReminderPreview) -> some View {
-        VStack(alignment: .leading, spacing: Layout.rowSpacing) {
-            NextReminderPreviewRowView(row: preview.breakRow)
-            NextReminderPreviewRowView(row: preview.pomodoroRow)
+        ZStack(alignment: .topTrailing) {
+            previewRows(preview, fillsAvailableWidth: true)
+                .padding(.trailing, Layout.settingsReservationWidth)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            NotchSettingsButton(
+                size: Layout.settingsButtonSize,
+                action: onOpenSettings
+            )
+            .padding(.top, topInset + Layout.settingsButtonTopPadding)
+            .padding(.trailing, Layout.settingsButtonTrailingPadding)
         }
-        .padding(.horizontal, Layout.horizontalPadding)
-        .padding(.top, topInset + Layout.topPadding)
-        .padding(.bottom, Layout.bottomPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private func fitProbe(_ preview: ReminderEngine.NextReminderPreview) -> some View {
+    private func previewRows(
+        _ preview: ReminderEngine.NextReminderPreview,
+        fillsAvailableWidth: Bool
+    ) -> some View {
         VStack(alignment: .leading, spacing: Layout.rowSpacing) {
-            NextReminderPreviewRowView(row: preview.breakRow, fillsAvailableWidth: false)
-            NextReminderPreviewRowView(row: preview.pomodoroRow, fillsAvailableWidth: false)
+            NextReminderPreviewRowView(row: preview.breakRow, fillsAvailableWidth: fillsAvailableWidth)
+            NextReminderPreviewRowView(row: preview.pomodoroRow, fillsAvailableWidth: fillsAvailableWidth)
         }
         .padding(.horizontal, Layout.horizontalPadding)
         .padding(.top, topInset + Layout.topPadding)
         .padding(.bottom, Layout.bottomPadding)
+    }
+
+    private func fitProbe(_ preview: ReminderEngine.NextReminderPreview) -> some View {
+        previewRows(preview, fillsAvailableWidth: false)
+        .padding(.trailing, Layout.settingsReservationWidth)
         .fixedSize(horizontal: true, vertical: true)
         .overlayContentFitSizeReporter()
         .hidden()
+    }
+}
+
+private struct NotchSettingsButton: View {
+    let size: CGFloat
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "gearshape")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white.opacity(isHovering ? 0.96 : 0.72))
+                .frame(width: size, height: size)
+                .background {
+                    Circle()
+                        .fill(.white.opacity(isHovering ? 0.18 : 0.10))
+                }
+                .overlay {
+                    Circle()
+                        .stroke(.white.opacity(isHovering ? 0.24 : 0.12), lineWidth: 0.5)
+                }
+        }
+        .buttonStyle(.plain)
+        .contentShape(Circle())
+        .help(Text("notch.settings.open"))
+        .accessibilityLabel(Text("notch.settings.open"))
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .animation(.easeOut(duration: 0.12), value: isHovering)
     }
 }
 
@@ -1356,7 +1417,8 @@ private struct PreviewSoundPlayer: SoundPlaying {
             languageManager: LanguageManager(preferencesStore: preferencesStore)
         ),
         overlayMetrics: overlayMetrics,
-        onOpenDashboard: {}
+        onOpenDashboard: {},
+        onOpenSettings: {}
     )
         .frame(width: 380, height: 160)
         .background(.gray)

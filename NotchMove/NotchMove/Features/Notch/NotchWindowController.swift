@@ -15,6 +15,7 @@ final class NotchWindowController {
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
     private let onOpenDashboard: () -> Void
+    private let onOpenSettings: () -> Void
     private let overlayMetrics: NotchOverlayMetrics
     private let hostingView: NotchHostingView
     private let screenProvider: ScreenProviding
@@ -44,6 +45,7 @@ final class NotchWindowController {
         languageManager: LanguageManager,
         preferencesStore: PreferencesStore,
         onOpenDashboard: @escaping () -> Void,
+        onOpenSettings: @escaping () -> Void,
         screenProvider: ScreenProviding = MainScreenProvider(),
         placementService: ScreenPlacementService = ScreenPlacementService()
     ) {
@@ -52,6 +54,7 @@ final class NotchWindowController {
         self.languageManager = languageManager
         self.preferencesStore = preferencesStore
         self.onOpenDashboard = onOpenDashboard
+        self.onOpenSettings = onOpenSettings
         self.screenProvider = screenProvider
         self.placementService = placementService
         let overlayMetrics = NotchOverlayMetrics(topInset: 38)
@@ -62,7 +65,8 @@ final class NotchWindowController {
                 voiceInputSession: voiceInputSession,
                 overlayMetrics: overlayMetrics,
                 locale: languageManager.locale,
-                onOpenDashboard: onOpenDashboard
+                onOpenDashboard: onOpenDashboard,
+                onOpenSettings: onOpenSettings
             )
         )
         hostingView.wantsLayer = true
@@ -233,7 +237,8 @@ final class NotchWindowController {
             voiceInputSession: voiceInputSession,
             overlayMetrics: overlayMetrics,
             locale: languageManager.locale,
-            onOpenDashboard: onOpenDashboard
+            onOpenDashboard: onOpenDashboard,
+            onOpenSettings: onOpenSettings
         )
     }
 
@@ -246,14 +251,16 @@ final class NotchWindowController {
         voiceInputSession: VoiceInputSessionController,
         overlayMetrics: NotchOverlayMetrics,
         locale: Locale,
-        onOpenDashboard: @escaping () -> Void
+        onOpenDashboard: @escaping () -> Void,
+        onOpenSettings: @escaping () -> Void
     ) -> AnyView {
         AnyView(
             NotchView(
                 reminderEngine: reminderEngine,
                 voiceInputSession: voiceInputSession,
                 overlayMetrics: overlayMetrics,
-                onOpenDashboard: onOpenDashboard
+                onOpenDashboard: onOpenDashboard,
+                onOpenSettings: onOpenSettings
             )
                 .environment(\.locale, locale)
         )
