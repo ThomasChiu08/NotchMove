@@ -69,6 +69,20 @@ struct SchedulePolicyTests {
 }
 
 @MainActor
+struct StatusItemAppearanceTests {
+    @Test func statusItemAppearanceUsesFixedTemplateImageAndFallbackTitle() {
+        #expect(StatusItemAppearance.length == NSStatusItem.squareLength)
+        #expect(StatusItemAppearance.fallbackTitle == "NM")
+        #expect(StatusItemAppearance.accessibilityDescription.contains("NotchMove"))
+
+        let image = StatusItemAppearance.makeStatusBarImage()
+
+        #expect(image != nil)
+        #expect(image?.isTemplate == true)
+    }
+}
+
+@MainActor
 struct PreferencesStoreTests {
     @Test func restoreDefaultsResetsLanguageAndBehavior() {
         let suiteName = "NotchMoveTests-\(UUID().uuidString)"
@@ -852,14 +866,25 @@ struct ReminderEngineTests {
         #expect(context.engine.state.presentation == .hoverPreviewPending)
         #expect(!context.engine.isReminderPresenting)
 
-        await promoteHoverPreview(in: context)
+        await flushAsyncWork()
+        await context.clock.advance(by: .milliseconds(90))
+        await flushAsyncWork()
+        #expect(context.engine.state.presentation == .hoverPreviewPending)
 
+        await context.clock.advance(by: .milliseconds(30))
+        await flushAsyncWork()
         #expect(context.engine.state.presentation == .hoverPreview)
 
         context.engine.send(.hoverChanged(false))
         #expect(context.engine.state.presentation == .hoverPreviewDismissing)
 
-        await settleHoverPreviewDismissal(in: context)
+        await flushAsyncWork()
+        await context.clock.advance(by: .milliseconds(120))
+        await flushAsyncWork()
+        #expect(context.engine.state.presentation == .hoverPreviewDismissing)
+
+        await context.clock.advance(by: .milliseconds(40))
+        await flushAsyncWork()
         #expect(context.engine.state.presentation == .hidden)
     }
 

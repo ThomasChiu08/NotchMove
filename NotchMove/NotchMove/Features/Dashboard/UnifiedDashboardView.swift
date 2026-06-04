@@ -49,6 +49,7 @@ struct UnifiedDashboardView: View {
                             Image(systemName: page.systemImage)
                                 .foregroundStyle(.secondary)
                         }
+                        .labelStyle(.titleAndIcon)
                         .tag(page.id)
                     }
                 }
@@ -61,6 +62,7 @@ struct UnifiedDashboardView: View {
                             Image(systemName: section.systemImage)
                                 .foregroundStyle(.secondary)
                         }
+                        .labelStyle(.titleAndIcon)
                         .tag(UnifiedDashboardPage.settings(section).id)
                     }
                 }

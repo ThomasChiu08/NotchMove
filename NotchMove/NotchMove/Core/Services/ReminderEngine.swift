@@ -59,8 +59,8 @@ struct ReminderState: Equatable {
 @Observable
 final class ReminderEngine {
     static let reminderPresentationPreflightDelay: Duration = .milliseconds(90)
-    static let hoverPreviewPromotionDelay: Duration = .milliseconds(70)
-    static let hoverPreviewDismissalDelay: Duration = .milliseconds(240)
+    static let hoverPreviewPromotionDelay: Duration = .milliseconds(120)
+    static let hoverPreviewDismissalDelay: Duration = .milliseconds(160)
 
     struct ScheduleReminderContent: Equatable {
         let id: DailyScheduleItem.ID

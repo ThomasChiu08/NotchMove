@@ -8,6 +8,55 @@
 import AppKit
 import OSLog
 
+enum StatusItemAppearance {
+    static let length = NSStatusItem.squareLength
+    static let fallbackTitle = "NM"
+    static let accessibilityDescription = "NotchMove — sit-stand reminder"
+
+    static func makeStatusBarImage() -> NSImage? {
+        guard let image = NSImage(
+            systemSymbolName: "figure.walk",
+            accessibilityDescription: accessibilityDescription
+        ) else {
+            return nil
+        }
+
+        image.isTemplate = true
+        return image
+    }
+
+    @MainActor
+    static func configure(_ statusItem: NSStatusItem) {
+        statusItem.length = length
+
+        guard let button = statusItem.button else { return }
+        button.toolTip = accessibilityDescription
+        button.setAccessibilityLabel(accessibilityDescription)
+
+        if let image = makeStatusBarImage() {
+            button.image = image
+            button.imagePosition = .imageOnly
+            button.imageScaling = .scaleProportionallyDown
+            button.title = ""
+            return
+        }
+
+        if let appIcon = NSApp.applicationIconImage.copy() as? NSImage,
+           appIcon.size.width > 0,
+           appIcon.size.height > 0 {
+            button.image = appIcon
+            button.imagePosition = .imageOnly
+            button.imageScaling = .scaleProportionallyDown
+            button.title = ""
+            return
+        }
+
+        button.image = nil
+        button.imagePosition = .noImage
+        button.title = fallbackTitle
+    }
+}
+
 /// Manages the persistent `NSStatusItem` in the menu bar.
 ///
 /// Always visible regardless of notch presence. On non-notch Macs the
@@ -16,7 +65,7 @@ import OSLog
 /// screens without a physical notch.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
-    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let statusItem = NSStatusBar.system.statusItem(withLength: StatusItemAppearance.length)
     private let reminderEngine: ReminderEngine
     private let pomodoroEngine: PomodoroEngine
     private let breakStatsStore: BreakStatsStore
@@ -60,8 +109,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // MARK: - Setup
 
     private func configureStatusButton() {
-        guard let button = statusItem.button else { return }
-        button.image = NSImage(systemSymbolName: "figure.walk", accessibilityDescription: "NotchMove — sit-stand reminder")
+        StatusItemAppearance.configure(statusItem)
         statusItem.menu = menu
         menu.delegate = self
     }

@@ -60,12 +60,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.voiceInputSession.endPushToTalk()
             }
         )
-        let controller = NotchWindowController(
-            reminderEngine: engine,
-            voiceInputSession: voiceInputSession,
-            languageManager: languageManager,
-            preferencesStore: preferencesStore
-        )
         let dashboardWindow = DashboardWindowController(
             languageManager: languageManager,
             reminderEngine: engine,
@@ -77,6 +71,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             breakStatsStore: breakStatsStore,
             loginItemManager: loginItemService,
             globalHotkeyController: globalHotkeyController
+        )
+        let controller = NotchWindowController(
+            reminderEngine: engine,
+            voiceInputSession: voiceInputSession,
+            languageManager: languageManager,
+            preferencesStore: preferencesStore,
+            onOpenDashboard: { [weak dashboardWindow] in
+                dashboardWindow?.openDashboard()
+            }
         )
 
         monitor.start()

@@ -5,15 +5,22 @@
 //  Created by Thomas Chiu on 4/16/26.
 //
 
+import AppKit
 import SwiftUI
 
 struct NotchView: View {
     let reminderEngine: ReminderEngine
     let voiceInputSession: VoiceInputSessionController
     let overlayMetrics: NotchOverlayMetrics
+    let onOpenDashboard: () -> Void
 
-    private let shapeAnimation = Animation.spring(response: 0.28, dampingFraction: 0.86, blendDuration: 0.08)
-    private let contentAnimation = Animation.easeOut(duration: 0.18).delay(0.055)
+    private enum Motion {
+        static let expansion = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.82, blendDuration: 0)
+        static let retraction = Animation.spring(response: 0.26, dampingFraction: 0.92, blendDuration: 0.04)
+        static let contentInsertion = Animation.easeOut(duration: 0.16).delay(0.11)
+        static let contentRemoval = Animation.easeOut(duration: 0.12)
+        static let shadow = Animation.easeOut(duration: 0.16)
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -33,20 +40,60 @@ struct NotchView: View {
         }
         .frame(width: islandSize.width, height: islandSize.height, alignment: .top)
         .clipped()
+        .shadow(color: shellShadowColor, radius: shellShadowRadius, x: 0, y: shellShadowOffsetY)
         .animation(shapeAnimation, value: islandSize)
         .animation(shapeAnimation, value: cornerRadius)
+        .animation(Motion.shadow, value: isExpandedPresentation)
         .onHover { hovering in
             guard !voiceInputSession.isOverlayVisible else { return }
             reminderEngine.send(.hoverChanged(hovering))
+        }
+        .contextMenu {
+            Button("menu.dashboard", action: onOpenDashboard)
+
+            Divider()
+
+            Button("menu.quit") {
+                NSApp.terminate(nil)
+            }
         }
     }
 
     private var cornerRadius: CGFloat {
         switch activePresentation {
         case .hidden, .reminderPending, .hoverPreviewPending, .hoverPreviewDismissing, .dismissAnimating: 10
-        case .hoverPreview: 14
-        case .presenting: 16
+        case .hoverPreview: 16
+        case .presenting: 18
         }
+    }
+
+    private var isExpandedPresentation: Bool {
+        switch activePresentation {
+        case .hoverPreview, .presenting:
+            true
+        case .hidden, .reminderPending, .hoverPreviewPending, .hoverPreviewDismissing, .dismissAnimating:
+            false
+        }
+    }
+
+    private var shapeAnimation: Animation {
+        isExpandedPresentation ? Motion.expansion : Motion.retraction
+    }
+
+    private var contentAnimation: Animation {
+        isExpandedPresentation ? Motion.contentInsertion : Motion.contentRemoval
+    }
+
+    private var shellShadowColor: Color {
+        isExpandedPresentation ? .black.opacity(0.28) : .clear
+    }
+
+    private var shellShadowRadius: CGFloat {
+        isExpandedPresentation ? 8 : 0
+    }
+
+    private var shellShadowOffsetY: CGFloat {
+        isExpandedPresentation ? 4 : 0
     }
 
     private var activePresentation: ReminderState.PresentationPhase {
@@ -1308,7 +1355,8 @@ private struct PreviewSoundPlayer: SoundPlaying {
             preferences: AIProviderPreferences(defaults: settings.defaults),
             languageManager: LanguageManager(preferencesStore: preferencesStore)
         ),
-        overlayMetrics: overlayMetrics
+        overlayMetrics: overlayMetrics,
+        onOpenDashboard: {}
     )
         .frame(width: 380, height: 160)
         .background(.gray)
