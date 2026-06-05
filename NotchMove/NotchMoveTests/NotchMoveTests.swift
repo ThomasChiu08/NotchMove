@@ -884,11 +884,11 @@ struct ReminderEngineTests {
         #expect(!context.engine.isReminderPresenting)
 
         await flushAsyncWork()
-        await context.clock.advance(by: .milliseconds(90))
+        await context.clock.advance(by: .milliseconds(50))
         await flushAsyncWork()
         #expect(context.engine.state.presentation == .hoverPreviewPending)
 
-        await context.clock.advance(by: .milliseconds(30))
+        await context.clock.advance(by: .milliseconds(25))
         await flushAsyncWork()
         #expect(context.engine.state.presentation == .hoverPreview)
 
@@ -896,13 +896,34 @@ struct ReminderEngineTests {
         #expect(context.engine.state.presentation == .hoverPreviewDismissing)
 
         await flushAsyncWork()
-        await context.clock.advance(by: .milliseconds(120))
+        await context.clock.advance(by: .milliseconds(200))
         await flushAsyncWork()
         #expect(context.engine.state.presentation == .hoverPreviewDismissing)
 
-        await context.clock.advance(by: .milliseconds(40))
+        await context.clock.advance(by: .milliseconds(50))
         await flushAsyncWork()
         #expect(context.engine.state.presentation == .hidden)
+    }
+
+    @Test func hoverPreviewReentryDuringDismissalRestoresPreview() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.engine.send(.hoverChanged(true))
+        await promoteHoverPreview(in: context)
+        #expect(context.engine.state.presentation == .hoverPreview)
+
+        context.engine.send(.hoverChanged(false))
+        #expect(context.engine.state.presentation == .hoverPreviewDismissing)
+
+        await context.clock.advance(by: .milliseconds(120))
+        await flushAsyncWork()
+        context.engine.send(.hoverChanged(true))
+        #expect(context.engine.state.presentation == .hoverPreview)
+
+        await context.clock.advance(by: ReminderEngine.hoverPreviewDismissalDelay)
+        await flushAsyncWork()
+        #expect(context.engine.state.presentation == .hoverPreview)
     }
 
     @Test func hoverPreviewPromotionIsCancelledWhenPointerLeavesQuickly() async {
@@ -1180,8 +1201,129 @@ struct TextInsertionServiceTests {
 }
 
 @MainActor
+struct NotchVisualStateTests {
+    @Test func hoverPendingUsesMagneticCueWithoutRevealingContent() {
+        let tucked = CGSize(width: 200, height: 38)
+        let canvas = CGSize(width: 520, height: 118)
+
+        let state = NotchVisualState(
+            presentation: .hoverPreviewPending,
+            voiceOverlayVisible: false,
+            tuckedSize: tucked,
+            canvasSize: canvas
+        )
+
+        #expect(state.shellSize == tucked)
+        #expect(state.shellScale == 1.03)
+        #expect(state.shellOffsetY == 2)
+        #expect(state.cornerRadius == 12)
+        #expect(state.shadowOpacity > 0)
+        #expect(state.rimOpacity > 0)
+        #expect(state.contentOpacity == 0)
+        #expect(state.contentBlurRadius > 0)
+    }
+
+    @Test func hoverPreviewExpandsShellAndRevealsContent() {
+        let tucked = CGSize(width: 200, height: 38)
+        let canvas = CGSize(width: 520, height: 118)
+
+        let state = NotchVisualState(
+            presentation: .hoverPreview,
+            voiceOverlayVisible: false,
+            tuckedSize: tucked,
+            canvasSize: canvas
+        )
+
+        #expect(state.shellSize == canvas)
+        #expect(state.shellScale == 1)
+        #expect(state.cornerRadius == 18)
+        #expect(state.shadowRadius >= 12)
+        #expect(state.contentOpacity == 1)
+        #expect(state.contentScale == 1)
+        #expect(state.contentOffsetY == 0)
+        #expect(state.contentBlurRadius == 0)
+    }
+
+    @Test func dismissingTucksShellAndHidesContentFirst() {
+        let tucked = CGSize(width: 200, height: 38)
+        let canvas = CGSize(width: 520, height: 118)
+
+        let state = NotchVisualState(
+            presentation: .hoverPreviewDismissing,
+            voiceOverlayVisible: false,
+            tuckedSize: tucked,
+            canvasSize: canvas
+        )
+
+        #expect(state.shellSize == tucked)
+        #expect(state.shellScale < 1)
+        #expect(state.cornerRadius == 10)
+        #expect(state.contentOpacity == 0)
+        #expect(state.contentOffsetY < 0)
+        #expect(state.contentBlurRadius > 0)
+    }
+}
+
+@MainActor
+struct NotchOverlayMetricsTests {
+    @Test func clearingCurrentFitRequestKeepsCachedFitForPendingPreheat() {
+        let metrics = NotchOverlayMetrics(topInset: 38)
+
+        metrics.requestContentFit(size: CGSize(width: 519.25, height: 117.25), displayScale: 2)
+        metrics.clearContentFitRequest()
+
+        #expect(metrics.contentFitRequest == nil)
+        #expect(metrics.cachedContentFitRequest?.size == CGSize(width: 519.5, height: 117.5))
+    }
+}
+
+@MainActor
 struct ScreenPlacementServiceTests {
-    @Test func tuckedReminderMatchesPhysicalNotchFrame() {
+    @Test func hiddenOverlayMatchesPhysicalNotchFrame() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hidden,
+            on: screen,
+            notchExpansionEnabled: true
+        )
+
+        #expect(placement.topInset == 38)
+        #expect(placement.frame == CGRect(x: 656, y: 944, width: 200, height: 38))
+        #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
+        #expect(placement.visibleSize == CGSize(width: 200, height: 38))
+    }
+
+    @Test func hiddenFallbackStaysInsideMenuBarHeight() {
+        let screen = ScreenDescriptor(
+            displayID: 2,
+            localizedName: "Studio Display",
+            isBuiltIn: false,
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            notchFrame: nil,
+            menuBarHeight: 24
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hidden,
+            on: screen,
+            notchExpansionEnabled: true
+        )
+
+        #expect(placement.topInset == 24)
+        #expect(placement.frame.origin.x == 638)
+        #expect(placement.frame.size == CGSize(width: 164, height: 24))
+        #expect(placement.visibleSize == CGSize(width: 164, height: 24))
+    }
+
+    @Test func pendingReminderUsesExpandedCanvasWithTuckedVisibleIsland() {
         let screen = ScreenDescriptor(
             displayID: 1,
             localizedName: "Built-in Display",
@@ -1198,12 +1340,13 @@ struct ScreenPlacementServiceTests {
         )
 
         #expect(placement.topInset == 38)
-        #expect(placement.frame == CGRect(x: 656, y: 944, width: 200, height: 38))
+        #expect(placement.frame.origin.x == 596)
+        #expect(placement.frame.size == CGSize(width: 320, height: 96))
         #expect(placement.tuckedFrame == CGRect(x: 656, y: 944, width: 200, height: 38))
         #expect(placement.visibleSize == CGSize(width: 200, height: 38))
     }
 
-    @Test func tuckedFallbackStaysInsideMenuBarHeight() {
+    @Test func pendingFallbackUsesExpandedCanvasWithTuckedVisibleIsland() {
         let screen = ScreenDescriptor(
             displayID: 2,
             localizedName: "Studio Display",
@@ -1220,8 +1363,9 @@ struct ScreenPlacementServiceTests {
         )
 
         #expect(placement.topInset == 24)
-        #expect(placement.frame.origin.x == 638)
-        #expect(placement.frame.size == CGSize(width: 164, height: 24))
+        #expect(placement.frame.origin.x == 570)
+        #expect(placement.frame.size == CGSize(width: 300, height: 96))
+        #expect(placement.tuckedFrame == CGRect(x: 638, y: 876, width: 164, height: 24))
         #expect(placement.visibleSize == CGSize(width: 164, height: 24))
     }
 
@@ -1395,6 +1539,38 @@ struct ScreenPlacementServiceTests {
         #expect(placement.visibleSize == CGSize(width: 520, height: 118))
     }
 
+    @Test func dualPreviewPendingAndDismissingUseMeasuredCanvasWithTuckedVisibleIsland() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+        let service = ScreenPlacementService()
+
+        let pending = service.placement(
+            for: .hoverPreviewPending,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .dualPreview,
+            contentFitSize: CGSize(width: 520, height: 118)
+        )
+        let dismissing = service.placement(
+            for: .hoverPreviewDismissing,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .dualPreview,
+            contentFitSize: CGSize(width: 520, height: 118)
+        )
+
+        #expect(pending.frame == CGRect(x: 496, y: 864, width: 520, height: 118))
+        #expect(pending.visibleSize == CGSize(width: 200, height: 38))
+        #expect(dismissing.frame == pending.frame)
+        #expect(dismissing.visibleSize == pending.visibleSize)
+    }
+
     @Test func dualPreviewHoverClampsMeasuredContentToAdaptiveMaximum() {
         let screen = ScreenDescriptor(
             displayID: 1,
@@ -1467,6 +1643,31 @@ struct ScreenPlacementServiceTests {
         #expect(placement.frame.minX >= screen.frame.minX)
         #expect(placement.frame.maxX <= screen.frame.maxX)
         #expect(placement.visibleSize == CGSize(width: 480, height: 112))
+    }
+
+    @Test func dualPreviewPendingOnNonNotchedScreenUsesFitCanvasWithoutExpandingVisibleIsland() {
+        let screen = ScreenDescriptor(
+            displayID: 2,
+            localizedName: "Studio Display",
+            isBuiltIn: false,
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            notchFrame: nil,
+            menuBarHeight: 24
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .hoverPreviewPending,
+            on: screen,
+            notchExpansionEnabled: false,
+            sizingRole: .dualPreview,
+            contentFitSize: CGSize(width: 480, height: 112)
+        )
+
+        #expect(placement.topInset == 24)
+        #expect(placement.frame.origin.x == 480)
+        #expect(placement.frame.size == CGSize(width: 480, height: 112))
+        #expect(placement.tuckedFrame == CGRect(x: 638, y: 876, width: 164, height: 24))
+        #expect(placement.visibleSize == CGSize(width: 164, height: 24))
     }
 
     @Test func contentFitRequestDoesNotAffectStandardHoverSizing() {
@@ -1839,7 +2040,7 @@ private func promoteHoverPreview(in context: ReminderTestContext) async {
 
 private func settleReminderDismissal(in context: ReminderTestContext) async {
     await flushAsyncWork()
-    await context.clock.advance(by: .seconds(0.4))
+    await context.clock.advance(by: ReminderEngine.reminderDismissSettleDelay)
     await flushAsyncWork()
 }
 

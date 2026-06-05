@@ -36,6 +36,7 @@ final class NotchOverlayMetrics {
     var tuckedSize: CGSize
     var canvasSize: CGSize
     private(set) var contentFitRequest: OverlayContentFitRequest?
+    private(set) var cachedContentFitRequest: OverlayContentFitRequest?
 
     init(
         topInset: CGFloat,
@@ -50,11 +51,14 @@ final class NotchOverlayMetrics {
     func requestContentFit(size: CGSize, displayScale: CGFloat) {
         let request = OverlayContentFitRequest(size: size, displayScale: displayScale)
         if let contentFitRequest,
+           let cachedContentFitRequest,
+           cachedContentFitRequest.isApproximatelyEqual(to: request),
            contentFitRequest.isApproximatelyEqual(to: request) {
             return
         }
 
         contentFitRequest = request
+        cachedContentFitRequest = request
     }
 
     func clearContentFitRequest() {

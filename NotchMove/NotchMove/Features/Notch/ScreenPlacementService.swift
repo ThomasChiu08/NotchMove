@@ -120,8 +120,20 @@ struct ScreenPlacementService {
         let baseHeight = screen.notchFrame?.height ?? screen.menuBarHeight
 
         switch presentation {
-        case .hidden, .reminderPending:
+        case .hidden:
             return tuckedSize(on: screen)
+        case .reminderPending:
+            if sizingRole == .prominentCountdown {
+                return prominentCountdownSize(
+                    notchWidth: notchWidth,
+                    baseHeight: baseHeight
+                )
+            }
+
+            return reminderSize(
+                notchWidth: notchWidth,
+                notchExpansionEnabled: notchExpansionEnabled
+            )
         case .hoverPreviewPending, .hoverPreview, .hoverPreviewDismissing:
             if sizingRole == .dualPreview {
                 return dualPreviewSize(

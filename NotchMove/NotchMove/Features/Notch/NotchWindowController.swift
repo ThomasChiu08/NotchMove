@@ -158,6 +158,10 @@ final class NotchWindowController {
     }
 
     private var activeSizingRole: OverlaySizingRole {
+        if voiceInputSession.isOverlayVisible {
+            return .standard
+        }
+
         if isHoverPreviewPresentation {
             if case .breakCompletionCountdown = reminderEngine.overlayState.content {
                 return .standard
@@ -176,6 +180,7 @@ final class NotchWindowController {
     private func observeOverlayContentFit() {
         withObservationTracking {
             _ = overlayMetrics.contentFitRequest
+            _ = overlayMetrics.cachedContentFitRequest
         } onChange: {
             Task { @MainActor [weak self] in
                 self?.applyCurrentPlacement(animated: true)
@@ -185,13 +190,18 @@ final class NotchWindowController {
     }
 
     private func contentFitSize(for sizingRole: OverlaySizingRole) -> CGSize? {
-        guard activePresentation == .hoverPreview,
-              sizingRole == .dualPreview
-        else {
+        guard sizingRole == .dualPreview else {
             return nil
         }
 
-        return overlayMetrics.contentFitRequest?.size
+        switch activePresentation {
+        case .hoverPreview:
+            return overlayMetrics.contentFitRequest?.size ?? overlayMetrics.cachedContentFitRequest?.size
+        case .hoverPreviewPending, .hoverPreviewDismissing:
+            return overlayMetrics.cachedContentFitRequest?.size
+        case .hidden, .reminderPending, .presenting, .dismissAnimating:
+            return nil
+        }
     }
 
     private func clearStaleContentFitRequestIfNeeded(sizingRole: OverlaySizingRole) {

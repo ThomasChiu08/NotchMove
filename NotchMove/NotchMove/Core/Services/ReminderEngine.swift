@@ -59,8 +59,9 @@ struct ReminderState: Equatable {
 @Observable
 final class ReminderEngine {
     static let reminderPresentationPreflightDelay: Duration = .milliseconds(90)
-    static let hoverPreviewPromotionDelay: Duration = .milliseconds(120)
-    static let hoverPreviewDismissalDelay: Duration = .milliseconds(160)
+    static let hoverPreviewPromotionDelay: Duration = .milliseconds(70)
+    static let hoverPreviewDismissalDelay: Duration = .milliseconds(240)
+    static let reminderDismissSettleDelay: Duration = .milliseconds(380)
 
     struct ScheduleReminderContent: Equatable {
         let id: DailyScheduleItem.ID
@@ -747,7 +748,7 @@ final class ReminderEngine {
         updatePresentation(.dismissAnimating)
         settleTask = Task { [weak self] in
             guard let self else { return }
-            try? await self.clock.sleep(for: .seconds(0.4))
+            try? await self.clock.sleep(for: Self.reminderDismissSettleDelay)
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 self.finalizeReminder(with: outcome)

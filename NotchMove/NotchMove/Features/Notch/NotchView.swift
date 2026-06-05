@@ -8,20 +8,131 @@
 import AppKit
 import SwiftUI
 
+enum NotchMotion {
+    static let intentCue = Animation.interactiveSpring(response: 0.22, dampingFraction: 0.82, blendDuration: 0)
+    static let expansion = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.78, blendDuration: 0)
+    static let retraction = Animation.spring(response: 0.32, dampingFraction: 0.98, blendDuration: 0.04)
+    static let contentInsertion = Animation.easeOut(duration: 0.16).delay(0.10)
+    static let contentRemoval = Animation.easeOut(duration: 0.10)
+
+    static func shellAnimation(for presentation: ReminderState.PresentationPhase) -> Animation {
+        switch presentation {
+        case .reminderPending, .hoverPreviewPending:
+            intentCue
+        case .hoverPreview, .presenting:
+            expansion
+        case .hidden, .hoverPreviewDismissing, .dismissAnimating:
+            retraction
+        }
+    }
+}
+
+struct NotchVisualState: Equatable {
+    let shellSize: CGSize
+    let shellScale: CGFloat
+    let shellOffsetY: CGFloat
+    let cornerRadius: CGFloat
+    let shadowOpacity: Double
+    let shadowRadius: CGFloat
+    let shadowOffsetY: CGFloat
+    let rimOpacity: Double
+    let contentOpacity: Double
+    let contentScale: CGFloat
+    let contentOffsetY: CGFloat
+    let contentBlurRadius: CGFloat
+
+    init(
+        presentation: ReminderState.PresentationPhase,
+        voiceOverlayVisible: Bool,
+        tuckedSize: CGSize,
+        canvasSize: CGSize
+    ) {
+        let expandedShell = voiceOverlayVisible || presentation == .hoverPreview || presentation == .presenting
+        shellSize = expandedShell ? canvasSize : tuckedSize
+
+        switch presentation {
+        case .hidden:
+            shellScale = 1
+            shellOffsetY = 0
+            cornerRadius = 10
+            shadowOpacity = 0
+            shadowRadius = 0
+            shadowOffsetY = 0
+            rimOpacity = 0
+            contentOpacity = voiceOverlayVisible ? 1 : 0
+            contentScale = voiceOverlayVisible ? 1 : 0.94
+            contentOffsetY = voiceOverlayVisible ? 0 : -16
+            contentBlurRadius = voiceOverlayVisible ? 0 : 8
+        case .reminderPending:
+            shellScale = 1.018
+            shellOffsetY = 1
+            cornerRadius = 11
+            shadowOpacity = 0.12
+            shadowRadius = 3
+            shadowOffsetY = 1
+            rimOpacity = 0.05
+            contentOpacity = 1
+            contentScale = 1
+            contentOffsetY = 0
+            contentBlurRadius = 0
+        case .hoverPreviewPending:
+            shellScale = 1.03
+            shellOffsetY = 2
+            cornerRadius = 12
+            shadowOpacity = 0.16
+            shadowRadius = 4
+            shadowOffsetY = 2
+            rimOpacity = 0.07
+            contentOpacity = 0
+            contentScale = 0.94
+            contentOffsetY = -14
+            contentBlurRadius = 8
+        case .hoverPreview:
+            shellScale = 1
+            shellOffsetY = 0
+            cornerRadius = 18
+            shadowOpacity = 0.30
+            shadowRadius = 12
+            shadowOffsetY = 5
+            rimOpacity = 0.10
+            contentOpacity = 1
+            contentScale = 1
+            contentOffsetY = 0
+            contentBlurRadius = 0
+        case .presenting:
+            shellScale = 1
+            shellOffsetY = 0
+            cornerRadius = 20
+            shadowOpacity = 0.34
+            shadowRadius = 14
+            shadowOffsetY = 6
+            rimOpacity = 0.11
+            contentOpacity = 1
+            contentScale = 1
+            contentOffsetY = 0
+            contentBlurRadius = 0
+        case .hoverPreviewDismissing, .dismissAnimating:
+            shellScale = 0.99
+            shellOffsetY = 0
+            cornerRadius = 10
+            shadowOpacity = 0.04
+            shadowRadius = 2
+            shadowOffsetY = 1
+            rimOpacity = 0
+            contentOpacity = voiceOverlayVisible ? 1 : 0
+            contentScale = voiceOverlayVisible ? 1 : 0.97
+            contentOffsetY = voiceOverlayVisible ? 0 : -10
+            contentBlurRadius = voiceOverlayVisible ? 0 : 5
+        }
+    }
+}
+
 struct NotchView: View {
     let reminderEngine: ReminderEngine
     let voiceInputSession: VoiceInputSessionController
     let overlayMetrics: NotchOverlayMetrics
     let onOpenDashboard: () -> Void
     let onOpenSettings: () -> Void
-
-    private enum Motion {
-        static let expansion = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.82, blendDuration: 0)
-        static let retraction = Animation.spring(response: 0.26, dampingFraction: 0.92, blendDuration: 0.04)
-        static let contentInsertion = Animation.easeOut(duration: 0.16).delay(0.11)
-        static let contentRemoval = Animation.easeOut(duration: 0.12)
-        static let shadow = Animation.easeOut(duration: 0.16)
-    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -32,19 +143,39 @@ struct NotchView: View {
     }
 
     private var islandShell: some View {
-        ZStack(alignment: .top) {
-            NotchShape(cornerRadius: cornerRadius)
+        let state = visualState
+
+        return ZStack(alignment: .top) {
+            NotchShape(cornerRadius: state.cornerRadius)
                 .fill(backgroundColor)
+                .overlay(alignment: .bottom) {
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0),
+                            Color.white.opacity(state.rimOpacity)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: min(18, state.shellSize.height * 0.28))
+                    .clipShape(NotchShape(cornerRadius: state.cornerRadius))
+                    .allowsHitTesting(false)
+                }
 
             contentLayer
                 .clipped()
         }
-        .frame(width: islandSize.width, height: islandSize.height, alignment: .top)
+        .frame(width: state.shellSize.width, height: state.shellSize.height, alignment: .top)
         .clipped()
-        .shadow(color: shellShadowColor, radius: shellShadowRadius, x: 0, y: shellShadowOffsetY)
-        .animation(shapeAnimation, value: islandSize)
-        .animation(shapeAnimation, value: cornerRadius)
-        .animation(Motion.shadow, value: isExpandedPresentation)
+        .scaleEffect(state.shellScale, anchor: .top)
+        .offset(y: state.shellOffsetY)
+        .shadow(
+            color: .black.opacity(state.shadowOpacity),
+            radius: state.shadowRadius,
+            x: 0,
+            y: state.shadowOffsetY
+        )
+        .animation(shellAnimation, value: state)
         .onHover { hovering in
             guard !voiceInputSession.isOverlayVisible else { return }
             reminderEngine.send(.hoverChanged(hovering))
@@ -60,54 +191,25 @@ struct NotchView: View {
         }
     }
 
-    private var cornerRadius: CGFloat {
-        switch activePresentation {
-        case .hidden, .reminderPending, .hoverPreviewPending, .hoverPreviewDismissing, .dismissAnimating: 10
-        case .hoverPreview: 16
-        case .presenting: 18
-        }
+    private var visualState: NotchVisualState {
+        NotchVisualState(
+            presentation: activePresentation,
+            voiceOverlayVisible: voiceInputSession.isOverlayVisible,
+            tuckedSize: overlayMetrics.tuckedSize,
+            canvasSize: overlayMetrics.canvasSize
+        )
     }
 
-    private var isExpandedPresentation: Bool {
-        switch activePresentation {
-        case .hoverPreview, .presenting:
-            true
-        case .hidden, .reminderPending, .hoverPreviewPending, .hoverPreviewDismissing, .dismissAnimating:
-            false
-        }
-    }
-
-    private var shapeAnimation: Animation {
-        isExpandedPresentation ? Motion.expansion : Motion.retraction
+    private var shellAnimation: Animation {
+        NotchMotion.shellAnimation(for: activePresentation)
     }
 
     private var contentAnimation: Animation {
-        isExpandedPresentation ? Motion.contentInsertion : Motion.contentRemoval
-    }
-
-    private var shellShadowColor: Color {
-        isExpandedPresentation ? .black.opacity(0.28) : .clear
-    }
-
-    private var shellShadowRadius: CGFloat {
-        isExpandedPresentation ? 8 : 0
-    }
-
-    private var shellShadowOffsetY: CGFloat {
-        isExpandedPresentation ? 4 : 0
+        visualState.contentOpacity > 0 ? NotchMotion.contentInsertion : NotchMotion.contentRemoval
     }
 
     private var activePresentation: ReminderState.PresentationPhase {
         voiceInputSession.isOverlayVisible ? .presenting : reminderEngine.overlayState.presentation
-    }
-
-    private var islandSize: CGSize {
-        switch activePresentation {
-        case .hidden, .reminderPending, .hoverPreviewPending, .hoverPreviewDismissing, .dismissAnimating:
-            overlayMetrics.tuckedSize
-        case .hoverPreview, .presenting:
-            overlayMetrics.canvasSize
-        }
     }
 
     private var backgroundColor: Color {
@@ -119,12 +221,20 @@ struct NotchView: View {
     }
 
     private var contentLayer: some View {
-        ZStack(alignment: .top) {
+        let state = visualState
+
+        return ZStack(alignment: .top) {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .opacity(state.contentOpacity)
+        .scaleEffect(state.contentScale, anchor: .top)
+        .offset(y: state.contentOffsetY)
+        .blur(radius: state.contentBlurRadius)
         .animation(contentAnimation, value: activePresentation)
         .animation(contentAnimation, value: voiceInputSession.phase)
+        .animation(contentAnimation, value: state.contentOpacity)
+        .animation(contentAnimation, value: state.contentBlurRadius)
     }
 
     @ViewBuilder
@@ -1317,22 +1427,27 @@ private struct NotchOverlayTransitionModifier: ViewModifier {
     let opacity: Double
     let scale: CGFloat
     let offsetY: CGFloat
+    let blurRadius: CGFloat
 
     func body(content: Content) -> some View {
         content
             .opacity(opacity)
             .scaleEffect(scale, anchor: .top)
             .offset(y: offsetY)
+            .blur(radius: blurRadius)
     }
 }
 
 private extension AnyTransition {
     static let notchOverlayInsertion = asymmetric(
         insertion: .modifier(
-            active: NotchOverlayTransitionModifier(opacity: 0, scale: 0.965, offsetY: -14),
-            identity: NotchOverlayTransitionModifier(opacity: 1, scale: 1, offsetY: 0)
+            active: NotchOverlayTransitionModifier(opacity: 0, scale: 0.94, offsetY: -16, blurRadius: 8),
+            identity: NotchOverlayTransitionModifier(opacity: 1, scale: 1, offsetY: 0, blurRadius: 0)
         ),
-        removal: .opacity
+        removal: .modifier(
+            active: NotchOverlayTransitionModifier(opacity: 0, scale: 0.97, offsetY: -10, blurRadius: 5),
+            identity: NotchOverlayTransitionModifier(opacity: 1, scale: 1, offsetY: 0, blurRadius: 0)
+        )
     )
 }
 
