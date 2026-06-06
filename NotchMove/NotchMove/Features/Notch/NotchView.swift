@@ -8,23 +8,112 @@
 import AppKit
 import SwiftUI
 
-enum NotchMotion {
-    static let intentCue = Animation.interactiveSpring(response: 0.22, dampingFraction: 0.82, blendDuration: 0)
-    static let expansion = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.78, blendDuration: 0)
-    static let retraction = Animation.spring(response: 0.32, dampingFraction: 0.98, blendDuration: 0.04)
-    static let contentInsertion = Animation.easeOut(duration: 0.16).delay(0.10)
-    static let contentRemoval = Animation.easeOut(duration: 0.10)
+enum NotchMotionRole: Equatable {
+    case standard
+    case pomodoroCountdown
+}
 
-    static func shellAnimation(for presentation: ReminderState.PresentationPhase) -> Animation {
+enum NotchMotion {
+    static let intentCue = Animation.interactiveSpring(response: 0.18, dampingFraction: 0.90, blendDuration: 0)
+    static let expansion = Animation.interactiveSpring(response: 0.34, dampingFraction: 0.86, blendDuration: 0.02)
+    static let retraction = Animation.spring(response: 0.28, dampingFraction: 0.95, blendDuration: 0.04)
+    static let contentInsertion = Animation.easeOut(duration: 0.18).delay(0.13)
+    static let contentRemoval = Animation.easeOut(duration: 0.09)
+    static let hoverContentReveal = Animation.easeOut(duration: 0.18)
+    static let hoverContentRemoval = Animation.easeOut(duration: 0.09)
+    static let shadow = Animation.easeOut(duration: 0.16)
+    static let pomodoroIntentCue = Animation.interactiveSpring(response: 0.16, dampingFraction: 0.94, blendDuration: 0)
+    static let pomodoroExpansion = Animation.interactiveSpring(response: 0.26, dampingFraction: 0.88, blendDuration: 0.01)
+    static let pomodoroRetraction = Animation.spring(response: 0.24, dampingFraction: 0.96, blendDuration: 0.03)
+    static let pomodoroContentInsertion = Animation.easeOut(duration: 0.14).delay(0.07)
+    static let pomodoroContentRemoval = Animation.easeOut(duration: 0.08)
+
+    static func shellAnimation(
+        for presentation: ReminderState.PresentationPhase,
+        role: NotchMotionRole = .standard
+    ) -> Animation {
+        if role == .pomodoroCountdown {
+            switch presentation {
+            case .reminderPending, .hoverPreviewPending:
+                return pomodoroIntentCue
+            case .hoverPreview, .presenting:
+                return pomodoroExpansion
+            case .hidden, .hoverPreviewDismissing, .dismissAnimating:
+                return pomodoroRetraction
+            }
+        }
+
         switch presentation {
         case .reminderPending, .hoverPreviewPending:
-            intentCue
+            return intentCue
         case .hoverPreview, .presenting:
-            expansion
+            return expansion
         case .hidden, .hoverPreviewDismissing, .dismissAnimating:
-            retraction
+            return retraction
         }
     }
+
+    static func contentAnimation(visible: Bool, role: NotchMotionRole) -> Animation {
+        switch (visible, role) {
+        case (true, .pomodoroCountdown):
+            pomodoroContentInsertion
+        case (false, .pomodoroCountdown):
+            pomodoroContentRemoval
+        case (true, .standard):
+            contentInsertion
+        case (false, .standard):
+            contentRemoval
+        }
+    }
+
+    static func hoverContentAnimation(visible: Bool) -> Animation {
+        visible ? hoverContentReveal : hoverContentRemoval
+    }
+}
+
+enum NotchOverlayContentRole: Equatable {
+    case voice
+    case empty
+    case reminderPending
+    case hoverPreview
+    case pomodoroCountdown
+    case reminder
+
+    static func resolve(
+        presentation: ReminderState.PresentationPhase,
+        content: ReminderEngine.OverlayContent,
+        voiceOverlayVisible: Bool
+    ) -> NotchOverlayContentRole {
+        if voiceOverlayVisible {
+            return .voice
+        }
+
+        switch presentation {
+        case .hidden, .dismissAnimating:
+            return .empty
+        case .hoverPreviewPending, .hoverPreviewDismissing:
+            if case .pomodoroCountdown = content {
+                return .pomodoroCountdown
+            }
+
+            return .hoverPreview
+        case .reminderPending:
+            return .reminderPending
+        case .hoverPreview:
+            if case .pomodoroCountdown = content {
+                return .pomodoroCountdown
+            }
+
+            return .hoverPreview
+        case .presenting:
+            return .reminder
+        }
+    }
+}
+
+private enum NotchHoverTiming {
+    static let contentRevealDelay: Duration = .milliseconds(120)
+    static let shellCollapseHoldDelay: Duration = .milliseconds(90)
 }
 
 struct NotchVisualState: Equatable {
@@ -45,10 +134,17 @@ struct NotchVisualState: Equatable {
         presentation: ReminderState.PresentationPhase,
         voiceOverlayVisible: Bool,
         tuckedSize: CGSize,
-        canvasSize: CGSize
+        canvasSize: CGSize,
+        revealHoverPreviewContent: Bool = true,
+        holdHoverPreviewShellExpanded: Bool = false,
+        motionRole: NotchMotionRole = .standard
     ) {
-        let expandedShell = voiceOverlayVisible || presentation == .hoverPreview || presentation == .presenting
+        let expandedShell = voiceOverlayVisible ||
+            presentation == .hoverPreview ||
+            presentation == .presenting ||
+            (presentation == .hoverPreviewDismissing && holdHoverPreviewShellExpanded)
         shellSize = expandedShell ? canvasSize : tuckedSize
+        let usesPomodoroCountdownMotion = motionRole == .pomodoroCountdown && !voiceOverlayVisible
 
         switch presentation {
         case .hidden:
@@ -64,60 +160,60 @@ struct NotchVisualState: Equatable {
             contentOffsetY = voiceOverlayVisible ? 0 : -16
             contentBlurRadius = voiceOverlayVisible ? 0 : 8
         case .reminderPending:
-            shellScale = 1.018
+            shellScale = 1.01
             shellOffsetY = 1
             cornerRadius = 11
-            shadowOpacity = 0.12
-            shadowRadius = 3
+            shadowOpacity = 0.08
+            shadowRadius = 2
             shadowOffsetY = 1
-            rimOpacity = 0.05
+            rimOpacity = 0.04
             contentOpacity = 1
             contentScale = 1
             contentOffsetY = 0
             contentBlurRadius = 0
         case .hoverPreviewPending:
-            shellScale = 1.03
-            shellOffsetY = 2
-            cornerRadius = 12
-            shadowOpacity = 0.16
-            shadowRadius = 4
-            shadowOffsetY = 2
-            rimOpacity = 0.07
+            shellScale = 1.012
+            shellOffsetY = 1
+            cornerRadius = 11
+            shadowOpacity = 0.08
+            shadowRadius = 2
+            shadowOffsetY = 1
+            rimOpacity = 0.04
             contentOpacity = 0
-            contentScale = 0.94
-            contentOffsetY = -14
+            contentScale = 0.96
+            contentOffsetY = -12
             contentBlurRadius = 8
         case .hoverPreview:
             shellScale = 1
             shellOffsetY = 0
-            cornerRadius = 18
-            shadowOpacity = 0.30
-            shadowRadius = 12
-            shadowOffsetY = 5
-            rimOpacity = 0.10
-            contentOpacity = 1
-            contentScale = 1
-            contentOffsetY = 0
-            contentBlurRadius = 0
+            cornerRadius = usesPomodoroCountdownMotion ? 16 : 18
+            shadowOpacity = usesPomodoroCountdownMotion ? 0.20 : 0.30
+            shadowRadius = usesPomodoroCountdownMotion ? 8 : 12
+            shadowOffsetY = usesPomodoroCountdownMotion ? 3 : 5
+            rimOpacity = usesPomodoroCountdownMotion ? 0.18 : 0.10
+            contentOpacity = revealHoverPreviewContent ? 1 : 0
+            contentScale = revealHoverPreviewContent ? 1 : 0.96
+            contentOffsetY = revealHoverPreviewContent ? 0 : -12
+            contentBlurRadius = revealHoverPreviewContent ? 0 : 8
         case .presenting:
             shellScale = 1
             shellOffsetY = 0
-            cornerRadius = 20
-            shadowOpacity = 0.34
-            shadowRadius = 14
-            shadowOffsetY = 6
-            rimOpacity = 0.11
+            cornerRadius = usesPomodoroCountdownMotion ? 16 : 20
+            shadowOpacity = usesPomodoroCountdownMotion ? 0.22 : 0.34
+            shadowRadius = usesPomodoroCountdownMotion ? 9 : 14
+            shadowOffsetY = usesPomodoroCountdownMotion ? 3 : 6
+            rimOpacity = usesPomodoroCountdownMotion ? 0.18 : 0.11
             contentOpacity = 1
             contentScale = 1
             contentOffsetY = 0
             contentBlurRadius = 0
         case .hoverPreviewDismissing, .dismissAnimating:
-            shellScale = 0.99
+            shellScale = holdHoverPreviewShellExpanded ? 1 : 0.992
             shellOffsetY = 0
-            cornerRadius = 10
-            shadowOpacity = 0.04
-            shadowRadius = 2
-            shadowOffsetY = 1
+            cornerRadius = holdHoverPreviewShellExpanded ? (usesPomodoroCountdownMotion ? 16 : 18) : 10
+            shadowOpacity = holdHoverPreviewShellExpanded ? (usesPomodoroCountdownMotion ? 0.14 : 0.20) : 0.02
+            shadowRadius = holdHoverPreviewShellExpanded ? (usesPomodoroCountdownMotion ? 6 : 8) : 1
+            shadowOffsetY = holdHoverPreviewShellExpanded ? 3 : 1
             rimOpacity = 0
             contentOpacity = voiceOverlayVisible ? 1 : 0
             contentScale = voiceOverlayVisible ? 1 : 0.97
@@ -130,9 +226,15 @@ struct NotchVisualState: Equatable {
 struct NotchView: View {
     let reminderEngine: ReminderEngine
     let voiceInputSession: VoiceInputSessionController
+    let notchHubStore: NotchHubStore
     let overlayMetrics: NotchOverlayMetrics
     let onOpenDashboard: () -> Void
     let onOpenSettings: () -> Void
+
+    @State private var revealHoverPreviewContent = false
+    @State private var holdHoverPreviewShellExpanded = false
+    @State private var hoverContentRevealTask: Task<Void, Never>?
+    @State private var hoverShellCollapseTask: Task<Void, Never>?
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -140,6 +242,15 @@ struct NotchView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(.clear)
+        .onAppear {
+            updateHoverMotionState(for: activePresentation)
+        }
+        .onChange(of: activePresentation) { _, newValue in
+            updateHoverMotionState(for: newValue)
+        }
+        .onDisappear {
+            cancelHoverMotionTasks()
+        }
     }
 
     private var islandShell: some View {
@@ -152,7 +263,7 @@ struct NotchView: View {
                     LinearGradient(
                         colors: [
                             Color.white.opacity(0),
-                            Color.white.opacity(state.rimOpacity)
+                            rimColor.opacity(state.rimOpacity)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -175,10 +286,25 @@ struct NotchView: View {
             x: 0,
             y: state.shadowOffsetY
         )
-        .animation(shellAnimation, value: state)
+        .animation(shellAnimation, value: state.shellSize)
+        .animation(shellAnimation, value: state.shellScale)
+        .animation(shellAnimation, value: state.shellOffsetY)
+        .animation(shellAnimation, value: state.cornerRadius)
+        .animation(NotchMotion.shadow, value: state.shadowOpacity)
+        .animation(NotchMotion.shadow, value: state.shadowRadius)
+        .animation(NotchMotion.shadow, value: state.shadowOffsetY)
+        .animation(NotchMotion.shadow, value: state.rimOpacity)
         .onHover { hovering in
-            guard !voiceInputSession.isOverlayVisible else { return }
+            guard !voiceInputSession.isOverlayVisible,
+                  !isHubSurfaceActive
+            else {
+                return
+            }
             reminderEngine.send(.hoverChanged(hovering))
+        }
+        .onTapGesture {
+            guard canOpenHubFromTap else { return }
+            notchHubStore.open()
         }
         .contextMenu {
             Button("menu.dashboard", action: onOpenDashboard)
@@ -196,23 +322,97 @@ struct NotchView: View {
             presentation: activePresentation,
             voiceOverlayVisible: voiceInputSession.isOverlayVisible,
             tuckedSize: overlayMetrics.tuckedSize,
-            canvasSize: overlayMetrics.canvasSize
+            canvasSize: overlayMetrics.canvasSize,
+            revealHoverPreviewContent: revealHoverPreviewContent,
+            holdHoverPreviewShellExpanded: holdHoverPreviewShellExpanded,
+            motionRole: motionRole
         )
     }
 
     private var shellAnimation: Animation {
-        NotchMotion.shellAnimation(for: activePresentation)
+        NotchMotion.shellAnimation(for: activePresentation, role: motionRole)
     }
 
     private var contentAnimation: Animation {
-        visualState.contentOpacity > 0 ? NotchMotion.contentInsertion : NotchMotion.contentRemoval
+        if isHoverPreviewPresentation(activePresentation) {
+            return NotchMotion.hoverContentAnimation(visible: visualState.contentOpacity > 0)
+        }
+
+        return NotchMotion.contentAnimation(visible: visualState.contentOpacity > 0, role: motionRole)
     }
 
     private var activePresentation: ReminderState.PresentationPhase {
-        voiceInputSession.isOverlayVisible ? .presenting : reminderEngine.overlayState.presentation
+        if voiceInputSession.isOverlayVisible {
+            return .presenting
+        }
+
+        if isHubSurfaceActive {
+            return .presenting
+        }
+
+        return reminderEngine.overlayState.presentation
+    }
+
+    private var canToggleHub: Bool {
+        notchHubStore.preferences.isEnabled &&
+            !voiceInputSession.isOverlayVisible &&
+            !reminderEngine.isReminderPresenting
+    }
+
+    private var canOpenHubFromTap: Bool {
+        guard canToggleHub,
+              !isHubSurfaceActive
+        else {
+            return false
+        }
+
+        switch notchHubStore.preferences.triggerGesture {
+        case .click:
+            return true
+        case .hoverAndClick:
+            return isHoverPreviewPresentation(reminderEngine.overlayState.presentation)
+        }
+    }
+
+    private var isHubSurfaceActive: Bool {
+        canToggleHub && notchHubStore.presentation.isExpandedSurface
+    }
+
+    private func isHoverPreviewPresentation(_ presentation: ReminderState.PresentationPhase) -> Bool {
+        switch presentation {
+        case .hoverPreviewPending, .hoverPreview, .hoverPreviewDismissing:
+            return true
+        case .hidden, .reminderPending, .presenting, .dismissAnimating:
+            return false
+        }
+    }
+
+    private var motionRole: NotchMotionRole {
+        guard !isHubSurfaceActive,
+              !voiceInputSession.isOverlayVisible,
+              case .pomodoroCountdown = reminderEngine.overlayState.content
+        else {
+            return .standard
+        }
+
+        return .pomodoroCountdown
+    }
+
+    private var rimColor: Color {
+        guard !voiceInputSession.isOverlayVisible,
+              case .pomodoroCountdown(let content) = reminderEngine.overlayState.content
+        else {
+            return .white
+        }
+
+        return PomodoroOverlayStyle.tint(for: content.phase)
     }
 
     private var backgroundColor: Color {
+        if isHubSurfaceActive {
+            return Color(red: 0.018, green: 0.018, blue: 0.022)
+        }
+
         if case .recording = voiceInputSession.phase {
             return Color(red: 0.08, green: 0.015, blue: 0.018)
         }
@@ -235,24 +435,55 @@ struct NotchView: View {
         .animation(contentAnimation, value: voiceInputSession.phase)
         .animation(contentAnimation, value: state.contentOpacity)
         .animation(contentAnimation, value: state.contentBlurRadius)
+        .allowsHitTesting(contentAllowsHitTesting)
+    }
+
+    private var contentAllowsHitTesting: Bool {
+        if voiceInputSession.isOverlayVisible {
+            return true
+        }
+
+        if isHubSurfaceActive {
+            return true
+        }
+
+        switch reminderEngine.overlayState.presentation {
+        case .hoverPreview:
+            return revealHoverPreviewContent
+        case .presenting:
+            return true
+        case .hidden, .reminderPending, .hoverPreviewPending, .hoverPreviewDismissing, .dismissAnimating:
+            return false
+        }
     }
 
     @ViewBuilder
     private var content: some View {
-        if voiceInputSession.isOverlayVisible {
-            voiceInputContent
-                .transition(.notchOverlayInsertion)
+        if isHubSurfaceActive {
+            NotchHubContentView(
+                hubStore: notchHubStore,
+                reminderEngine: reminderEngine,
+                topInset: overlayMetrics.topInset
+            )
+            .transition(.notchOverlayInsertion)
         } else {
-            switch reminderEngine.overlayState.presentation {
-            case .hidden, .hoverPreviewPending, .hoverPreviewDismissing, .dismissAnimating:
+            switch NotchOverlayContentRole.resolve(
+                presentation: reminderEngine.overlayState.presentation,
+                content: reminderEngine.overlayState.content,
+                voiceOverlayVisible: voiceInputSession.isOverlayVisible
+            ) {
+            case .voice:
+                voiceInputContent
+                    .transition(.notchOverlayInsertion)
+            case .empty:
                 EmptyView()
             case .reminderPending:
                 reminderPendingIndicator
                     .transition(.opacity)
-            case .hoverPreview:
+            case .hoverPreview, .pomodoroCountdown:
                 hoverPreviewContent
                     .transition(.notchOverlayInsertion)
-            case .presenting:
+            case .reminder:
                 reminderContent
                     .transition(.notchOverlayInsertion)
             }
@@ -300,6 +531,11 @@ struct NotchView: View {
                 content: content,
                 topInset: overlayMetrics.topInset
             )
+        case .pomodoroCountdown(let content):
+            PomodoroCountdownContentView(
+                content: content,
+                topInset: overlayMetrics.topInset
+            )
         default:
             NextReminderPreviewView(
                 reminderEngine: reminderEngine,
@@ -317,6 +553,45 @@ struct NotchView: View {
             try? await Task.sleep(for: ReminderEngine.hoverPreviewDismissalDelay)
             onOpenSettings()
         }
+    }
+
+    private func updateHoverMotionState(for presentation: ReminderState.PresentationPhase) {
+        hoverContentRevealTask?.cancel()
+        hoverContentRevealTask = nil
+        hoverShellCollapseTask?.cancel()
+        hoverShellCollapseTask = nil
+
+        switch presentation {
+        case .hoverPreviewPending:
+            revealHoverPreviewContent = false
+            holdHoverPreviewShellExpanded = false
+        case .hoverPreview:
+            revealHoverPreviewContent = false
+            holdHoverPreviewShellExpanded = false
+            hoverContentRevealTask = Task { @MainActor in
+                try? await Task.sleep(for: NotchHoverTiming.contentRevealDelay)
+                guard !Task.isCancelled else { return }
+                revealHoverPreviewContent = true
+            }
+        case .hoverPreviewDismissing:
+            revealHoverPreviewContent = false
+            holdHoverPreviewShellExpanded = true
+            hoverShellCollapseTask = Task { @MainActor in
+                try? await Task.sleep(for: NotchHoverTiming.shellCollapseHoldDelay)
+                guard !Task.isCancelled else { return }
+                holdHoverPreviewShellExpanded = false
+            }
+        case .hidden, .reminderPending, .presenting, .dismissAnimating:
+            revealHoverPreviewContent = false
+            holdHoverPreviewShellExpanded = false
+        }
+    }
+
+    private func cancelHoverMotionTasks() {
+        hoverContentRevealTask?.cancel()
+        hoverContentRevealTask = nil
+        hoverShellCollapseTask?.cancel()
+        hoverShellCollapseTask = nil
     }
 
     private var reminderPendingIndicator: some View {
@@ -1530,6 +1805,10 @@ private struct PreviewSoundPlayer: SoundPlaying {
         voiceInputSession: VoiceInputSessionController(
             preferences: AIProviderPreferences(defaults: settings.defaults),
             languageManager: LanguageManager(preferencesStore: preferencesStore)
+        ),
+        notchHubStore: NotchHubStore(
+            defaults: settings.defaults,
+            dailyScheduleStore: DailyScheduleStore(defaults: settings.defaults)
         ),
         overlayMetrics: overlayMetrics,
         onOpenDashboard: {},

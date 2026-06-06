@@ -26,6 +26,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
     private let aiProviderPreferences: AIProviderPreferences
     private let breakStatsStore: BreakStatsStore
     private let loginItemManager: any LoginItemManaging
+    private let notchHubStore: NotchHubStore
     private let globalHotkeyController: GlobalAICaptureHotkeyController
     private nonisolated(unsafe) var languageObserver: NSObjectProtocol?
 
@@ -39,6 +40,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         aiProviderPreferences: AIProviderPreferences,
         breakStatsStore: BreakStatsStore,
         loginItemManager: any LoginItemManaging,
+        notchHubStore: NotchHubStore,
         globalHotkeyController: GlobalAICaptureHotkeyController
     ) {
         self.languageManager = languageManager
@@ -50,6 +52,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         self.aiProviderPreferences = aiProviderPreferences
         self.breakStatsStore = breakStatsStore
         self.loginItemManager = loginItemManager
+        self.notchHubStore = notchHubStore
         self.globalHotkeyController = globalHotkeyController
         super.init()
 
@@ -139,6 +142,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
                 preferencesStore: preferencesStore,
                 aiProviderPreferences: aiProviderPreferences,
                 breakStatsStore: breakStatsStore,
+                notchHubStore: notchHubStore,
                 globalHotkeyController: globalHotkeyController
             )
             .environment(\.locale, languageManager.locale)

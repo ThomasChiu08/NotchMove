@@ -13,6 +13,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
     case language
     case startup
     case reminders
+    case notchHub
     case aiAssistant
     case schedule
     case behavior
@@ -23,6 +24,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
         .language,
         .startup,
         .reminders,
+        .notchHub,
         .behavior,
         .statistics,
         .about,
@@ -30,6 +32,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
 
     static let dashboardOrder: [SettingsPageSection] = [
         .reminders,
+        .notchHub,
         .behavior,
         .statistics,
         .language,
@@ -44,6 +47,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
         case .language: "section.language"
         case .startup: "section.startup"
         case .reminders: "section.reminders"
+        case .notchHub: "section.notch_hub"
         case .aiAssistant: "section.ai_assistant"
         case .schedule: "section.schedule"
         case .behavior: "section.behavior"
@@ -57,6 +61,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
         case .language: "globe"
         case .startup: "power"
         case .reminders: "bell"
+        case .notchHub: "macbook.and.iphone"
         case .aiAssistant: "mic"
         case .schedule: "clock"
         case .behavior: "slider.horizontal.3"
@@ -72,6 +77,7 @@ struct SettingsView: View {
     let preferencesStore: PreferencesStore
     let aiProviderPreferences: AIProviderPreferences
     let breakStatsStore: BreakStatsStore
+    let notchHubStore: NotchHubStore
     let globalHotkeyController: GlobalAICaptureHotkeyController
 
     var body: some View {
@@ -81,6 +87,7 @@ struct SettingsView: View {
             preferencesStore: preferencesStore,
             aiProviderPreferences: aiProviderPreferences,
             breakStatsStore: breakStatsStore,
+            notchHubStore: notchHubStore,
             globalHotkeyController: globalHotkeyController,
             sections: SettingsPageSection.fullSettingsOrder,
             showsSectionHeaders: true
@@ -97,6 +104,7 @@ struct SettingsContentView: View {
     @Bindable var preferencesStore: PreferencesStore
     @Bindable var aiProviderPreferences: AIProviderPreferences
     @Bindable var breakStatsStore: BreakStatsStore
+    @Bindable var notchHubStore: NotchHubStore
     @Bindable var globalHotkeyController: GlobalAICaptureHotkeyController
     let sections: [SettingsPageSection]
     let showsSectionHeaders: Bool
@@ -130,6 +138,7 @@ struct SettingsContentView: View {
         preferencesStore: PreferencesStore,
         aiProviderPreferences: AIProviderPreferences,
         breakStatsStore: BreakStatsStore,
+        notchHubStore: NotchHubStore,
         globalHotkeyController: GlobalAICaptureHotkeyController,
         sections: [SettingsPageSection] = SettingsPageSection.fullSettingsOrder,
         showsSectionHeaders: Bool = true
@@ -141,6 +150,7 @@ struct SettingsContentView: View {
         self.preferencesStore = preferencesStore
         self.aiProviderPreferences = aiProviderPreferences
         self.breakStatsStore = breakStatsStore
+        self.notchHubStore = notchHubStore
         self.globalHotkeyController = globalHotkeyController
         self.sections = sections
         self.showsSectionHeaders = showsSectionHeaders
@@ -192,6 +202,8 @@ struct SettingsContentView: View {
             startupSection
         case .reminders:
             remindersSection
+        case .notchHub:
+            notchHubSection
         case .aiAssistant:
             aiAssistantSection
         case .schedule:
@@ -351,6 +363,83 @@ struct SettingsContentView: View {
             .disabled(!preferencesStore.preferences.pomodoroEnabled)
         } header: {
             sectionHeader("section.reminders")
+        }
+    }
+
+    // MARK: - Notch Hub
+
+    private var notchHubSection: some View {
+        Section {
+            SettingsPropertyRow("notch_hub.enabled", captionKey: "notch_hub.enabled_caption") {
+                Toggle(isOn: $notchHubStore.preferences.isEnabled) {
+                    Text("notch_hub.enabled")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("notch_hub.trigger") {
+                Picker(selection: $notchHubStore.preferences.triggerGesture) {
+                    ForEach(NotchHubTriggerGesture.allCases) { gesture in
+                        Text(LocalizedStringKey(gesture.titleKey))
+                            .tag(gesture)
+                    }
+                } label: {
+                    Text("notch_hub.trigger")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 180, alignment: .leading)
+            }
+            .disabled(!notchHubStore.preferences.isEnabled)
+
+            SettingsPropertyRow("notch_hub.default_widget") {
+                Picker(selection: defaultNotchHubWidgetBinding) {
+                    ForEach(notchHubStore.enabledWidgets) { widgetID in
+                        Label {
+                            Text(LocalizedStringKey(widgetID.titleKey))
+                        } icon: {
+                            Image(systemName: widgetID.systemImage)
+                        }
+                        .tag(widgetID)
+                    }
+                } label: {
+                    Text("notch_hub.default_widget")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 200, alignment: .leading)
+            }
+            .disabled(!notchHubStore.preferences.isEnabled)
+
+            ForEach(NotchHubWidgetID.allCases) { widgetID in
+                SettingsPropertyRow(widgetID.titleKey, captionKey: notchHubWidgetCaptionKey(widgetID)) {
+                    Toggle(isOn: notchHubWidgetEnabledBinding(widgetID)) {
+                        Text(LocalizedStringKey(widgetID.titleKey))
+                    }
+                    .labelsHidden()
+                }
+                .disabled(!notchHubStore.preferences.isEnabled || widgetID == .live)
+            }
+
+            SettingsPropertyRow("notch_hub.allow_apple_events", captionKey: "notch_hub.allow_apple_events_caption") {
+                Toggle(isOn: $notchHubStore.preferences.allowAppleEvents) {
+                    Text("notch_hub.allow_apple_events")
+                }
+                .labelsHidden()
+            }
+            .disabled(!notchHubStore.preferences.isEnabled)
+
+            SettingsPropertyRow("notch_hub.allow_file_tray", captionKey: "notch_hub.allow_file_tray_caption") {
+                Toggle(isOn: $notchHubStore.preferences.allowFileTray) {
+                    Text("notch_hub.allow_file_tray")
+                }
+                .labelsHidden()
+            }
+            .disabled(!notchHubStore.preferences.isEnabled)
+        } header: {
+            sectionHeader("section.notch_hub")
+        } footer: {
+            Text("notch_hub.footer")
         }
     }
 
@@ -1010,6 +1099,39 @@ struct SettingsContentView: View {
 
     private var selectedGlobalHotkeyShortcut: GlobalHotkeyShortcut {
         GlobalHotkeyShortcut(rawValue: preferencesStore.preferences.aiGlobalHotkeyShortcutID) ?? .default
+    }
+
+    private var defaultNotchHubWidgetBinding: Binding<NotchHubWidgetID> {
+        Binding(
+            get: { notchHubStore.preferences.defaultWidgetID },
+            set: { notchHubStore.setDefaultWidget($0) }
+        )
+    }
+
+    private func notchHubWidgetEnabledBinding(_ widgetID: NotchHubWidgetID) -> Binding<Bool> {
+        Binding(
+            get: { notchHubStore.preferences.enabledWidgetIDs.contains(widgetID) },
+            set: { notchHubStore.setWidget(widgetID, enabled: $0) }
+        )
+    }
+
+    private func notchHubWidgetCaptionKey(_ widgetID: NotchHubWidgetID) -> String? {
+        switch widgetID {
+        case .live:
+            "notch_hub.widget.live_caption"
+        case .media:
+            "notch_hub.widget.media_caption"
+        case .calendar:
+            "notch_hub.widget.calendar_caption"
+        case .shortcuts:
+            "notch_hub.widget.shortcuts_caption"
+        case .notes:
+            "notch_hub.widget.notes_caption"
+        case .mirror:
+            "notch_hub.widget.mirror_caption"
+        case .tray:
+            "notch_hub.widget.tray_caption"
+        }
     }
 
     private var microphonePermissionStatusText: String {
@@ -1892,6 +2014,10 @@ private struct SettingsDynamicPropertyRow<Content: View>: View {
         preferencesStore: preferencesStore,
         aiProviderPreferences: AIProviderPreferences(defaults: settings.defaults),
         breakStatsStore: breakStatsStore,
+        notchHubStore: NotchHubStore(
+            defaults: settings.defaults,
+            dailyScheduleStore: DailyScheduleStore(defaults: settings.defaults)
+        ),
         globalHotkeyController: GlobalAICaptureHotkeyController(onPress: {}, onRelease: {})
     )
         .frame(width: 420, height: 600)

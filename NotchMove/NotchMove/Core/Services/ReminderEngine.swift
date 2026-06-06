@@ -60,6 +60,7 @@ struct ReminderState: Equatable {
 final class ReminderEngine {
     static let reminderPresentationPreflightDelay: Duration = .milliseconds(90)
     static let hoverPreviewPromotionDelay: Duration = .milliseconds(70)
+    static let hoverPreviewMaximumPreheatDelay: Duration = .milliseconds(180)
     static let hoverPreviewDismissalDelay: Duration = .milliseconds(240)
     static let reminderDismissSettleDelay: Duration = .milliseconds(380)
 
@@ -136,6 +137,7 @@ final class ReminderEngine {
     enum Intent: Equatable {
         case tick(Date)
         case hoverChanged(Bool)
+        case hoverPreviewFitReady
         case setManualPause(Bool)
         case manualTrigger
         case completeBreak
@@ -163,6 +165,7 @@ final class ReminderEngine {
     @ObservationIgnored private var autoDismissTask: Task<Void, Never>?
     @ObservationIgnored private var presentationTask: Task<Void, Never>?
     @ObservationIgnored private var hoverPreviewTask: Task<Void, Never>?
+    @ObservationIgnored private var hoverPreviewFallbackTask: Task<Void, Never>?
     @ObservationIgnored private var settleTask: Task<Void, Never>?
     @ObservationIgnored private var breakCompletionCountdownTask: Task<Void, Never>?
     @ObservationIgnored private var pomodoroCountdownTuckTask: Task<Void, Never>?
@@ -170,6 +173,8 @@ final class ReminderEngine {
     @ObservationIgnored private nonisolated(unsafe) var preferencesObserver: NSObjectProtocol?
     private var lastTickDate: Date?
     private var activePomodoroCountdownContent: PomodoroCountdownContent?
+    private var pendingHoverFitReady = false
+    private var pendingHoverPreheatElapsed = false
 
     private(set) var state = ReminderState()
     private(set) var overlayState = OverlayState()
@@ -179,6 +184,7 @@ final class ReminderEngine {
         autoDismissTask?.cancel()
         presentationTask?.cancel()
         hoverPreviewTask?.cancel()
+        hoverPreviewFallbackTask?.cancel()
         settleTask?.cancel()
         breakCompletionCountdownTask?.cancel()
         pomodoroCountdownTuckTask?.cancel()
@@ -317,6 +323,8 @@ final class ReminderEngine {
             handleTick(now: now)
         case let .hoverChanged(hovering):
             handleHoverChange(hovering)
+        case .hoverPreviewFitReady:
+            handleHoverPreviewFitReady()
         case let .setManualPause(paused):
             handleManualPauseChange(paused)
         case .manualTrigger:
@@ -519,8 +527,7 @@ final class ReminderEngine {
             if overlayState.presentation == .reminderPending {
                 promotePendingReminder()
             } else if overlayState.presentation == .hoverPreviewDismissing {
-                hoverPreviewTask?.cancel()
-                hoverPreviewTask = nil
+                cancelHoverPreviewTasks()
                 updatePresentation(.hoverPreview)
             } else if overlayState.presentation == .hidden,
                       isPersistentCountdownActive || preferencesStore.preferences.hoverPreviewEnabled {
@@ -531,8 +538,7 @@ final class ReminderEngine {
 
         switch overlayState.presentation {
         case .hoverPreviewPending:
-            hoverPreviewTask?.cancel()
-            hoverPreviewTask = nil
+            cancelHoverPreviewTasks()
             updatePresentation(.hidden)
         case .hoverPreview:
             dismissHoverPreview()
@@ -582,8 +588,7 @@ final class ReminderEngine {
         autoDismissTask = nil
         presentationTask?.cancel()
         presentationTask = nil
-        hoverPreviewTask?.cancel()
-        hoverPreviewTask = nil
+        cancelHoverPreviewTasks()
         settleTask?.cancel()
         settleTask = nil
         breakCompletionCountdownTask?.cancel()
@@ -655,8 +660,7 @@ final class ReminderEngine {
     ) {
         autoDismissTask?.cancel()
         presentationTask?.cancel()
-        hoverPreviewTask?.cancel()
-        hoverPreviewTask = nil
+        cancelHoverPreviewTasks()
         settleTask?.cancel()
         pomodoroCountdownTuckTask?.cancel()
         pomodoroCountdownTuckTask = nil
@@ -735,8 +739,7 @@ final class ReminderEngine {
         autoDismissTask = nil
         presentationTask?.cancel()
         presentationTask = nil
-        hoverPreviewTask?.cancel()
-        hoverPreviewTask = nil
+        cancelHoverPreviewTasks()
         settleTask?.cancel()
         settleTask = nil
 
@@ -759,8 +762,7 @@ final class ReminderEngine {
     private func finalizeReminder(with outcome: ReminderOutcome) {
         presentationTask?.cancel()
         presentationTask = nil
-        hoverPreviewTask?.cancel()
-        hoverPreviewTask = nil
+        cancelHoverPreviewTasks()
         settleTask = nil
         updatePresentation(.hidden)
 
@@ -842,6 +844,10 @@ final class ReminderEngine {
         guard overlayState.presentation != presentation || state.presentation != presentation else { return }
         state.presentation = presentation
         overlayState.presentation = presentation
+        if presentation != .hoverPreviewPending {
+            pendingHoverFitReady = false
+            pendingHoverPreheatElapsed = false
+        }
     }
 
     private var isHoverPreviewActive: Bool {
@@ -865,7 +871,9 @@ final class ReminderEngine {
     }
 
     private func beginHoverPreview() {
-        hoverPreviewTask?.cancel()
+        cancelHoverPreviewTasks()
+        pendingHoverFitReady = false
+        pendingHoverPreheatElapsed = false
         updatePresentation(.hoverPreviewPending)
         hoverPreviewTask = Task { [weak self] in
             guard let self else { return }
@@ -874,13 +882,47 @@ final class ReminderEngine {
             await MainActor.run {
                 guard self.overlayState.presentation == .hoverPreviewPending else { return }
                 self.hoverPreviewTask = nil
-                self.updatePresentation(.hoverPreview)
+                self.pendingHoverPreheatElapsed = true
+                self.promoteHoverPreviewIfReady()
+            }
+        }
+        hoverPreviewFallbackTask = Task { [weak self] in
+            guard let self else { return }
+            try? await self.clock.sleep(for: Self.hoverPreviewMaximumPreheatDelay)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard self.overlayState.presentation == .hoverPreviewPending else { return }
+                self.hoverPreviewFallbackTask = nil
+                self.pendingHoverFitReady = true
+                self.pendingHoverPreheatElapsed = true
+                self.promoteHoverPreviewIfReady()
             }
         }
     }
 
-    private func dismissHoverPreview() {
+    private func handleHoverPreviewFitReady() {
+        guard overlayState.presentation == .hoverPreviewPending else { return }
+        pendingHoverFitReady = true
+        promoteHoverPreviewIfReady()
+    }
+
+    private func promoteHoverPreviewIfReady() {
+        guard overlayState.presentation == .hoverPreviewPending,
+              pendingHoverFitReady,
+              pendingHoverPreheatElapsed
+        else {
+            return
+        }
+
         hoverPreviewTask?.cancel()
+        hoverPreviewTask = nil
+        hoverPreviewFallbackTask?.cancel()
+        hoverPreviewFallbackTask = nil
+        updatePresentation(.hoverPreview)
+    }
+
+    private func dismissHoverPreview() {
+        cancelHoverPreviewTasks()
         updatePresentation(.hoverPreviewDismissing)
         hoverPreviewTask = Task { [weak self] in
             guard let self else { return }
@@ -895,9 +937,17 @@ final class ReminderEngine {
     }
 
     private func hideHoverPreviewImmediately() {
+        cancelHoverPreviewTasks()
+        updatePresentation(.hidden)
+    }
+
+    private func cancelHoverPreviewTasks() {
         hoverPreviewTask?.cancel()
         hoverPreviewTask = nil
-        updatePresentation(.hidden)
+        hoverPreviewFallbackTask?.cancel()
+        hoverPreviewFallbackTask = nil
+        pendingHoverFitReady = false
+        pendingHoverPreheatElapsed = false
     }
 
     private func schedulePomodoroCountdownTuck() {
@@ -948,8 +998,7 @@ final class ReminderEngine {
 
         breakCompletionCountdownTask?.cancel()
         breakCompletionCountdownTask = nil
-        hoverPreviewTask?.cancel()
-        hoverPreviewTask = nil
+        cancelHoverPreviewTasks()
         updatePresentation(.hidden)
         if let activePomodoroCountdownContent {
             updateContent(.pomodoroCountdown(activePomodoroCountdownContent))

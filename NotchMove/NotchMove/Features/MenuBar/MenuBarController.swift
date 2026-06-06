@@ -71,6 +71,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let breakStatsStore: BreakStatsStore
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
+    private let notchHubStore: NotchHubStore
     private let onOpenDashboard: () -> Void
     private let menu = NSMenu()
     private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "menu-bar")
@@ -81,6 +82,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let pauseMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let soundMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let remindNowMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let notchHubMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let pomodoroStartMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let pomodoroPauseMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let pomodoroStopMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -93,6 +95,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         breakStatsStore: BreakStatsStore,
         languageManager: LanguageManager,
         preferencesStore: PreferencesStore,
+        notchHubStore: NotchHubStore,
         onOpenDashboard: @escaping () -> Void
     ) {
         self.reminderEngine = reminderEngine
@@ -100,6 +103,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.breakStatsStore = breakStatsStore
         self.languageManager = languageManager
         self.preferencesStore = preferencesStore
+        self.notchHubStore = notchHubStore
         self.onOpenDashboard = onOpenDashboard
         super.init()
         configureStatusButton()
@@ -134,6 +138,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         remindNowMenuItem.target = self
         remindNowMenuItem.action = #selector(remindNow)
         menu.addItem(remindNowMenuItem)
+
+        notchHubMenuItem.target = self
+        notchHubMenuItem.action = #selector(toggleNotchHub)
+        menu.addItem(notchHubMenuItem)
 
         menu.addItem(.separator())
 
@@ -233,6 +241,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         remindNowMenuItem.title = L("menu.remind_now")
         remindNowMenuItem.isEnabled = breakReminderEnabled && !reminderEngine.isReminderPresenting
 
+        notchHubMenuItem.title = notchHubStore.isExpanded ? L("menu.notch_hub_close") : L("menu.notch_hub_open")
+        notchHubMenuItem.isEnabled = notchHubStore.preferences.isEnabled && !reminderEngine.isReminderPresenting
+
         refreshPomodoroItems()
 
         // Sound toggle
@@ -289,6 +300,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func remindNow() {
         logger.notice("Manual reminder triggered from menu bar")
         reminderEngine.send(.manualTrigger)
+    }
+
+    @objc private func toggleNotchHub() {
+        logger.notice("Notch Hub toggled from menu bar")
+        notchHubStore.toggleHub()
     }
 
     @objc private func startPomodoro() {

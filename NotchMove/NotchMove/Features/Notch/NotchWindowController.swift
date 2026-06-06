@@ -8,10 +8,46 @@
 import AppKit
 import SwiftUI
 
+enum NotchOverlaySizingRoleResolver {
+    static func sizingRole(
+        activePresentation: ReminderState.PresentationPhase,
+        content: ReminderEngine.OverlayContent,
+        voiceOverlayVisible: Bool
+    ) -> OverlaySizingRole {
+        if voiceOverlayVisible {
+            return .standard
+        }
+
+        if case .pomodoroCountdown = content {
+            return .prominentCountdown
+        }
+
+        if isHoverPreviewPresentation(activePresentation) {
+            if case .breakCompletionCountdown = content {
+                return .standard
+            }
+
+            return .dualPreview
+        }
+
+        return .standard
+    }
+
+    private static func isHoverPreviewPresentation(_ presentation: ReminderState.PresentationPhase) -> Bool {
+        switch presentation {
+        case .hoverPreviewPending, .hoverPreview, .hoverPreviewDismissing:
+            return true
+        case .hidden, .reminderPending, .presenting, .dismissAnimating:
+            return false
+        }
+    }
+}
+
 final class NotchWindowController {
     private let panel: NotchWindow
     private let reminderEngine: ReminderEngine
     private let voiceInputSession: VoiceInputSessionController
+    private let notchHubStore: NotchHubStore
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
     private let onOpenDashboard: () -> Void
@@ -42,6 +78,7 @@ final class NotchWindowController {
     init(
         reminderEngine: ReminderEngine,
         voiceInputSession: VoiceInputSessionController,
+        notchHubStore: NotchHubStore,
         languageManager: LanguageManager,
         preferencesStore: PreferencesStore,
         onOpenDashboard: @escaping () -> Void,
@@ -51,6 +88,7 @@ final class NotchWindowController {
     ) {
         self.reminderEngine = reminderEngine
         self.voiceInputSession = voiceInputSession
+        self.notchHubStore = notchHubStore
         self.languageManager = languageManager
         self.preferencesStore = preferencesStore
         self.onOpenDashboard = onOpenDashboard
@@ -63,6 +101,7 @@ final class NotchWindowController {
             rootView: Self.makeRootView(
                 reminderEngine: reminderEngine,
                 voiceInputSession: voiceInputSession,
+                notchHubStore: notchHubStore,
                 overlayMetrics: overlayMetrics,
                 locale: languageManager.locale,
                 onOpenDashboard: onOpenDashboard,
@@ -106,6 +145,7 @@ final class NotchWindowController {
         installScreenChangeObserver()
         observeReminderState()
         observeVoiceInputState()
+        observeHubState()
         observeOverlayContentFit()
     }
 
@@ -134,6 +174,20 @@ final class NotchWindowController {
         }
     }
 
+    private func observeHubState() {
+        withObservationTracking {
+            _ = notchHubStore.presentation
+            _ = notchHubStore.preferences.isEnabled
+            _ = notchHubStore.preferences.enabledWidgetIDs
+            _ = notchHubStore.preferences.defaultWidgetID
+        } onChange: {
+            Task { @MainActor [weak self] in
+                self?.applyCurrentPlacement(animated: true)
+                self?.observeHubState()
+            }
+        }
+    }
+
     // MARK: - Screen Tracking
 
     private func applyCurrentPlacement(animated: Bool) {
@@ -149,38 +203,33 @@ final class NotchWindowController {
             sizingRole: sizingRole,
             contentFitSize: contentFitSize(for: sizingRole)
         )
+        updateHoverPreviewFitState(sizingRole: sizingRole, placement: placement)
         clearStaleContentFitRequestIfNeeded(sizingRole: sizingRole)
         updateOverlayMetrics(with: placement)
         updateInteractiveFrame(with: placement)
+        updateKeyInteraction()
 
         guard panel.frame != placement.frame else { return }
         panel.setFrame(placement.frame, display: true, animate: false)
     }
 
     private var activeSizingRole: OverlaySizingRole {
-        if voiceInputSession.isOverlayVisible {
-            return .standard
+        if isHubSurfaceActive {
+            return .hubExpanded
         }
 
-        if isHoverPreviewPresentation {
-            if case .breakCompletionCountdown = reminderEngine.overlayState.content {
-                return .standard
-            }
-
-            return .dualPreview
-        }
-
-        if case .pomodoroCountdown = reminderEngine.overlayState.content {
-            return .prominentCountdown
-        }
-
-        return .standard
+        return NotchOverlaySizingRoleResolver.sizingRole(
+            activePresentation: activePresentation,
+            content: reminderEngine.overlayState.content,
+            voiceOverlayVisible: voiceInputSession.isOverlayVisible
+        )
     }
 
     private func observeOverlayContentFit() {
         withObservationTracking {
             _ = overlayMetrics.contentFitRequest
             _ = overlayMetrics.cachedContentFitRequest
+            _ = overlayMetrics.frozenHoverPreviewSize
         } onChange: {
             Task { @MainActor [weak self] in
                 self?.applyCurrentPlacement(animated: true)
@@ -196,26 +245,57 @@ final class NotchWindowController {
 
         switch activePresentation {
         case .hoverPreview:
-            return overlayMetrics.contentFitRequest?.size ?? overlayMetrics.cachedContentFitRequest?.size
+            return overlayMetrics.frozenHoverPreviewSize ?? overlayMetrics.cachedContentFitRequest?.size
         case .hoverPreviewPending, .hoverPreviewDismissing:
-            return overlayMetrics.cachedContentFitRequest?.size
+            return overlayMetrics.frozenHoverPreviewSize ??
+                overlayMetrics.contentFitRequest?.size ??
+                overlayMetrics.cachedContentFitRequest?.size
         case .hidden, .reminderPending, .presenting, .dismissAnimating:
             return nil
         }
     }
 
     private func clearStaleContentFitRequestIfNeeded(sizingRole: OverlaySizingRole) {
-        guard activePresentation != .hoverPreview || sizingRole != .dualPreview else { return }
+        guard !isHoverPreviewPresentation || sizingRole != .dualPreview else { return }
         overlayMetrics.clearContentFitRequest()
     }
 
-    private var isHoverPreviewPresentation: Bool {
-        switch activePresentation {
-        case .hoverPreviewPending, .hoverPreview, .hoverPreviewDismissing:
-            true
-        case .hidden, .reminderPending, .presenting, .dismissAnimating:
-            false
+    private func updateHoverPreviewFitState(
+        sizingRole: OverlaySizingRole,
+        placement: OverlayPlacement
+    ) {
+        if voiceInputSession.isOverlayVisible || !isHoverPreviewPresentation {
+            overlayMetrics.clearFrozenHoverPreviewSize()
+            return
         }
+
+        switch activePresentation {
+        case .hoverPreviewPending:
+            freezePendingHoverPreviewSizeIfReady(
+                sizingRole: sizingRole,
+                placement: placement
+            )
+        case .hoverPreview, .hoverPreviewDismissing:
+            if overlayMetrics.frozenHoverPreviewSize == nil {
+                overlayMetrics.freezeHoverPreviewSize(placement.frame.size)
+            }
+        case .hidden, .reminderPending, .presenting, .dismissAnimating:
+            break
+        }
+    }
+
+    private func freezePendingHoverPreviewSizeIfReady(
+        sizingRole: OverlaySizingRole,
+        placement: OverlayPlacement
+    ) {
+        guard overlayMetrics.frozenHoverPreviewSize == nil else { return }
+
+        if sizingRole == .dualPreview {
+            guard overlayMetrics.contentFitRequest != nil else { return }
+        }
+
+        overlayMetrics.freezeHoverPreviewSize(placement.frame.size)
+        reminderEngine.send(.hoverPreviewFitReady)
     }
 
     private func updateOverlayMetrics(with placement: OverlayPlacement) {
@@ -241,10 +321,21 @@ final class NotchWindowController {
         interactiveFrame = CGRect(origin: origin, size: size)
     }
 
+    private func updateKeyInteraction() {
+        let shouldAllowKeyInteraction = notchHubStore.requiresKeyWindow && isHubSurfaceActive
+        guard panel.allowsKeyInteraction != shouldAllowKeyInteraction else { return }
+        panel.allowsKeyInteraction = shouldAllowKeyInteraction
+
+        if shouldAllowKeyInteraction {
+            panel.makeKey()
+        }
+    }
+
     private func updateHostingRootView() {
         hostingView.rootView = Self.makeRootView(
             reminderEngine: reminderEngine,
             voiceInputSession: voiceInputSession,
+            notchHubStore: notchHubStore,
             overlayMetrics: overlayMetrics,
             locale: languageManager.locale,
             onOpenDashboard: onOpenDashboard,
@@ -253,12 +344,42 @@ final class NotchWindowController {
     }
 
     private var activePresentation: ReminderState.PresentationPhase {
-        voiceInputSession.isOverlayVisible ? .presenting : reminderEngine.overlayState.presentation
+        if voiceInputSession.isOverlayVisible {
+            return .presenting
+        }
+
+        if isHubSurfaceActive {
+            return .presenting
+        }
+
+        return reminderEngine.overlayState.presentation
+    }
+
+    private var isHubSurfaceActive: Bool {
+        guard notchHubStore.preferences.isEnabled,
+              notchHubStore.presentation.isExpandedSurface,
+              !voiceInputSession.isOverlayVisible,
+              !reminderEngine.isReminderPresenting
+        else {
+            return false
+        }
+
+        return true
+    }
+
+    private var isHoverPreviewPresentation: Bool {
+        switch activePresentation {
+        case .hoverPreviewPending, .hoverPreview, .hoverPreviewDismissing:
+            true
+        case .hidden, .reminderPending, .presenting, .dismissAnimating:
+            false
+        }
     }
 
     private static func makeRootView(
         reminderEngine: ReminderEngine,
         voiceInputSession: VoiceInputSessionController,
+        notchHubStore: NotchHubStore,
         overlayMetrics: NotchOverlayMetrics,
         locale: Locale,
         onOpenDashboard: @escaping () -> Void,
@@ -268,6 +389,7 @@ final class NotchWindowController {
             NotchView(
                 reminderEngine: reminderEngine,
                 voiceInputSession: voiceInputSession,
+                notchHubStore: notchHubStore,
                 overlayMetrics: overlayMetrics,
                 onOpenDashboard: onOpenDashboard,
                 onOpenSettings: onOpenSettings

@@ -33,6 +33,7 @@ enum OverlaySizingRole: Equatable {
     case standard
     case dualPreview
     case prominentCountdown
+    case hubExpanded
 }
 
 struct ScreenPlacementService {
@@ -65,6 +66,10 @@ struct ScreenPlacementService {
         static let dualPreviewAdaptiveMaxWidth: CGFloat = 640
         static let dualPreviewAdaptiveHorizontalScreenInset: CGFloat = 80
         static let dualPreviewAdaptiveMaxHeight: CGFloat = 128
+        static let hubExpandedMinWidth: CGFloat = 520
+        static let hubExpandedMaxWidth: CGFloat = 620
+        static let hubExpandedHeight: CGFloat = 318
+        static let hubExpandedHorizontalScreenInset: CGFloat = 80
     }
 
     func placement(
@@ -123,6 +128,10 @@ struct ScreenPlacementService {
         case .hidden:
             return tuckedSize(on: screen)
         case .reminderPending:
+            if sizingRole == .hubExpanded {
+                return hubExpandedSize(screenWidth: screen.frame.width)
+            }
+
             if sizingRole == .prominentCountdown {
                 return prominentCountdownSize(
                     notchWidth: notchWidth,
@@ -135,6 +144,10 @@ struct ScreenPlacementService {
                 notchExpansionEnabled: notchExpansionEnabled
             )
         case .hoverPreviewPending, .hoverPreview, .hoverPreviewDismissing:
+            if sizingRole == .hubExpanded {
+                return hubExpandedSize(screenWidth: screen.frame.width)
+            }
+
             if sizingRole == .dualPreview {
                 return dualPreviewSize(
                     notchWidth: notchWidth,
@@ -160,6 +173,10 @@ struct ScreenPlacementService {
                 height: max(baseHeight + 34, Sizing.previewMinHeight)
             )
         case .presenting, .dismissAnimating:
+            if sizingRole == .hubExpanded {
+                return hubExpandedSize(screenWidth: screen.frame.width)
+            }
+
             if sizingRole == .prominentCountdown {
                 return prominentCountdownSize(
                     notchWidth: notchWidth,
@@ -203,6 +220,24 @@ struct ScreenPlacementService {
         return CGSize(
             width: min(desiredWidth, adaptiveMaxWidth),
             height: min(desiredHeight, Sizing.dualPreviewAdaptiveMaxHeight)
+        )
+    }
+
+    private func hubExpandedSize(screenWidth: CGFloat) -> CGSize {
+        let availableWidth = max(
+            1,
+            screenWidth - Sizing.hubExpandedHorizontalScreenInset
+        )
+        let width: CGFloat
+        if availableWidth < Sizing.hubExpandedMinWidth {
+            width = availableWidth
+        } else {
+            width = min(Sizing.hubExpandedMaxWidth, availableWidth)
+        }
+
+        return CGSize(
+            width: width,
+            height: Sizing.hubExpandedHeight
         )
     }
 

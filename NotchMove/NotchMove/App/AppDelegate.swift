@@ -15,6 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var preferencesStore = PreferencesStore(settings: settings)
     private lazy var breakStatsStore = BreakStatsStore(defaults: settings.defaults)
     private lazy var dailyScheduleStore = DailyScheduleStore(defaults: settings.defaults)
+    private lazy var notchHubStore = NotchHubStore(
+        defaults: settings.defaults,
+        dailyScheduleStore: dailyScheduleStore
+    )
     private lazy var aiProviderPreferences = AIProviderPreferences(defaults: settings.defaults)
     private lazy var aiScheduleAssistantService = AIScheduleAssistantService(preferences: aiProviderPreferences)
     private lazy var languageManager = LanguageManager(preferencesStore: preferencesStore)
@@ -70,11 +74,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             aiProviderPreferences: aiProviderPreferences,
             breakStatsStore: breakStatsStore,
             loginItemManager: loginItemService,
+            notchHubStore: notchHubStore,
             globalHotkeyController: globalHotkeyController
         )
         let controller = NotchWindowController(
             reminderEngine: engine,
             voiceInputSession: voiceInputSession,
+            notchHubStore: notchHubStore,
             languageManager: languageManager,
             preferencesStore: preferencesStore,
             onOpenDashboard: { [weak dashboardWindow] in
@@ -100,6 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             breakStatsStore: breakStatsStore,
             languageManager: languageManager,
             preferencesStore: preferencesStore,
+            notchHubStore: notchHubStore,
             onOpenDashboard: { [weak dashboardWindow] in
                 dashboardWindow?.openDashboard()
             }

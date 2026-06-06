@@ -21,6 +21,7 @@ struct UnifiedDashboardView: View {
     @Bindable var preferencesStore: PreferencesStore
     @Bindable var aiProviderPreferences: AIProviderPreferences
     @Bindable var breakStatsStore: BreakStatsStore
+    @Bindable var notchHubStore: NotchHubStore
     @Bindable var globalHotkeyController: GlobalAICaptureHotkeyController
 
     @AppStorage(UnifiedDashboardSelectionStorage.selectedPageKey) private var selectedPageID = UnifiedDashboardPage.breaks.id
@@ -160,6 +161,7 @@ struct UnifiedDashboardView: View {
                 preferencesStore: preferencesStore,
                 aiProviderPreferences: aiProviderPreferences,
                 breakStatsStore: breakStatsStore,
+                notchHubStore: notchHubStore,
                 globalHotkeyController: globalHotkeyController
             )
         }
@@ -450,6 +452,7 @@ private struct DashboardSettingsPage: View {
     let preferencesStore: PreferencesStore
     let aiProviderPreferences: AIProviderPreferences
     let breakStatsStore: BreakStatsStore
+    let notchHubStore: NotchHubStore
     let globalHotkeyController: GlobalAICaptureHotkeyController
 
     var body: some View {
@@ -466,6 +469,7 @@ private struct DashboardSettingsPage: View {
                 preferencesStore: preferencesStore,
                 aiProviderPreferences: aiProviderPreferences,
                 breakStatsStore: breakStatsStore,
+                notchHubStore: notchHubStore,
                 globalHotkeyController: globalHotkeyController,
                 sections: [section],
                 showsSectionHeaders: false
@@ -501,6 +505,10 @@ private struct DashboardSettingsPage: View {
         preferencesStore: preferencesStore,
         aiProviderPreferences: AIProviderPreferences(defaults: settings.defaults),
         breakStatsStore: breakStatsStore,
+        notchHubStore: NotchHubStore(
+            defaults: settings.defaults,
+            dailyScheduleStore: DailyScheduleStore(defaults: settings.defaults)
+        ),
         globalHotkeyController: GlobalAICaptureHotkeyController(onPress: {}, onRelease: {})
     )
     .frame(width: 920, height: 640)

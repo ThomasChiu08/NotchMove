@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import AVFoundation
 import CoreGraphics
 import Foundation
 import Testing
@@ -879,6 +880,7 @@ struct ReminderEngineTests {
         defer { context.cleanup() }
 
         context.engine.send(.hoverChanged(true))
+        context.engine.send(.hoverPreviewFitReady)
 
         #expect(context.engine.state.presentation == .hoverPreviewPending)
         #expect(!context.engine.isReminderPresenting)
@@ -903,6 +905,52 @@ struct ReminderEngineTests {
         await context.clock.advance(by: .milliseconds(50))
         await flushAsyncWork()
         #expect(context.engine.state.presentation == .hidden)
+    }
+
+    @Test func hoverPreviewWaitsForFitReadyAfterPreheatElapsed() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.engine.send(.hoverChanged(true))
+        await advanceClockAndFlush(context.clock, by: ReminderEngine.hoverPreviewPromotionDelay)
+
+        #expect(context.engine.state.presentation == .hoverPreviewPending)
+
+        context.engine.send(.hoverPreviewFitReady)
+
+        #expect(context.engine.state.presentation == .hoverPreview)
+    }
+
+    @Test func hoverPreviewFitReadyBeforePreheatStillWaitsForPromotionDelay() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.engine.send(.hoverChanged(true))
+        context.engine.send(.hoverPreviewFitReady)
+        await advanceClockAndFlush(context.clock, by: .milliseconds(50))
+
+        #expect(context.engine.state.presentation == .hoverPreviewPending)
+
+        await advanceClockAndFlush(context.clock, by: .milliseconds(25))
+
+        #expect(context.engine.state.presentation == .hoverPreview)
+    }
+
+    @Test func hoverPreviewFallbackPromotesWhenFitNeverArrives() async {
+        let context = makeReminderContext(now: makeDate(year: 2026, month: 4, day: 20, hour: 9, minute: 0))
+        defer { context.cleanup() }
+
+        context.engine.send(.hoverChanged(true))
+        await advanceClockAndFlush(context.clock, by: ReminderEngine.hoverPreviewPromotionDelay)
+
+        #expect(context.engine.state.presentation == .hoverPreviewPending)
+
+        await advanceClockAndFlush(
+            context.clock,
+            by: .milliseconds(110)
+        )
+
+        #expect(context.engine.state.presentation == .hoverPreview)
     }
 
     @Test func hoverPreviewReentryDuringDismissalRestoresPreview() async {
@@ -935,9 +983,9 @@ struct ReminderEngineTests {
 
         context.engine.send(.hoverChanged(false))
         #expect(context.engine.state.presentation == .hidden)
+        context.engine.send(.hoverPreviewFitReady)
 
-        await context.clock.advance(by: ReminderEngine.hoverPreviewPromotionDelay)
-        await flushAsyncWork()
+        await advanceClockAndFlush(context.clock, by: ReminderEngine.hoverPreviewMaximumPreheatDelay)
         #expect(context.engine.state.presentation == .hidden)
     }
 
@@ -1214,9 +1262,9 @@ struct NotchVisualStateTests {
         )
 
         #expect(state.shellSize == tucked)
-        #expect(state.shellScale == 1.03)
-        #expect(state.shellOffsetY == 2)
-        #expect(state.cornerRadius == 12)
+        #expect(state.shellScale == 1.012)
+        #expect(state.shellOffsetY == 1)
+        #expect(state.cornerRadius == 11)
         #expect(state.shadowOpacity > 0)
         #expect(state.rimOpacity > 0)
         #expect(state.contentOpacity == 0)
@@ -1244,6 +1292,52 @@ struct NotchVisualStateTests {
         #expect(state.contentBlurRadius == 0)
     }
 
+    @Test func hoverPreviewCanExpandShellBeforeRevealingContent() {
+        let tucked = CGSize(width: 200, height: 38)
+        let canvas = CGSize(width: 520, height: 118)
+
+        let state = NotchVisualState(
+            presentation: .hoverPreview,
+            voiceOverlayVisible: false,
+            tuckedSize: tucked,
+            canvasSize: canvas,
+            revealHoverPreviewContent: false
+        )
+
+        #expect(state.shellSize == canvas)
+        #expect(state.contentOpacity == 0)
+        #expect(state.contentScale < 1)
+        #expect(state.contentOffsetY < 0)
+        #expect(state.contentBlurRadius > 0)
+    }
+
+    @Test func pomodoroCountdownHoverUsesLighterMotionThanStandardPreview() {
+        let tucked = CGSize(width: 200, height: 38)
+        let canvas = CGSize(width: 344, height: 96)
+
+        let standard = NotchVisualState(
+            presentation: .hoverPreview,
+            voiceOverlayVisible: false,
+            tuckedSize: tucked,
+            canvasSize: canvas
+        )
+        let pomodoro = NotchVisualState(
+            presentation: .hoverPreview,
+            voiceOverlayVisible: false,
+            tuckedSize: tucked,
+            canvasSize: canvas,
+            motionRole: .pomodoroCountdown
+        )
+
+        #expect(pomodoro.shellSize == canvas)
+        #expect(pomodoro.cornerRadius < standard.cornerRadius)
+        #expect(pomodoro.shadowOpacity < standard.shadowOpacity)
+        #expect(pomodoro.shadowRadius < standard.shadowRadius)
+        #expect(pomodoro.rimOpacity > standard.rimOpacity)
+        #expect(pomodoro.contentOpacity == 1)
+        #expect(pomodoro.contentBlurRadius == 0)
+    }
+
     @Test func dismissingTucksShellAndHidesContentFirst() {
         let tucked = CGSize(width: 200, height: 38)
         let canvas = CGSize(width: 520, height: 118)
@@ -1262,6 +1356,65 @@ struct NotchVisualStateTests {
         #expect(state.contentOffsetY < 0)
         #expect(state.contentBlurRadius > 0)
     }
+
+    @Test func dismissingCanHoldExpandedShellWhileContentIsHidden() {
+        let tucked = CGSize(width: 200, height: 38)
+        let canvas = CGSize(width: 520, height: 118)
+
+        let state = NotchVisualState(
+            presentation: .hoverPreviewDismissing,
+            voiceOverlayVisible: false,
+            tuckedSize: tucked,
+            canvasSize: canvas,
+            holdHoverPreviewShellExpanded: true
+        )
+
+        #expect(state.shellSize == canvas)
+        #expect(state.contentOpacity == 0)
+        #expect(state.cornerRadius == 18)
+        #expect(state.shadowRadius > 1)
+    }
+
+    @Test func pomodoroCountdownHoverResolvesToCountdownContentRole() {
+        let content = PomodoroCountdownContent(
+            phase: .focus,
+            startedAt: makeDate(year: 2026, month: 6, day: 5, hour: 9, minute: 0),
+            duration: 25 * 60,
+            pausedRemainingSeconds: nil
+        )
+
+        #expect(
+            NotchOverlayContentRole.resolve(
+                presentation: .hoverPreview,
+                content: .pomodoroCountdown(content),
+                voiceOverlayVisible: false
+            ) == .pomodoroCountdown
+        )
+        #expect(
+            NotchOverlayContentRole.resolve(
+                presentation: .hoverPreview,
+                content: .breakReminder,
+                voiceOverlayVisible: false
+            ) == .hoverPreview
+        )
+    }
+
+    @Test func hoverPreviewContentMountsDuringPendingAndDismissingForMeasurement() {
+        #expect(
+            NotchOverlayContentRole.resolve(
+                presentation: .hoverPreviewPending,
+                content: .breakReminder,
+                voiceOverlayVisible: false
+            ) == .hoverPreview
+        )
+        #expect(
+            NotchOverlayContentRole.resolve(
+                presentation: .hoverPreviewDismissing,
+                content: .breakReminder,
+                voiceOverlayVisible: false
+            ) == .hoverPreview
+        )
+    }
 }
 
 @MainActor
@@ -1275,10 +1428,221 @@ struct NotchOverlayMetricsTests {
         #expect(metrics.contentFitRequest == nil)
         #expect(metrics.cachedContentFitRequest?.size == CGSize(width: 519.5, height: 117.5))
     }
+
+    @Test func frozenHoverPreviewSizeIgnoresLaterFitChangesUntilCleared() {
+        let metrics = NotchOverlayMetrics(topInset: 38)
+
+        metrics.freezeHoverPreviewSize(CGSize(width: 519.25, height: 117.25), displayScale: 2)
+        metrics.requestContentFit(size: CGSize(width: 640, height: 128), displayScale: 2)
+
+        #expect(metrics.frozenHoverPreviewSize == CGSize(width: 519.5, height: 117.5))
+
+        metrics.clearFrozenHoverPreviewSize()
+        metrics.freezeHoverPreviewSize(CGSize(width: 640, height: 128), displayScale: 2)
+
+        #expect(metrics.frozenHoverPreviewSize == CGSize(width: 640, height: 128))
+    }
+}
+
+@MainActor
+struct NotchOverlaySizingRoleResolverTests {
+    @Test func pomodoroCountdownHoverUsesProminentCountdownSizing() {
+        let content = PomodoroCountdownContent(
+            phase: .focus,
+            startedAt: makeDate(year: 2026, month: 6, day: 5, hour: 9, minute: 0),
+            duration: 25 * 60,
+            pausedRemainingSeconds: nil
+        )
+
+        #expect(
+            NotchOverlaySizingRoleResolver.sizingRole(
+                activePresentation: .hoverPreview,
+                content: .pomodoroCountdown(content),
+                voiceOverlayVisible: false
+            ) == .prominentCountdown
+        )
+    }
+
+    @Test func standardHoverPreviewStillUsesDualPreviewSizing() {
+        #expect(
+            NotchOverlaySizingRoleResolver.sizingRole(
+                activePresentation: .hoverPreview,
+                content: .breakReminder,
+                voiceOverlayVisible: false
+            ) == .dualPreview
+        )
+    }
+}
+
+@MainActor
+struct NotchHubTests {
+    @Test func presentationResolverKeepsVoiceAndReminderAheadOfHub() {
+        #expect(
+            NotchHubPresentationResolver.effectiveSurface(
+                voiceOverlayVisible: true,
+                reminderPresentation: .hidden,
+                hubPresentation: .widget(.media),
+                pomodoroActive: true,
+                hoverPreviewEnabled: true
+            ) == .voice
+        )
+        #expect(
+            NotchHubPresentationResolver.effectiveSurface(
+                voiceOverlayVisible: false,
+                reminderPresentation: .presenting,
+                hubPresentation: .widget(.media),
+                pomodoroActive: false,
+                hoverPreviewEnabled: true
+            ) == .reminder
+        )
+        #expect(
+            NotchHubPresentationResolver.effectiveSurface(
+                voiceOverlayVisible: false,
+                reminderPresentation: .hidden,
+                hubPresentation: .widget(.media),
+                pomodoroActive: true,
+                hoverPreviewEnabled: true
+            ) == .hub
+        )
+    }
+
+    @Test func presentationResolverFallsBackToLiveHoverAndTuckedSurfaces() {
+        #expect(
+            NotchHubPresentationResolver.effectiveSurface(
+                voiceOverlayVisible: false,
+                reminderPresentation: .hidden,
+                hubPresentation: .tucked,
+                pomodoroActive: true,
+                hoverPreviewEnabled: true
+            ) == .liveStatus
+        )
+        #expect(
+            NotchHubPresentationResolver.effectiveSurface(
+                voiceOverlayVisible: false,
+                reminderPresentation: .hoverPreview,
+                hubPresentation: .tucked,
+                pomodoroActive: false,
+                hoverPreviewEnabled: true
+            ) == .hoverPreview
+        )
+        #expect(
+            NotchHubPresentationResolver.effectiveSurface(
+                voiceOverlayVisible: false,
+                reminderPresentation: .hidden,
+                hubPresentation: .tucked,
+                pomodoroActive: false,
+                hoverPreviewEnabled: false
+            ) == .tucked
+        )
+    }
+
+    @Test func storePersistsNormalizedPreferencesAndShortcutNames() {
+        let defaults = makeEphemeralDefaults()
+        let scheduleStore = DailyScheduleStore(defaults: defaults)
+        let store = makeNotchHubStore(defaults: defaults, scheduleStore: scheduleStore)
+
+        store.preferences.isEnabled = true
+        store.setWidget(.media, enabled: false)
+        store.setDefaultWidget(.notes)
+        store.addShortcut(named: "Clean Clipboard")
+        store.addShortcut(named: " Clean Clipboard ")
+        store.preferences.enabledWidgetIDs = []
+
+        let restored = makeNotchHubStore(defaults: defaults, scheduleStore: scheduleStore)
+
+        #expect(restored.preferences.isEnabled)
+        #expect(restored.preferences.enabledWidgetIDs == [.live])
+        #expect(restored.preferences.defaultWidgetID == .live)
+        #expect(restored.preferences.shortcutNames == ["Clean Clipboard"])
+    }
+
+    @Test func storePersistsTriggerGestureAndTogglesPresentation() {
+        let defaults = makeEphemeralDefaults()
+        let store = makeNotchHubStore(defaults: defaults)
+
+        store.preferences.isEnabled = true
+        store.preferences.triggerGesture = .hoverAndClick
+        store.open()
+
+        #expect(store.presentation == .widget(.live))
+        #expect(store.isExpanded)
+
+        store.toggleHub()
+        #expect(store.presentation == .tucked)
+
+        let restored = makeNotchHubStore(defaults: defaults)
+        #expect(restored.preferences.triggerGesture == .hoverAndClick)
+    }
+
+    @Test func mediaCommandRequestsPermissionBeforeCallingProvider() async {
+        let defaults = makeEphemeralDefaults()
+        let mediaProvider = MockMediaProvider()
+        let store = makeNotchHubStore(defaults: defaults, mediaProvider: mediaProvider)
+
+        store.preferences.isEnabled = true
+        store.open()
+        store.performMediaCommand(.playPause)
+        await flushAsyncWork()
+
+        #expect(store.presentation == .permissionPrompt(.appleEvents))
+        #expect(mediaProvider.commands.isEmpty)
+
+        store.preferences.allowAppleEvents = true
+        store.presentation = .widget(.media)
+        store.performMediaCommand(.playPause)
+        await flushAsyncWork()
+
+        #expect(mediaProvider.commands == [.playPause])
+    }
 }
 
 @MainActor
 struct ScreenPlacementServiceTests {
+    @Test func hubExpandedUsesLargeInteractiveCanvasWithinScreenWidth() {
+        let screen = ScreenDescriptor(
+            displayID: 1,
+            localizedName: "Built-in Display",
+            isBuiltIn: true,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            notchFrame: CGRect(x: 656, y: 944, width: 200, height: 38),
+            menuBarHeight: 38
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .presenting,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .hubExpanded
+        )
+
+        #expect(placement.frame.width == 620)
+        #expect(placement.frame.height == 318)
+        #expect(placement.visibleSize == placement.frame.size)
+        #expect(placement.frame.midX == screen.notchFrame?.midX)
+    }
+
+    @Test func hubExpandedShrinksForNarrowFallbackDisplays() {
+        let screen = ScreenDescriptor(
+            displayID: 9,
+            localizedName: "Narrow Display",
+            isBuiltIn: false,
+            frame: CGRect(x: 0, y: 0, width: 480, height: 640),
+            notchFrame: nil,
+            menuBarHeight: 24
+        )
+
+        let placement = ScreenPlacementService().placement(
+            for: .presenting,
+            on: screen,
+            notchExpansionEnabled: true,
+            sizingRole: .hubExpanded
+        )
+
+        #expect(placement.frame.width == 400)
+        #expect(placement.frame.minX >= screen.frame.minX)
+        #expect(placement.frame.maxX <= screen.frame.maxX)
+    }
+
     @Test func hiddenOverlayMatchesPhysicalNotchFrame() {
         let screen = ScreenDescriptor(
             displayID: 1,
@@ -1945,6 +2309,30 @@ struct ScreenSelectionServiceTests {
 }
 
 @MainActor
+struct FileTrayStoreTests {
+    @Test func fileTrayStoresSecurityScopedBookmarksAndRemovesItems() throws {
+        let defaults = makeEphemeralDefaults()
+        let store = FileTrayStore(defaults: defaults)
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("notchmove-tray-\(UUID().uuidString).txt")
+        try "tray".write(to: fileURL, atomically: true, encoding: .utf8)
+
+        try store.add([fileURL])
+
+        #expect(store.items.count == 1)
+        #expect(store.items[0].displayName == fileURL.lastPathComponent)
+        let resolvedURL = try store.resolvedURL(for: store.items[0])
+        #expect(resolvedURL.lastPathComponent == fileURL.lastPathComponent)
+
+        let restored = FileTrayStore(defaults: defaults)
+        #expect(restored.items.count == 1)
+
+        restored.remove(restored.items[0])
+        #expect(restored.items.isEmpty)
+    }
+}
+
+@MainActor
 private func makeReminderContext(now: Date) -> ReminderTestContext {
     let suiteName = "NotchMoveTests-\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suiteName)!
@@ -2006,6 +2394,33 @@ private func makePomodoroContext(now: Date) -> PomodoroTestContext {
     )
 }
 
+@MainActor
+private func makeEphemeralDefaults() -> UserDefaults {
+    let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defaults.removePersistentDomain(forName: suiteName)
+    return defaults
+}
+
+@MainActor
+private func makeNotchHubStore(
+    defaults: UserDefaults,
+    scheduleStore: DailyScheduleStore? = nil,
+    mediaProvider: MockMediaProvider = MockMediaProvider(),
+    calendarProvider: MockCalendarProvider = MockCalendarProvider(),
+    shortcutsProvider: MockShortcutRunner = MockShortcutRunner(),
+    cameraPermissionProvider: MockCameraPermissionProvider = MockCameraPermissionProvider()
+) -> NotchHubStore {
+    NotchHubStore(
+        defaults: defaults,
+        dailyScheduleStore: scheduleStore ?? DailyScheduleStore(defaults: defaults),
+        mediaProvider: mediaProvider,
+        calendarProvider: calendarProvider,
+        shortcutsProvider: shortcutsProvider,
+        cameraPermissionProvider: cameraPermissionProvider
+    )
+}
+
 private func makeDate(year: Int, month: Int, day: Int, hour: Int, minute: Int) -> Date {
     var components = DateComponents()
     components.calendar = Calendar(identifier: .gregorian)
@@ -2033,6 +2448,7 @@ private func promotePendingReminder(in context: ReminderTestContext) async {
 }
 
 private func promoteHoverPreview(in context: ReminderTestContext) async {
+    context.engine.send(.hoverPreviewFitReady)
     await flushAsyncWork()
     await context.clock.advance(by: ReminderEngine.hoverPreviewPromotionDelay)
     await flushAsyncWork()
@@ -2113,6 +2529,75 @@ private struct ReminderTestContext {
 @MainActor
 private final class TestIdleProvider: IdleTimeProviding {
     var idleSeconds: TimeInterval = 0
+}
+
+@MainActor
+private final class MockMediaProvider: MediaControlProviding {
+    var status = MediaPlaybackStatus(
+        app: .music,
+        title: "Focus",
+        artist: "NotchMove",
+        playbackState: .paused
+    )
+    private(set) var commands: [MediaControlCommand] = []
+
+    func currentStatus() async -> MediaPlaybackStatus {
+        status
+    }
+
+    func perform(_ command: MediaControlCommand) async -> NotchHubActionResult {
+        commands.append(command)
+        return .success("ok")
+    }
+}
+
+@MainActor
+private final class MockCalendarProvider: CalendarEventProviding {
+    var didRequestAccess = false
+    var accessGranted = true
+    var externalItems: [NotchHubCalendarItem] = []
+
+    func requestAccess() async -> Bool {
+        didRequestAccess = true
+        return accessGranted
+    }
+
+    func upcomingExternalItems(limit: Int) async -> [NotchHubCalendarItem] {
+        Array(externalItems.prefix(limit))
+    }
+
+    func localScheduleItems(from items: [DailyScheduleItem]) -> [NotchHubCalendarItem] {
+        items.map {
+            NotchHubCalendarItem(
+                id: "local.\($0.id.uuidString)",
+                title: $0.title,
+                startDate: $0.startDate,
+                endDate: $0.endDate,
+                source: .localSchedule
+            )
+        }
+    }
+}
+
+@MainActor
+private final class MockShortcutRunner: ShortcutRunning {
+    private(set) var shortcutNames: [String] = []
+
+    func runShortcut(named name: String) async -> NotchHubActionResult {
+        shortcutNames.append(name)
+        return .success("ok")
+    }
+}
+
+@MainActor
+private final class MockCameraPermissionProvider: CameraPermissionProviding {
+    var authorizationStatus: AVAuthorizationStatus = .notDetermined
+    var accessGranted = true
+
+    func requestAccess() async -> Bool {
+        authorizationStatus = accessGranted ? .authorized : .denied
+        return accessGranted
+    }
 }
 
 @MainActor

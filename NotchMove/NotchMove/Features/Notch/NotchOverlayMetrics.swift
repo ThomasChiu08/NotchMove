@@ -37,6 +37,7 @@ final class NotchOverlayMetrics {
     var canvasSize: CGSize
     private(set) var contentFitRequest: OverlayContentFitRequest?
     private(set) var cachedContentFitRequest: OverlayContentFitRequest?
+    private(set) var frozenHoverPreviewSize: CGSize?
 
     init(
         topInset: CGFloat,
@@ -61,8 +62,19 @@ final class NotchOverlayMetrics {
         cachedContentFitRequest = request
     }
 
+    func freezeHoverPreviewSize(_ size: CGSize, displayScale: CGFloat = 2) {
+        let request = OverlayContentFitRequest(size: size, displayScale: displayScale)
+        guard frozenHoverPreviewSize != request.size else { return }
+        frozenHoverPreviewSize = request.size
+    }
+
     func clearContentFitRequest() {
         guard contentFitRequest != nil else { return }
         contentFitRequest = nil
+    }
+
+    func clearFrozenHoverPreviewSize() {
+        guard frozenHoverPreviewSize != nil else { return }
+        frozenHoverPreviewSize = nil
     }
 }

@@ -418,6 +418,10 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "NotchMove uses Apple Events only when you enable Notch Hub media controls for supported media apps.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "NotchMove uses the camera only when you open the Notch Hub mirror preview.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "NotchMove reads calendar events only when you enable the Notch Hub calendar widget.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "NotchMove reads calendar events only when you enable the Notch Hub calendar widget.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "NotchMove records audio only when you start AI schedule capture or voice input.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "NotchMove uses Apple Speech only when you choose Apple Speech for AI transcription or voice input.";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -455,6 +459,10 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "NotchMove uses Apple Events only when you enable Notch Hub media controls for supported media apps.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "NotchMove uses the camera only when you open the Notch Hub mirror preview.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "NotchMove reads calendar events only when you enable the Notch Hub calendar widget.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "NotchMove reads calendar events only when you enable the Notch Hub calendar widget.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "NotchMove records audio only when you start AI schedule capture or voice input.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "NotchMove uses Apple Speech only when you choose Apple Speech for AI transcription or voice input.";
 				LD_RUNPATH_SEARCH_PATHS = (
