@@ -356,15 +356,17 @@ final class NotchWindowController {
     }
 
     private var isHubSurfaceActive: Bool {
-        guard notchHubStore.preferences.isEnabled,
-              notchHubStore.presentation.isExpandedSurface,
-              !voiceInputSession.isOverlayVisible,
-              !reminderEngine.isReminderPresenting
-        else {
-            return false
-        }
+        effectiveSurface == .hub
+    }
 
-        return true
+    private var effectiveSurface: NotchHubEffectiveSurface {
+        NotchHubPresentationResolver.effectiveSurface(
+            voiceOverlayVisible: voiceInputSession.isOverlayVisible,
+            reminderPresentation: reminderEngine.overlayState.presentation,
+            hubPresentation: notchHubStore.preferences.isEnabled ? notchHubStore.presentation : .tucked,
+            pomodoroActive: false,
+            hoverPreviewEnabled: false
+        )
     }
 
     private var isHoverPreviewPresentation: Bool {

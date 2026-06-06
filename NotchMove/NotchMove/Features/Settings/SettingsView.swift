@@ -371,7 +371,7 @@ struct SettingsContentView: View {
     private var notchHubSection: some View {
         Section {
             SettingsPropertyRow("notch_hub.enabled", captionKey: "notch_hub.enabled_caption") {
-                Toggle(isOn: $notchHubStore.preferences.isEnabled) {
+                Toggle(isOn: notchHubEnabledBinding) {
                     Text("notch_hub.enabled")
                 }
                 .labelsHidden()
@@ -1105,6 +1105,13 @@ struct SettingsContentView: View {
         Binding(
             get: { notchHubStore.preferences.defaultWidgetID },
             set: { notchHubStore.setDefaultWidget($0) }
+        )
+    }
+
+    private var notchHubEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { notchHubStore.preferences.isEnabled },
+            set: { notchHubStore.setHubEnabled($0) }
         )
     }
 

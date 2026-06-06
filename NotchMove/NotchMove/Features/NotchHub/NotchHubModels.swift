@@ -302,6 +302,16 @@ final class NotchHubStore {
         }
     }
 
+    func setHubEnabled(_ isEnabled: Bool) {
+        preferences.isEnabled = isEnabled
+
+        if isEnabled {
+            normalizeSelection()
+        } else {
+            collapse()
+        }
+    }
+
     func open() {
         guard preferences.isEnabled else { return }
         normalizeSelection()
@@ -322,12 +332,21 @@ final class NotchHubStore {
     }
 
     func setWidget(_ widgetID: NotchHubWidgetID, enabled: Bool) {
+        guard widgetID != .live || enabled else { return }
+
+        let wasActiveExpandedWidget = isExpanded && activeWidgetID == widgetID
+
         if enabled {
             preferences.enabledWidgetIDs.insert(widgetID)
         } else {
             preferences.enabledWidgetIDs.remove(widgetID)
         }
         normalizeSelection()
+
+        if wasActiveExpandedWidget && !preferences.enabledWidgetIDs.contains(widgetID) {
+            presentation = .widget(selectedWidgetID)
+            refreshActiveWidget()
+        }
     }
 
     func setDefaultWidget(_ widgetID: NotchHubWidgetID) {
@@ -339,6 +358,10 @@ final class NotchHubStore {
     func refreshActiveWidget() {
         switch activeWidgetID {
         case .media:
+            guard preferences.allowAppleEvents else {
+                mediaStatus = MediaPlaybackStatus()
+                return
+            }
             Task { await refreshMediaStatus() }
         case .calendar:
             Task { await refreshCalendarItems() }
@@ -348,6 +371,11 @@ final class NotchHubStore {
     }
 
     func refreshMediaStatus() async {
+        guard preferences.allowAppleEvents else {
+            mediaStatus = MediaPlaybackStatus()
+            return
+        }
+
         mediaStatus = await mediaProvider.currentStatus()
     }
 

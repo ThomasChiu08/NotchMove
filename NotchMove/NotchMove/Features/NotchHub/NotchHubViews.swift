@@ -583,7 +583,8 @@ private struct CameraMirrorPreview: NSViewRepresentable {
         }
     }
 
-    final class Coordinator {
+    final class Coordinator: @unchecked Sendable {
+        private let sessionQueue = DispatchQueue(label: "com.notchmove.notchHub.cameraMirrorPreview.session")
         private let session = AVCaptureSession()
         private var isConfigured = false
 
@@ -594,16 +595,26 @@ private struct CameraMirrorPreview: NSViewRepresentable {
             view.layer?.backgroundColor = NSColor.black.cgColor
             view.layer?.addSublayer(previewLayer)
             view.previewLayer = previewLayer
-            configureIfNeeded()
+            start()
         }
 
         func stop() {
-            if session.isRunning {
-                session.stopRunning()
+            sessionQueue.async { [weak self] in
+                guard let self else { return }
+
+                if session.isRunning {
+                    session.stopRunning()
+                }
             }
         }
 
-        private func configureIfNeeded() {
+        private func start() {
+            sessionQueue.async { [weak self] in
+                self?.configureAndStartIfNeeded()
+            }
+        }
+
+        private func configureAndStartIfNeeded() {
             guard !isConfigured else {
                 if !session.isRunning {
                     session.startRunning()

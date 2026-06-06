@@ -1560,7 +1560,7 @@ struct NotchHubTests {
         let defaults = makeEphemeralDefaults()
         let store = makeNotchHubStore(defaults: defaults)
 
-        store.preferences.isEnabled = true
+        store.setHubEnabled(true)
         store.preferences.triggerGesture = .hoverAndClick
         store.open()
 
@@ -1574,12 +1574,74 @@ struct NotchHubTests {
         #expect(restored.preferences.triggerGesture == .hoverAndClick)
     }
 
+    @Test func mediaRefreshDoesNotCallProviderUntilAppleEventsAllowed() async {
+        let defaults = makeEphemeralDefaults()
+        let mediaProvider = MockMediaProvider()
+        let store = makeNotchHubStore(defaults: defaults, mediaProvider: mediaProvider)
+
+        store.setHubEnabled(true)
+        store.setDefaultWidget(.media)
+        store.open()
+        await flushAsyncWork()
+
+        #expect(store.presentation == .widget(.media))
+        #expect(mediaProvider.currentStatusCallCount == 0)
+        #expect(store.mediaStatus == MediaPlaybackStatus())
+
+        await store.refreshMediaStatus()
+        #expect(mediaProvider.currentStatusCallCount == 0)
+
+        store.preferences.allowAppleEvents = true
+        store.refreshActiveWidget()
+        await flushAsyncWork()
+
+        #expect(mediaProvider.currentStatusCallCount == 1)
+        #expect(store.mediaStatus == mediaProvider.status)
+    }
+
+    @Test func disablingHubCollapsesExpandedPresentation() {
+        let defaults = makeEphemeralDefaults()
+        let store = makeNotchHubStore(defaults: defaults)
+
+        store.setHubEnabled(true)
+        store.open()
+
+        #expect(store.presentation == .widget(.live))
+
+        store.setHubEnabled(false)
+
+        #expect(!store.preferences.isEnabled)
+        #expect(store.presentation == .tucked)
+
+        store.setHubEnabled(true)
+
+        #expect(store.preferences.isEnabled)
+        #expect(store.presentation == .tucked)
+    }
+
+    @Test func disablingActiveWidgetMovesExpandedPresentationToNormalizedSelection() {
+        let defaults = makeEphemeralDefaults()
+        let store = makeNotchHubStore(defaults: defaults)
+
+        store.setHubEnabled(true)
+        store.selectWidget(.media)
+
+        #expect(store.presentation == .widget(.media))
+
+        store.setWidget(.media, enabled: false)
+
+        #expect(!store.preferences.enabledWidgetIDs.contains(.media))
+        #expect(store.selectedWidgetID != .media)
+        #expect(store.preferences.enabledWidgetIDs.contains(store.selectedWidgetID))
+        #expect(store.presentation == .widget(store.selectedWidgetID))
+    }
+
     @Test func mediaCommandRequestsPermissionBeforeCallingProvider() async {
         let defaults = makeEphemeralDefaults()
         let mediaProvider = MockMediaProvider()
         let store = makeNotchHubStore(defaults: defaults, mediaProvider: mediaProvider)
 
-        store.preferences.isEnabled = true
+        store.setHubEnabled(true)
         store.open()
         store.performMediaCommand(.playPause)
         await flushAsyncWork()
@@ -2539,9 +2601,11 @@ private final class MockMediaProvider: MediaControlProviding {
         artist: "NotchMove",
         playbackState: .paused
     )
+    private(set) var currentStatusCallCount = 0
     private(set) var commands: [MediaControlCommand] = []
 
     func currentStatus() async -> MediaPlaybackStatus {
+        currentStatusCallCount += 1
         status
     }
 

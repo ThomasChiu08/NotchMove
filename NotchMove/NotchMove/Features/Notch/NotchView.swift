@@ -375,7 +375,17 @@ struct NotchView: View {
     }
 
     private var isHubSurfaceActive: Bool {
-        canToggleHub && notchHubStore.presentation.isExpandedSurface
+        effectiveSurface == .hub
+    }
+
+    private var effectiveSurface: NotchHubEffectiveSurface {
+        NotchHubPresentationResolver.effectiveSurface(
+            voiceOverlayVisible: voiceInputSession.isOverlayVisible,
+            reminderPresentation: reminderEngine.overlayState.presentation,
+            hubPresentation: notchHubStore.preferences.isEnabled ? notchHubStore.presentation : .tucked,
+            pomodoroActive: false,
+            hoverPreviewEnabled: false
+        )
     }
 
     private func isHoverPreviewPresentation(_ presentation: ReminderState.PresentationPhase) -> Bool {
