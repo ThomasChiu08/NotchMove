@@ -112,12 +112,20 @@ struct NotchHubContentView: View {
     private var liveWidget: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             let preview = reminderEngine.nextReminderPreview(at: context.date)
-            VStack(alignment: .leading, spacing: 14) {
-                widgetTitle("notch_hub.widget.live", systemImage: "waveform.path.ecg")
+            let scheduleItem = nextLocalScheduleItem(at: context.date)
+            VStack(alignment: .leading, spacing: 10) {
+                widgetTitle("notch_hub.overview.title", systemImage: "waveform.path.ecg")
 
-                VStack(alignment: .leading, spacing: 8) {
-                    liveStatusRow(preview.breakRow)
-                    liveStatusRow(preview.pomodoroRow)
+                HStack(alignment: .top, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        liveStatusRow(preview.breakRow)
+                        liveStatusRow(preview.pomodoroRow)
+                        scheduleOverviewRow(scheduleItem)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                    quickNoteOverview
+                        .frame(width: 190, alignment: .topLeading)
                 }
 
                 Spacer(minLength: 0)
@@ -145,6 +153,46 @@ struct NotchHubContentView: View {
             }
 
             Spacer(minLength: 0)
+        }
+    }
+
+    private func scheduleOverviewRow(_ item: DailyScheduleItem?) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "calendar")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.72))
+                .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("notch_hub.overview.next_schedule")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.54))
+
+                Text(scheduleOverviewText(item))
+                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var quickNoteOverview: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("notch_hub.overview.quick_note")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.58))
+
+            TextEditor(text: Binding(
+                get: { hubStore.quickNotesStore.text },
+                set: { hubStore.quickNotesStore.text = $0 }
+            ))
+            .font(.system(size: 12))
+            .scrollContentBackground(.hidden)
+            .background(.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .frame(height: 118)
         }
     }
 
@@ -546,6 +594,21 @@ struct NotchHubContentView: View {
     private func durationText(_ seconds: Int) -> String {
         let minutes = max(Int(ceil(Double(max(seconds, 0)) / 60)), 1)
         return String(format: NSLocalizedString("notch.preview.minutes_format", comment: ""), minutes)
+    }
+
+    private func nextLocalScheduleItem(at date: Date) -> DailyScheduleItem? {
+        hubStore.dailyScheduleStore.items
+            .filter { $0.isReminderEnabled && ($0.endDate ?? $0.startDate) >= date }
+            .sorted { $0.startDate < $1.startDate }
+            .first
+    }
+
+    private func scheduleOverviewText(_ item: DailyScheduleItem?) -> String {
+        guard let item else {
+            return NSLocalizedString("notch_hub.overview.no_schedule", comment: "")
+        }
+
+        return "\(item.startDate.formatted(date: .omitted, time: .shortened)) · \(item.title)"
     }
 
     private func calendarTimeText(_ item: NotchHubCalendarItem) -> String {

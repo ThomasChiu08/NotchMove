@@ -411,14 +411,16 @@ struct SettingsContentView: View {
             }
             .disabled(!notchHubStore.preferences.isEnabled)
 
-            ForEach(NotchHubWidgetID.allCases) { widgetID in
-                SettingsPropertyRow(widgetID.titleKey, captionKey: notchHubWidgetCaptionKey(widgetID)) {
-                    Toggle(isOn: notchHubWidgetEnabledBinding(widgetID)) {
-                        Text(LocalizedStringKey(widgetID.titleKey))
-                    }
-                    .labelsHidden()
-                }
-                .disabled(!notchHubStore.preferences.isEnabled || widgetID == .live)
+            notchHubGroupHeader("notch_hub.group.core")
+
+            ForEach(NotchHubWidgetID.widgets(in: .core)) { widgetID in
+                notchHubWidgetToggleRow(widgetID)
+            }
+
+            notchHubGroupHeader("notch_hub.group.optional")
+
+            ForEach(NotchHubWidgetID.widgets(in: .optional)) { widgetID in
+                notchHubWidgetToggleRow(widgetID)
             }
 
             SettingsPropertyRow("notch_hub.allow_apple_events", captionKey: "notch_hub.allow_apple_events_caption") {
@@ -428,6 +430,12 @@ struct SettingsContentView: View {
                 .labelsHidden()
             }
             .disabled(!notchHubStore.preferences.isEnabled)
+
+            notchHubGroupHeader("notch_hub.group.advanced")
+
+            ForEach(NotchHubWidgetID.widgets(in: .advanced)) { widgetID in
+                notchHubWidgetToggleRow(widgetID)
+            }
 
             SettingsPropertyRow("notch_hub.allow_file_tray", captionKey: "notch_hub.allow_file_tray_caption") {
                 Toggle(isOn: $notchHubStore.preferences.allowFileTray) {
@@ -1120,6 +1128,24 @@ struct SettingsContentView: View {
             get: { notchHubStore.preferences.enabledWidgetIDs.contains(widgetID) },
             set: { notchHubStore.setWidget(widgetID, enabled: $0) }
         )
+    }
+
+    private func notchHubGroupHeader(_ titleKey: String) -> some View {
+        Text(LocalizedStringKey(titleKey))
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+            .padding(.top, 8)
+    }
+
+    private func notchHubWidgetToggleRow(_ widgetID: NotchHubWidgetID) -> some View {
+        SettingsPropertyRow(widgetID.titleKey, captionKey: notchHubWidgetCaptionKey(widgetID)) {
+            Toggle(isOn: notchHubWidgetEnabledBinding(widgetID)) {
+                Text(LocalizedStringKey(widgetID.titleKey))
+            }
+            .labelsHidden()
+        }
+        .disabled(!notchHubStore.preferences.isEnabled || widgetID == .live)
     }
 
     private func notchHubWidgetCaptionKey(_ widgetID: NotchHubWidgetID) -> String? {

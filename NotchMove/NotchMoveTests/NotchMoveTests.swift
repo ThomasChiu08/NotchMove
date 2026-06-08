@@ -1476,6 +1476,14 @@ struct NotchOverlaySizingRoleResolverTests {
 
 @MainActor
 struct NotchHubTests {
+    @Test func widgetGroupsClassifySchemeADefaultOptionalAndAdvancedSets() {
+        #expect(NotchHubWidgetID.widgets(in: .core) == [.live, .calendar, .notes])
+        #expect(NotchHubWidgetID.widgets(in: .optional) == [.media])
+        #expect(NotchHubWidgetID.widgets(in: .advanced) == [.shortcuts, .mirror, .tray])
+        #expect(NotchHubWidgetID.coreDefaultWidgets == [.live, .calendar, .notes])
+        #expect(NotchHubWidgetID.calendar.requiredPermission == nil)
+    }
+
     @Test func presentationResolverKeepsVoiceAndReminderAheadOfHub() {
         #expect(
             NotchHubPresentationResolver.effectiveSurface(
@@ -1536,6 +1544,73 @@ struct NotchHubTests {
         )
     }
 
+    @Test func freshStoreUsesCoreFocusWidgetsByDefault() {
+        let defaults = makeEphemeralDefaults()
+        let store = makeNotchHubStore(defaults: defaults)
+
+        #expect(store.preferences.enabledWidgetIDs == [.live, .calendar, .notes])
+        #expect(store.preferences.defaultWidgetID == .live)
+        #expect(store.enabledWidgets == [.live, .calendar, .notes])
+
+        store.setHubEnabled(true)
+        store.open()
+
+        #expect(store.presentation == .widget(.live))
+    }
+
+    @Test func storePreservesStoredLegacyWidgetSetDuringMigration() {
+        let defaults = makeEphemeralDefaults()
+        defaults.set(
+            NotchHubWidgetID.allCases.map(\.rawValue),
+            forKey: "notchHub.enabledWidgetIDs"
+        )
+        defaults.set(NotchHubWidgetID.media.rawValue, forKey: "notchHub.defaultWidgetID")
+
+        let store = makeNotchHubStore(defaults: defaults)
+
+        #expect(store.preferences.enabledWidgetIDs == Set(NotchHubWidgetID.allCases))
+        #expect(store.preferences.defaultWidgetID == .media)
+        #expect(store.enabledWidgets == NotchHubWidgetID.allCases)
+    }
+
+    @Test func invalidStoredWidgetsFallbackToLive() {
+        let defaults = makeEphemeralDefaults()
+        defaults.set(["missing-widget"], forKey: "notchHub.enabledWidgetIDs")
+        defaults.set(NotchHubWidgetID.media.rawValue, forKey: "notchHub.defaultWidgetID")
+
+        let store = makeNotchHubStore(defaults: defaults)
+
+        #expect(store.preferences.enabledWidgetIDs == [.live])
+        #expect(store.preferences.defaultWidgetID == .live)
+    }
+
+    @Test func defaultWidgetFallsBackToLiveWhenDisabled() {
+        let defaults = makeEphemeralDefaults()
+        defaults.set(
+            [NotchHubWidgetID.live.rawValue, NotchHubWidgetID.notes.rawValue],
+            forKey: "notchHub.enabledWidgetIDs"
+        )
+        defaults.set(NotchHubWidgetID.media.rawValue, forKey: "notchHub.defaultWidgetID")
+
+        let store = makeNotchHubStore(defaults: defaults)
+
+        #expect(store.preferences.enabledWidgetIDs == [.live, .notes])
+        #expect(store.preferences.defaultWidgetID == .live)
+    }
+
+    @Test func liveWidgetRemainsRequiredFallbackAfterPreferenceMutation() {
+        let defaults = makeEphemeralDefaults()
+        let store = makeNotchHubStore(defaults: defaults)
+
+        store.preferences.enabledWidgetIDs = [.media]
+
+        #expect(store.preferences.enabledWidgetIDs == [.live, .media])
+
+        store.setWidget(.live, enabled: false)
+
+        #expect(store.preferences.enabledWidgetIDs.contains(.live))
+    }
+
     @Test func storePersistsNormalizedPreferencesAndShortcutNames() {
         let defaults = makeEphemeralDefaults()
         let scheduleStore = DailyScheduleStore(defaults: defaults)
@@ -1580,6 +1655,7 @@ struct NotchHubTests {
         let store = makeNotchHubStore(defaults: defaults, mediaProvider: mediaProvider)
 
         store.setHubEnabled(true)
+        store.setWidget(.media, enabled: true)
         store.setDefaultWidget(.media)
         store.open()
         await flushAsyncWork()
@@ -1597,6 +1673,43 @@ struct NotchHubTests {
 
         #expect(mediaProvider.currentStatusCallCount == 1)
         #expect(store.mediaStatus == mediaProvider.status)
+    }
+
+    @Test func calendarRefreshUsesExternalProviderOnlyAfterAccessAllowed() async {
+        let defaults = makeEphemeralDefaults()
+        let scheduleStore = DailyScheduleStore(defaults: defaults)
+        let startDate = makeDate(year: 2026, month: 6, day: 8, hour: 14, minute: 0)
+        scheduleStore.add(DailyScheduleItem(title: "Standup", startDate: startDate))
+
+        let calendarProvider = MockCalendarProvider()
+        calendarProvider.externalItems = [
+            NotchHubCalendarItem(
+                id: "event.focus",
+                title: "External focus",
+                startDate: startDate.addingTimeInterval(60 * 60),
+                endDate: nil,
+                source: .calendar
+            )
+        ]
+        let store = makeNotchHubStore(
+            defaults: defaults,
+            scheduleStore: scheduleStore,
+            calendarProvider: calendarProvider
+        )
+
+        store.setHubEnabled(true)
+        store.setDefaultWidget(.calendar)
+        store.open()
+        await flushAsyncWork()
+
+        #expect(calendarProvider.externalItemsCallCount == 0)
+        #expect(store.upcomingCalendarItems.map(\.title) == ["Standup"])
+
+        store.preferences.allowCalendarAccess = true
+        await store.refreshCalendarItems()
+
+        #expect(calendarProvider.externalItemsCallCount == 1)
+        #expect(store.upcomingCalendarItems.map(\.title) == ["Standup", "External focus"])
     }
 
     @Test func disablingHubCollapsesExpandedPresentation() {
@@ -1624,6 +1737,7 @@ struct NotchHubTests {
         let store = makeNotchHubStore(defaults: defaults)
 
         store.setHubEnabled(true)
+        store.setWidget(.media, enabled: true)
         store.selectWidget(.media)
 
         #expect(store.presentation == .widget(.media))
@@ -1634,6 +1748,18 @@ struct NotchHubTests {
         #expect(store.selectedWidgetID != .media)
         #expect(store.preferences.enabledWidgetIDs.contains(store.selectedWidgetID))
         #expect(store.presentation == .widget(store.selectedWidgetID))
+    }
+
+    @Test func optionalAndAdvancedWidgetsAppearOnlyAfterUserEnablesThem() {
+        let defaults = makeEphemeralDefaults()
+        let store = makeNotchHubStore(defaults: defaults)
+
+        #expect(store.enabledWidgets == [.live, .calendar, .notes])
+
+        store.setWidget(.media, enabled: true)
+        store.setWidget(.tray, enabled: true)
+
+        #expect(store.enabledWidgets == [.live, .media, .calendar, .notes, .tray])
     }
 
     @Test func mediaCommandRequestsPermissionBeforeCallingProvider() async {
@@ -2620,6 +2746,7 @@ private final class MockCalendarProvider: CalendarEventProviding {
     var didRequestAccess = false
     var accessGranted = true
     var externalItems: [NotchHubCalendarItem] = []
+    private(set) var externalItemsCallCount = 0
 
     func requestAccess() async -> Bool {
         didRequestAccess = true
@@ -2627,6 +2754,7 @@ private final class MockCalendarProvider: CalendarEventProviding {
     }
 
     func upcomingExternalItems(limit: Int) async -> [NotchHubCalendarItem] {
+        externalItemsCallCount += 1
         Array(externalItems.prefix(limit))
     }
 

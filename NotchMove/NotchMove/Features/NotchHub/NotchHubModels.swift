@@ -9,6 +9,22 @@ import AppKit
 import Foundation
 import Observation
 
+enum NotchHubWidgetGroup: String, CaseIterable, Hashable, Identifiable {
+    case core
+    case optional
+    case advanced
+
+    var id: String { rawValue }
+
+    var titleKey: String {
+        switch self {
+        case .core: "notch_hub.group.core"
+        case .optional: "notch_hub.group.optional"
+        case .advanced: "notch_hub.group.advanced"
+        }
+    }
+}
+
 enum NotchHubWidgetID: String, CaseIterable, Codable, Hashable, Identifiable {
     case live
     case media
@@ -19,6 +35,23 @@ enum NotchHubWidgetID: String, CaseIterable, Codable, Hashable, Identifiable {
     case tray
 
     var id: String { rawValue }
+
+    static let coreDefaultWidgets: Set<NotchHubWidgetID> = [.live, .calendar, .notes]
+
+    static func widgets(in group: NotchHubWidgetGroup) -> [NotchHubWidgetID] {
+        allCases.filter { $0.group == group }
+    }
+
+    var group: NotchHubWidgetGroup {
+        switch self {
+        case .live, .calendar, .notes:
+            .core
+        case .media:
+            .optional
+        case .shortcuts, .mirror, .tray:
+            .advanced
+        }
+    }
 
     var titleKey: String {
         switch self {
@@ -46,12 +79,10 @@ enum NotchHubWidgetID: String, CaseIterable, Codable, Hashable, Identifiable {
 
     var requiredPermission: NotchHubPermission? {
         switch self {
-        case .live, .notes:
+        case .live, .calendar, .notes:
             nil
         case .media:
             .appleEvents
-        case .calendar:
-            .calendar
         case .shortcuts:
             .shortcuts
         case .mirror:
@@ -187,7 +218,7 @@ struct NotchHubPreferences: Equatable {
 
     static let defaults = NotchHubPreferences(
         isEnabled: false,
-        enabledWidgetIDs: [.live, .media, .calendar, .shortcuts, .notes, .mirror, .tray],
+        enabledWidgetIDs: NotchHubWidgetID.coreDefaultWidgets,
         defaultWidgetID: .live,
         triggerGesture: .click,
         allowAppleEvents: false,
@@ -538,13 +569,12 @@ final class NotchHubStore {
         var normalized = preferences
         let validWidgets = Set(NotchHubWidgetID.allCases)
         normalized.enabledWidgetIDs = normalized.enabledWidgetIDs.intersection(validWidgets)
-
-        if normalized.enabledWidgetIDs.isEmpty {
-            normalized.enabledWidgetIDs = [.live]
-        }
+        normalized.enabledWidgetIDs.insert(.live)
 
         if !normalized.enabledWidgetIDs.contains(normalized.defaultWidgetID) {
-            normalized.defaultWidgetID = normalized.enabledWidgetIDs.sorted { $0.rawValue < $1.rawValue }.first ?? .live
+            normalized.defaultWidgetID = normalized.enabledWidgetIDs.contains(.live) ?
+                .live :
+                (normalized.enabledWidgetIDs.sorted { $0.rawValue < $1.rawValue }.first ?? .live)
         }
 
         normalized.shortcutNames = normalized.shortcutNames
