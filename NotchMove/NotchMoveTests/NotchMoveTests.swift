@@ -1649,6 +1649,52 @@ struct NotchHubTests {
         #expect(restored.preferences.triggerGesture == .hoverAndClick)
     }
 
+    @Test func focusOverviewSnapshotUsesLocalScheduleWithoutExternalCalendarProvider() {
+        let defaults = makeEphemeralDefaults()
+        let scheduleStore = DailyScheduleStore(defaults: defaults)
+        let now = makeDate(year: 2026, month: 6, day: 8, hour: 10, minute: 0)
+        let currentItem = scheduleStore.add(DailyScheduleItem(
+            title: "Deep work",
+            startDate: now.addingTimeInterval(-30 * 60),
+            endDate: now.addingTimeInterval(30 * 60)
+        ))
+        scheduleStore.add(DailyScheduleItem(
+            title: "Past standup",
+            startDate: now.addingTimeInterval(-90 * 60),
+            endDate: now.addingTimeInterval(-60 * 60)
+        ))
+        scheduleStore.add(DailyScheduleItem(
+            title: "Disabled follow-up",
+            startDate: now.addingTimeInterval(15 * 60),
+            isReminderEnabled: false
+        ))
+        scheduleStore.add(DailyScheduleItem(
+            title: "Later review",
+            startDate: now.addingTimeInterval(60 * 60)
+        ))
+
+        let calendarProvider = MockCalendarProvider()
+        calendarProvider.externalItems = [
+            NotchHubCalendarItem(
+                id: "external.soon",
+                title: "External soon",
+                startDate: now.addingTimeInterval(5 * 60),
+                endDate: nil,
+                source: .calendar
+            )
+        ]
+        let store = makeNotchHubStore(
+            defaults: defaults,
+            scheduleStore: scheduleStore,
+            calendarProvider: calendarProvider
+        )
+
+        let overview = store.focusOverviewSnapshot(at: now)
+
+        #expect(overview.nextLocalScheduleItem == currentItem)
+        #expect(calendarProvider.externalItemsCallCount == 0)
+    }
+
     @Test func mediaRefreshDoesNotCallProviderUntilAppleEventsAllowed() async {
         let defaults = makeEphemeralDefaults()
         let mediaProvider = MockMediaProvider()

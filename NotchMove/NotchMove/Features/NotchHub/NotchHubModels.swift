@@ -205,6 +205,24 @@ private enum FileDropLoadResult: Sendable {
     case unsupported
 }
 
+struct NotchHubFocusOverviewSnapshot: Equatable {
+    let nextLocalScheduleItem: DailyScheduleItem?
+
+    init(scheduleItems: [DailyScheduleItem], at date: Date) {
+        nextLocalScheduleItem = Self.nextLocalScheduleItem(in: scheduleItems, at: date)
+    }
+
+    private static func nextLocalScheduleItem(
+        in items: [DailyScheduleItem],
+        at date: Date
+    ) -> DailyScheduleItem? {
+        items
+            .filter { $0.isReminderEnabled && ($0.endDate ?? $0.startDate) >= date }
+            .sorted { $0.startDate < $1.startDate }
+            .first
+    }
+}
+
 struct NotchHubPreferences: Equatable {
     var isEnabled: Bool
     var enabledWidgetIDs: Set<NotchHubWidgetID>
@@ -321,6 +339,13 @@ final class NotchHubStore {
 
     var requiresKeyWindow: Bool {
         isExpanded
+    }
+
+    func focusOverviewSnapshot(at date: Date) -> NotchHubFocusOverviewSnapshot {
+        NotchHubFocusOverviewSnapshot(
+            scheduleItems: dailyScheduleStore.items,
+            at: date
+        )
     }
 
     func toggleHub() {

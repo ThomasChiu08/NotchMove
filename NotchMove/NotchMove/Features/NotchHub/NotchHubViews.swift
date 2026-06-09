@@ -112,7 +112,7 @@ struct NotchHubContentView: View {
     private var liveWidget: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             let preview = reminderEngine.nextReminderPreview(at: context.date)
-            let scheduleItem = nextLocalScheduleItem(at: context.date)
+            let overview = hubStore.focusOverviewSnapshot(at: context.date)
             VStack(alignment: .leading, spacing: 10) {
                 widgetTitle("notch_hub.overview.title", systemImage: "waveform.path.ecg")
 
@@ -120,7 +120,7 @@ struct NotchHubContentView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         liveStatusRow(preview.breakRow)
                         liveStatusRow(preview.pomodoroRow)
-                        scheduleOverviewRow(scheduleItem)
+                        scheduleOverviewRow(overview.nextLocalScheduleItem)
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
 
@@ -594,13 +594,6 @@ struct NotchHubContentView: View {
     private func durationText(_ seconds: Int) -> String {
         let minutes = max(Int(ceil(Double(max(seconds, 0)) / 60)), 1)
         return String(format: NSLocalizedString("notch.preview.minutes_format", comment: ""), minutes)
-    }
-
-    private func nextLocalScheduleItem(at date: Date) -> DailyScheduleItem? {
-        hubStore.dailyScheduleStore.items
-            .filter { $0.isReminderEnabled && ($0.endDate ?? $0.startDate) >= date }
-            .sorted { $0.startDate < $1.startDate }
-            .first
     }
 
     private func scheduleOverviewText(_ item: DailyScheduleItem?) -> String {
