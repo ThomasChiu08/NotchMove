@@ -12,6 +12,7 @@ import Foundation
 final class PreferencesStore {
     static let notchLayoutDidChangeNotification = Notification.Name("PreferencesStoreNotchLayoutDidChange")
     static let reminderRuntimeDidChangeNotification = Notification.Name("PreferencesStoreReminderRuntimeDidChange")
+    static let voiceInputDidChangeNotification = Notification.Name("PreferencesStoreVoiceInputDidChange")
     static let aiGlobalHotkeyDidChangeNotification = Notification.Name("PreferencesStoreAIGlobalHotkeyDidChange")
 
     private let settings: AppSettings
@@ -56,6 +57,13 @@ final class PreferencesStore {
         if oldValue.aiGlobalHotkeyEnabled != newValue.aiGlobalHotkeyEnabled ||
             oldValue.aiGlobalHotkeyShortcutID != newValue.aiGlobalHotkeyShortcutID {
             NotificationCenter.default.post(name: Self.aiGlobalHotkeyDidChangeNotification, object: self)
+        }
+
+        if oldValue.voiceInputEnabled != newValue.voiceInputEnabled ||
+            oldValue.voiceInputShortcutID != newValue.voiceInputShortcutID ||
+            oldValue.voiceCleanupMode != newValue.voiceCleanupMode ||
+            oldValue.voicePersonalTerms != newValue.voicePersonalTerms {
+            NotificationCenter.default.post(name: Self.voiceInputDidChangeNotification, object: self)
         }
     }
 }

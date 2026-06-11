@@ -7,6 +7,7 @@
 "section.language" = "言語";
 "section.startup" = "起動";
 "section.ai_assistant" = "AI アシスタント";
+"section.voice_input" = "音声入力";
 
 /* ─── Reminders ─── */
 "sedentary_reminders" = "着席リマインダー";
@@ -25,6 +26,10 @@
 "pomodoro_focus_duration" = "ポモドーロ集中";
 "pomodoro_break_duration" = "ポモドーロ休憩";
 "pomodoro_settings_caption" = "メニューバーのポモドーロ集中モードで使います。";
+"temporary_pause" = "一時停止";
+"temporary_pause_caption" = "リマインダー全体をオフにせず、短時間だけ停止します。";
+"temporary_pause_indefinite" = "再開するまで停止中";
+"temporary_pause_remaining_format" = "約 %d 分停止中";
 
 /* ─── Schedule ─── */
 "work_hours_only" = "勤務時間のみ有効";
@@ -122,6 +127,10 @@
 "menu.breaks_format" = "今日 %d 回 · 今週 %d 回";
 "menu.one_break_format" = "今日 1 回 · 今週 %d 回";
 "menu.pause" = "リマインダーを停止";
+"menu.pause_15m" = "15 分停止";
+"menu.pause_30m" = "30 分停止";
+"menu.pause_1h" = "1 時間停止";
+"menu.pause_until_tomorrow" = "明日まで停止";
 "menu.resume" = "リマインダーを再開";
 "menu.remind_now" = "今すぐリマインド";
 "menu.pomodoro_start" = "ポモドーロを開始";
@@ -144,6 +153,14 @@
 
 /* ─── Settings Window ─── */
 "settings.title" = "NotchMove 設定";
+
+/* ─── Diagnostics ─── */
+"diagnostics" = "診断";
+"diagnostics.copy" = "診断をコピー";
+"diagnostics.save" = "保存…";
+"diagnostics.copied" = "診断情報をクリップボードにコピーしました。";
+"diagnostics.saved" = "診断情報を保存しました。";
+"diagnostics.failed_format" = "診断情報を作成できませんでした：%@";
 
 /* ─── Dashboard ─── */
 "dashboard.unified.title" = "NotchMove ダッシュボード";
@@ -248,6 +265,27 @@
 "ai.settings.global_hotkey_status_registered_format" = "登録済み：%@";
 "ai.settings.global_hotkey_status_failed_format" = "%@ を登録できませんでした：%@";
 "ai.settings.global_hotkey_retry" = "再試行";
+
+/* ─── Voice Input ─── */
+"voice.settings.enabled" = "音声入力を有効にする";
+"voice.settings.enabled_caption" = "デフォルトではオフです。ショートカットを押し続けるかメニュー項目を使って、現在のアプリへ音声入力します。";
+"voice.settings.shortcut" = "ショートカット";
+"voice.settings.shortcut_caption" = "押している間に録音し、離すと文字起こし、整形、挿入を行います。";
+"voice.settings.section_cleanup" = "整形";
+"voice.settings.cleanup_mode" = "整形モード";
+"voice.settings.cleanup_mode_caption" = "Raw は文字起こしを保持、Clean はローカルでフィラーを削除、Polished は設定済み AI プロバイダーを利用できます。";
+"voice.settings.cleanup_raw" = "Raw";
+"voice.settings.cleanup_clean" = "Clean";
+"voice.settings.cleanup_polished" = "Polished";
+"voice.settings.personal_terms" = "個人用語";
+"voice.settings.personal_terms_caption" = "保持したい名前、ブランド、コード語、プロジェクト用語をカンマ区切りで入力します。";
+"voice.settings.personal_terms_placeholder" = "Thomas, NotchMove, SwiftData";
+"voice.settings.ai_polish" = "AI 推敲";
+"voice.settings.ai_polish_caption" = "選択した解析プロバイダーで短い音声入力を書き換えます。NotchMove は元の音声を保存しません。";
+"voice.settings.privacy_footer_apple_speech" = "音声入力は操作中のみ録音します。Apple Speech が文字起こしを行い、NotchMove は処理後に一時音声を削除します。";
+"voice.settings.privacy_footer_local" = "音声入力は操作中のみ録音します。ローカル WhisperKit モデルが使える場合、音声処理はこの Mac 内に留まります。";
+"voice.settings.privacy_footer_cloud_transcription" = "音声入力は操作中のみ録音します。選択したクラウド文字起こしプロバイダーに一時音声が送信される場合があります。";
+"voice.settings.privacy_footer_polished" = "Polished モードでは、文字起こし後のテキストが選択した AI プロバイダーへ送信される場合があります。NotchMove は音声や長期の履歴を保存しません。";
 "ai.settings.transcription_provider" = "文字起こしプロバイダー";
 "ai.settings.transcription_model" = "文字起こしモデル";
 "ai.settings.parser_provider" = "解析プロバイダー";

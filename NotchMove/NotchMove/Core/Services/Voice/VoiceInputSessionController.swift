@@ -22,6 +22,7 @@ final class VoiceInputSessionController {
     }
 
     private let preferences: AIProviderPreferences
+    private let preferencesStore: PreferencesStore
     private let languageManager: LanguageManager
     private let captureService: AudioCaptureService
     private let insertionService: TextInsertionService
@@ -42,12 +43,14 @@ final class VoiceInputSessionController {
 
     init(
         preferences: AIProviderPreferences,
+        preferencesStore: PreferencesStore,
         languageManager: LanguageManager,
         captureService: AudioCaptureService = AudioCaptureService(),
         insertionService: TextInsertionService = TextInsertionService(),
         cleanupService: VoiceTextCleanupService? = nil
     ) {
         self.preferences = preferences
+        self.preferencesStore = preferencesStore
         self.languageManager = languageManager
         self.captureService = captureService
         self.insertionService = insertionService
@@ -70,6 +73,11 @@ final class VoiceInputSessionController {
 
     func beginPushToTalk() {
         guard case .idle = phase else { return }
+        guard preferencesStore.preferences.voiceInputEnabled else {
+            phase = .failed("Enable Voice Input in Settings.")
+            scheduleReset(after: 3.0)
+            return
+        }
         resetTask?.cancel()
         processingTask?.cancel()
 
@@ -160,8 +168,9 @@ final class VoiceInputSessionController {
                 context: VoiceTextCleanupContext(
                     localeIdentifier: languageManager.locale.identifier,
                     appName: NSWorkspace.shared.frontmostApplication?.localizedName,
-                    personalTerms: []
-                )
+                    personalTerms: preferencesStore.preferences.voicePersonalTerms
+                ),
+                mode: preferencesStore.preferences.voiceCleanupMode
             )
             try Task.checkCancellation()
             lastCleanedText = cleanedText

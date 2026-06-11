@@ -174,6 +174,32 @@ struct PreferencesStoreTests {
         #expect(loaded.aiGlobalHotkeyShortcutID == GlobalHotkeyShortcut.controlOptionA.rawValue)
     }
 
+    @Test func voiceInputPreferencesAreOptInAndPersist() {
+        let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let settings = AppSettings(defaults: defaults)
+        var preferences = settings.loadPreferences()
+
+        #expect(!preferences.voiceInputEnabled)
+        #expect(preferences.voiceInputShortcutID == GlobalHotkeyShortcut.default.rawValue)
+        #expect(preferences.voiceCleanupMode == .clean)
+        #expect(preferences.voicePersonalTerms.isEmpty)
+
+        preferences.voiceInputEnabled = true
+        preferences.voiceInputShortcutID = GlobalHotkeyShortcut.controlOptionM.rawValue
+        preferences.voiceCleanupMode = .polished
+        preferences.voicePersonalTerms = [" NotchMove ", "notchmove", "SwiftData"]
+        settings.save(preferences)
+
+        let loaded = settings.loadPreferences()
+        #expect(loaded.voiceInputEnabled)
+        #expect(loaded.voiceInputShortcutID == GlobalHotkeyShortcut.controlOptionM.rawValue)
+        #expect(loaded.voiceCleanupMode == .polished)
+        #expect(loaded.voicePersonalTerms == ["NotchMove", "SwiftData"])
+    }
+
     @Test func reminderModeAndPomodoroPreferencesPersistAndRestoreDefaults() {
         let suiteName = "NotchMoveTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -281,6 +307,37 @@ struct PreferencesStoreTests {
         await flushAsyncWork()
 
         #expect(globalHotkeyNotifications.count == 2)
+    }
+
+    @Test func voiceInputPreferenceChangesPostDedicatedNotification() async {
+        let suiteName = "NotchMoveTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = PreferencesStore(settings: AppSettings(defaults: defaults))
+        let voiceInputNotifications = NotificationCounter()
+
+        let observer = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.voiceInputDidChangeNotification,
+            object: store,
+            queue: nil
+        ) { _ in
+            Task { @MainActor in
+                voiceInputNotifications.increment()
+            }
+        }
+
+        defer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        store.preferences.voiceInputEnabled = true
+        store.preferences.voiceCleanupMode = .polished
+        store.preferences.voicePersonalTerms = ["NotchMove"]
+
+        await flushAsyncWork()
+
+        #expect(voiceInputNotifications.count == 3)
     }
 
     @Test func reminderRuntimePreferenceChangesPostRuntimeNotifications() async {
@@ -506,6 +563,29 @@ struct ReminderEngineTests {
 
         context.engine.send(.setManualPause(false))
         #expect(context.engine.runState == .scheduleBlocked)
+    }
+
+    @Test func timedManualPauseReportsRemainingTimeAndAutoResumes() {
+        let now = makeDate(year: 2026, month: 6, day: 11, hour: 9, minute: 0)
+        let context = makeReminderContext(now: now)
+        defer { context.cleanup() }
+
+        let pauseUntilDate = now.addingTimeInterval(30 * 60)
+        context.engine.send(.setTimedManualPause(until: pauseUntilDate))
+
+        #expect(context.engine.state.manualPause)
+        #expect(context.engine.state.manualPauseUntilDate == pauseUntilDate)
+        #expect(context.engine.runState == .manuallyPaused)
+
+        let preview = context.engine.nextReminderPreview(at: now.addingTimeInterval(5 * 60))
+        #expect(preview.breakRow.status == .paused(remainingSeconds: 25 * 60))
+
+        context.clock.now = pauseUntilDate.addingTimeInterval(1)
+        context.engine.send(.tick(context.clock.now))
+
+        #expect(!context.engine.state.manualPause)
+        #expect(context.engine.state.manualPauseUntilDate == nil)
+        #expect(context.engine.runState == .tracking)
     }
 
     @Test func automaticReminderStagesPendingThenPresentsAndPlaysSound() async {
@@ -1245,6 +1325,49 @@ struct TextInsertionServiceTests {
 
         #expect(TextInsertionService.accessibilityElement(from: nil) == nil)
         #expect(TextInsertionService.accessibilityElement(from: nonAccessibilityValue) == nil)
+    }
+}
+
+@MainActor
+struct DiagnosticsReportServiceTests {
+    @Test func diagnosticsReportOmitsStoredCredentialsAndAudioHistory() throws {
+        let suiteName = "NotchMoveDiagnostics-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let settings = AppSettings(defaults: defaults)
+        let preferencesStore = PreferencesStore(settings: settings)
+        preferencesStore.preferences.voiceInputEnabled = true
+        preferencesStore.preferences.voicePersonalTerms = ["Thomas", "NotchMove"]
+
+        let aiPreferences = AIProviderPreferences(
+            defaults: defaults,
+            apiKeyStore: DiagnosticsInMemoryAPIKeyStore()
+        )
+        aiPreferences.isEnabled = true
+        try aiPreferences.saveCredential(
+            "sk-secret-diagnostic-test",
+            fieldID: AICredentialField.apiKey.id,
+            for: aiPreferences.selectedParserProvider
+        )
+
+        let notchHubStore = makeNotchHubStore(defaults: defaults)
+        let service = DiagnosticsReportService(
+            preferencesStore: preferencesStore,
+            aiProviderPreferences: aiPreferences,
+            breakStatsStore: BreakStatsStore(defaults: defaults),
+            notchHubStore: notchHubStore,
+            reminderEngine: nil,
+            pomodoroEngine: nil,
+            screens: []
+        )
+
+        let json = try service.makeJSONString()
+
+        #expect(json.contains(#""voiceInputEnabled" : true"#))
+        #expect(json.contains(#""voicePersonalTermsCount" : 2"#))
+        #expect(!json.contains("sk-secret-diagnostic-test"))
+        #expect(!json.localizedCaseInsensitiveContains("audioHistory"))
     }
 }
 
@@ -2987,6 +3110,22 @@ private extension Duration {
         let durationComponents = components
         return TimeInterval(durationComponents.seconds) +
             TimeInterval(durationComponents.attoseconds) / 1_000_000_000_000_000_000
+    }
+}
+
+private final class DiagnosticsInMemoryAPIKeyStore: APIKeyStoring {
+    private var credentials: [String: String] = [:]
+
+    func credential(_ fieldID: String, for provider: AIProviderID) throws -> String? {
+        credentials["\(provider.rawValue).\(fieldID)"]
+    }
+
+    func saveCredential(_ value: String, fieldID: String, for provider: AIProviderID) throws {
+        credentials["\(provider.rawValue).\(fieldID)"] = value
+    }
+
+    func deleteCredential(_ fieldID: String, for provider: AIProviderID) throws {
+        credentials.removeValue(forKey: "\(provider.rawValue).\(fieldID)")
     }
 }
 

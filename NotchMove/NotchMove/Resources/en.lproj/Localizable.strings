@@ -7,6 +7,7 @@
 "section.language" = "Language";
 "section.startup" = "Startup";
 "section.ai_assistant" = "AI Assistant";
+"section.voice_input" = "Voice Input";
 
 /* ─── Reminders ─── */
 "sedentary_reminders" = "Sedentary reminders";
@@ -25,6 +26,10 @@
 "pomodoro_focus_duration" = "Pomodoro focus";
 "pomodoro_break_duration" = "Pomodoro break";
 "pomodoro_settings_caption" = "Used by the menu bar Pomodoro focus mode.";
+"temporary_pause" = "Temporary pause";
+"temporary_pause_caption" = "Pause stand reminders briefly without turning the reminder system off.";
+"temporary_pause_indefinite" = "Paused until resumed";
+"temporary_pause_remaining_format" = "Paused for about %d min";
 
 /* ─── Schedule ─── */
 "work_hours_only" = "Active during work hours only";
@@ -122,6 +127,10 @@
 "menu.breaks_format" = "%d breaks today · %d this week";
 "menu.one_break_format" = "1 break today · %d this week";
 "menu.pause" = "Pause reminders";
+"menu.pause_15m" = "Pause 15 minutes";
+"menu.pause_30m" = "Pause 30 minutes";
+"menu.pause_1h" = "Pause 1 hour";
+"menu.pause_until_tomorrow" = "Pause until tomorrow";
 "menu.resume" = "Resume reminders";
 "menu.remind_now" = "Remind me now";
 "menu.pomodoro_start" = "Start Pomodoro";
@@ -144,6 +153,14 @@
 
 /* ─── Settings Window ─── */
 "settings.title" = "NotchMove Settings";
+
+/* ─── Diagnostics ─── */
+"diagnostics" = "Diagnostics";
+"diagnostics.copy" = "Copy Diagnostics";
+"diagnostics.save" = "Save…";
+"diagnostics.copied" = "Diagnostics copied to the clipboard.";
+"diagnostics.saved" = "Diagnostics saved.";
+"diagnostics.failed_format" = "Could not create diagnostics: %@";
 
 /* ─── Dashboard ─── */
 "dashboard.unified.title" = "NotchMove Dashboard";
@@ -248,6 +265,27 @@
 "ai.settings.global_hotkey_status_registered_format" = "Registered: %@";
 "ai.settings.global_hotkey_status_failed_format" = "%@ could not be registered: %@";
 "ai.settings.global_hotkey_retry" = "Retry";
+
+/* ─── Voice Input ─── */
+"voice.settings.enabled" = "Enable Voice Input";
+"voice.settings.enabled_caption" = "Off by default. Hold the shortcut or use the menu item to dictate into the current app.";
+"voice.settings.shortcut" = "Shortcut";
+"voice.settings.shortcut_caption" = "Hold to record; release to transcribe, clean, and insert.";
+"voice.settings.section_cleanup" = "Cleanup";
+"voice.settings.cleanup_mode" = "Cleanup mode";
+"voice.settings.cleanup_mode_caption" = "Raw keeps the transcript, Clean removes fillers locally, Polished can use your configured AI provider.";
+"voice.settings.cleanup_raw" = "Raw";
+"voice.settings.cleanup_clean" = "Clean";
+"voice.settings.cleanup_polished" = "Polished";
+"voice.settings.personal_terms" = "Personal terms";
+"voice.settings.personal_terms_caption" = "Comma-separated names, brands, code words, or project terms to preserve during cleanup.";
+"voice.settings.personal_terms_placeholder" = "Thomas, NotchMove, SwiftData";
+"voice.settings.ai_polish" = "AI polishing";
+"voice.settings.ai_polish_caption" = "Uses the selected parser provider to rewrite short dictation. Raw audio is not stored by NotchMove.";
+"voice.settings.privacy_footer_apple_speech" = "Voice Input records only while active. Apple Speech handles transcription; NotchMove deletes temporary audio after processing.";
+"voice.settings.privacy_footer_local" = "Voice Input records only while active. Local WhisperKit transcription keeps audio processing on this Mac when the model is available.";
+"voice.settings.privacy_footer_cloud_transcription" = "Voice Input records only while active. The selected cloud transcription provider may receive temporary audio.";
+"voice.settings.privacy_footer_polished" = "Polished mode may send transcribed text to the selected AI provider. NotchMove does not store audio or long-term dictation history.";
 "ai.settings.transcription_provider" = "Transcription provider";
 "ai.settings.transcription_model" = "Transcription model";
 "ai.settings.parser_provider" = "Parser provider";

@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var languageManager = LanguageManager(preferencesStore: preferencesStore)
     private lazy var voiceInputSession = VoiceInputSessionController(
         preferences: aiProviderPreferences,
+        preferencesStore: preferencesStore,
         languageManager: languageManager
     )
 
@@ -33,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notchWindowController: NotchWindowController?
     private var menuBarController: MenuBarController?
     private var dashboardWindowController: DashboardWindowController?
+    private var globalHotkeyController: GlobalAICaptureHotkeyController?
+    private nonisolated(unsafe) var voiceInputPreferencesObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -58,7 +61,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         let globalHotkeyController = GlobalAICaptureHotkeyController(
             onPress: { [weak self] in
-                self?.voiceInputSession.beginPushToTalk()
+                guard let self,
+                      self.preferencesStore.preferences.voiceInputEnabled,
+                      self.reminderEngine?.isReminderPresenting != true,
+                      self.pomodoroEngine?.isActive != true
+                else {
+                    return
+                }
+                self.voiceInputSession.beginPushToTalk()
             },
             onRelease: { [weak self] in
                 self?.voiceInputSession.endPushToTalk()
@@ -107,12 +117,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             languageManager: languageManager,
             preferencesStore: preferencesStore,
             notchHubStore: notchHubStore,
+            voiceInputSession: voiceInputSession,
             onOpenDashboard: { [weak dashboardWindow] in
                 dashboardWindow?.openDashboard()
             }
         )
+        self.globalHotkeyController = globalHotkeyController
+        globalHotkeyController.update(preferences: preferencesStore.preferences)
+        observeVoiceInputPreferences()
 
         logger.notice("NotchMove launched — monitoring activity, reminder every \(engine.reminderInterval)s")
+    }
+
+    deinit {
+        if let voiceInputPreferencesObserver {
+            NotificationCenter.default.removeObserver(voiceInputPreferencesObserver)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -130,6 +150,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if status == .requiresApproval {
             logger.notice("Launch at login requires approval in System Settings")
+        }
+    }
+
+    private func observeVoiceInputPreferences() {
+        voiceInputPreferencesObserver = NotificationCenter.default.addObserver(
+            forName: PreferencesStore.voiceInputDidChangeNotification,
+            object: preferencesStore,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.globalHotkeyController?.update(preferences: self.preferencesStore.preferences)
+            }
         }
     }
 }

@@ -33,9 +33,20 @@ final class VoiceTextCleanupService {
         self.urlSession = urlSession
     }
 
-    func clean(text: String, context: VoiceTextCleanupContext) async -> String {
+    func clean(
+        text: String,
+        context: VoiceTextCleanupContext,
+        mode: Preferences.VoiceCleanupMode = .clean
+    ) async -> String {
+        let rawText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !rawText.isEmpty else { return "" }
+
+        if mode == .raw {
+            return rawText
+        }
+
         let localText = VoiceLocalTextCleaner.clean(text)
-        guard preferences.isEnabled else { return localText }
+        guard mode == .polished, preferences.isEnabled else { return localText }
 
         do {
             let provider = try makeRewriteProvider()

@@ -50,6 +50,7 @@ struct ReminderState: Equatable {
     var presentation: PresentationPhase = .hidden
     var activeSeconds: TimeInterval = 0
     var manualPause = false
+    var manualPauseUntilDate: Date?
     var scheduleState: SchedulePolicy.Evaluation = .disabled
     var reminderStartDate: Date = .distantPast
     var breakSnoozedUntilDate: Date?
@@ -139,6 +140,7 @@ final class ReminderEngine {
         case hoverChanged(Bool)
         case hoverPreviewFitReady
         case setManualPause(Bool)
+        case setTimedManualPause(until: Date)
         case manualTrigger
         case completeBreak
         case snoozeReminder(duration: TimeInterval)
@@ -326,7 +328,9 @@ final class ReminderEngine {
         case .hoverPreviewFitReady:
             handleHoverPreviewFitReady()
         case let .setManualPause(paused):
-            handleManualPauseChange(paused)
+            handleManualPauseChange(paused, until: nil)
+        case let .setTimedManualPause(untilDate):
+            handleManualPauseChange(true, until: untilDate)
         case .manualTrigger:
             if preferencesStore.preferences.breakReminderEnabled {
                 beginBreakReminderPresentation(soundCue: .breakReminder)
@@ -365,6 +369,7 @@ final class ReminderEngine {
     }
 
     private func handleTick(now: Date) {
+        expireManualPauseIfNeeded(at: now)
         state.scheduleState = currentScheduleState(at: now)
 
         if state.scheduleState.blocksAutomaticReminders {
@@ -450,7 +455,11 @@ final class ReminderEngine {
         }
 
         if state.manualPause {
-            return NextReminderPreview.Row(mode: .breakReminder, status: .paused(remainingSeconds: nil), phase: nil)
+            return NextReminderPreview.Row(
+                mode: .breakReminder,
+                status: .paused(remainingSeconds: manualPauseRemainingSeconds(at: date)),
+                phase: nil
+            )
         }
 
         if currentScheduleState(at: date).blocksAutomaticReminders {
@@ -547,9 +556,11 @@ final class ReminderEngine {
         }
     }
 
-    private func handleManualPauseChange(_ paused: Bool) {
-        guard state.manualPause != paused else { return }
+    private func handleManualPauseChange(_ paused: Bool, until pauseUntilDate: Date?) {
+        let normalizedPauseUntilDate = paused ? pauseUntilDate : nil
+        guard state.manualPause != paused || state.manualPauseUntilDate != normalizedPauseUntilDate else { return }
         state.manualPause = paused
+        state.manualPauseUntilDate = normalizedPauseUntilDate
         lastTickDate = clock.now
 
         if paused {
@@ -562,7 +573,30 @@ final class ReminderEngine {
             clearBreakCompletionCountdown()
         }
 
-        logger.notice("Manual pause \(paused ? "enabled" : "disabled")")
+        if let normalizedPauseUntilDate {
+            logger.notice("Manual pause enabled until \(normalizedPauseUntilDate, privacy: .public)")
+        } else {
+            logger.notice("Manual pause \(paused ? "enabled" : "disabled")")
+        }
+    }
+
+    private func expireManualPauseIfNeeded(at date: Date) {
+        guard state.manualPause,
+              let pauseUntilDate = state.manualPauseUntilDate,
+              date >= pauseUntilDate
+        else {
+            return
+        }
+
+        state.manualPause = false
+        state.manualPauseUntilDate = nil
+        lastTickDate = date
+        logger.notice("Timed manual pause expired")
+    }
+
+    private func manualPauseRemainingSeconds(at date: Date) -> Int? {
+        guard let pauseUntilDate = state.manualPauseUntilDate else { return nil }
+        return safeRemainingSeconds(until: pauseUntilDate, at: date)
     }
 
     private func beginBreakReminderPresentation(soundCue: ReminderSoundCue?) {

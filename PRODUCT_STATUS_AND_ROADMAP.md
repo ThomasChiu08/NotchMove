@@ -217,32 +217,26 @@ These retained modules are not core release gaps while their entry points remain
 
 These are the real remaining items as of 2026-06-01:
 
-1. Temporary pause
-   - Add persisted `pauseUntil`.
-   - Add Pause for 15 min / 30 min / 1 hour / until tomorrow.
-   - Show remaining pause time and auto-resume on expiry.
-
-2. First-run onboarding
+1. First-run onboarding
    - Explain menu bar app behavior and no Dock icon.
    - Let users choose basic reminder interval and launch-at-login.
    - Explain privacy and permissions.
    - Provide a test reminder or test overlay action.
 
-3. General diagnostics export
-   - Existing diagnostics are module-specific and not enough for core support.
-   - Add a privacy-safe "Copy diagnostics" output for version/build, macOS version, sandbox/signing clues, screen list, selected display mode, reminder state, pause state, work-hours state, and relevant preferences.
-
-4. Minimal UI smoke test
-   - Current UI tests are intentionally unavailable.
-   - Add a small harness that can launch the app, open the menu/dashboard/settings, trigger a reminder, and validate the expected surfaces exist.
-
-5. Daily goal and 7-day trend
+2. Daily goal and 7-day trend
    - Current statistics track today/week counts and expose a weekly strip.
    - Add a daily goal, goal progress, and a clearer 7-day trend view before treating statistics as complete.
 
-6. Feedback / Report Issue
+3. Feedback / Report Issue
    - Add a visible entry in About or a privacy/about section.
    - A mailto or GitHub issue link is enough for the first pass.
+
+Completed in the 2026-06-11 release-quality batch:
+
+- Runtime temporary pause for 15 minutes, 30 minutes, 1 hour, and until tomorrow morning with auto-resume on tick.
+- Privacy-safe diagnostics copy/save JSON covering app, preferences, permissions, reminder, Pomodoro, Notch Hub, AI provider selection, and screens without exporting credentials or audio.
+- Manual smoke checklist at `docs/qa/notchmove-smoke-test.md`.
+- Opt-in Voice Input / Typeless Lite settings page, shortcut registration, cleanup modes, personal terms, and overlay transcript preview.
 
 7. Manual QA and release acceptance
    - Complete signed DMG install/manual release QA.
@@ -366,16 +360,13 @@ Manual release QA:
 
 ## 9. Immediate Next Actions
 
-1. Implement temporary pause and persisted `pauseUntil`.
-2. Add first-run onboarding.
-3. Add general diagnostics export.
-4. Build the minimal UI smoke harness.
-5. Complete signed-build manual core QA.
-6. Add daily goal and 7-day trend.
-7. Add Feedback / Report Issue.
-8. Update release checklist with manual acceptance evidence.
-9. Run localization length review after the next UI changes.
-10. Keep completed phase plans archived so they are not mistaken for active gaps.
+1. Add first-run onboarding.
+2. Complete signed-build manual core QA using `docs/qa/notchmove-smoke-test.md`.
+3. Add daily goal and 7-day trend.
+4. Add Feedback / Report Issue.
+5. Update release checklist with manual acceptance evidence.
+6. Run localization length review after the next UI changes.
+7. Keep completed phase plans archived so they are not mistaken for active gaps.
 
 ## 10. Conclusion
 

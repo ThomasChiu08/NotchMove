@@ -32,6 +32,10 @@ final class AppSettings {
         static let appLanguage = "appLanguage"
         static let overlayDisplayMode = "overlayDisplayMode"
         static let overlayDisplayID = "overlayDisplayID"
+        static let voiceInputEnabled = "voiceInputEnabled"
+        static let voiceInputShortcutID = "voiceInputShortcutID"
+        static let voiceCleanupMode = "voiceCleanupMode"
+        static let voicePersonalTerms = "voicePersonalTerms"
         static let aiGlobalHotkeyEnabled = "aiGlobalHotkeyEnabled"
         static let aiGlobalHotkeyShortcutID = "aiGlobalHotkeyShortcutID"
     }
@@ -70,6 +74,10 @@ final class AppSettings {
             Keys.autoDismissSeconds: Preferences.defaults.autoDismissSeconds,
             Keys.appLanguage: Preferences.defaults.appLanguage,
             Keys.overlayDisplayMode: OverlayDisplayModeValue.automatic,
+            Keys.voiceInputEnabled: Preferences.defaults.voiceInputEnabled,
+            Keys.voiceInputShortcutID: Preferences.defaults.voiceInputShortcutID,
+            Keys.voiceCleanupMode: Preferences.defaults.voiceCleanupMode.rawValue,
+            Keys.voicePersonalTerms: Preferences.defaults.voicePersonalTerms,
             Keys.aiGlobalHotkeyEnabled: Preferences.defaults.aiGlobalHotkeyEnabled,
             Keys.aiGlobalHotkeyShortcutID: Preferences.defaults.aiGlobalHotkeyShortcutID,
         ])
@@ -133,11 +141,24 @@ final class AppSettings {
             ),
             appLanguage: defaults.string(forKey: Keys.appLanguage) ?? Preferences.defaults.appLanguage,
             overlayDisplayMode: loadOverlayDisplayMode(),
+            voiceInputEnabled: bool(
+                forKey: Keys.voiceInputEnabled,
+                default: Preferences.defaults.voiceInputEnabled
+            ),
+            voiceInputShortcutID: loadGlobalHotkeyShortcutID(
+                key: Keys.voiceInputShortcutID,
+                default: Preferences.defaults.voiceInputShortcutID
+            ),
+            voiceCleanupMode: loadVoiceCleanupMode(),
+            voicePersonalTerms: loadVoicePersonalTerms(),
             aiGlobalHotkeyEnabled: bool(
                 forKey: Keys.aiGlobalHotkeyEnabled,
                 default: Preferences.defaults.aiGlobalHotkeyEnabled
             ),
-            aiGlobalHotkeyShortcutID: loadGlobalHotkeyShortcutID()
+            aiGlobalHotkeyShortcutID: loadGlobalHotkeyShortcutID(
+                key: Keys.aiGlobalHotkeyShortcutID,
+                default: Preferences.defaults.aiGlobalHotkeyShortcutID
+            )
         )
     }
 
@@ -163,6 +184,10 @@ final class AppSettings {
         defaults.set(preferences.autoDismissSeconds, forKey: Keys.autoDismissSeconds)
         defaults.set(preferences.appLanguage, forKey: Keys.appLanguage)
         save(preferences.overlayDisplayMode)
+        defaults.set(preferences.voiceInputEnabled, forKey: Keys.voiceInputEnabled)
+        defaults.set(normalizedGlobalHotkeyShortcutID(preferences.voiceInputShortcutID), forKey: Keys.voiceInputShortcutID)
+        defaults.set(preferences.voiceCleanupMode.rawValue, forKey: Keys.voiceCleanupMode)
+        defaults.set(Self.normalizedPersonalTerms(preferences.voicePersonalTerms), forKey: Keys.voicePersonalTerms)
         defaults.set(preferences.aiGlobalHotkeyEnabled, forKey: Keys.aiGlobalHotkeyEnabled)
         defaults.set(normalizedGlobalHotkeyShortcutID(preferences.aiGlobalHotkeyShortcutID), forKey: Keys.aiGlobalHotkeyShortcutID)
     }
@@ -189,14 +214,36 @@ final class AppSettings {
         }
     }
 
-    private func loadGlobalHotkeyShortcutID() -> String {
+    private func loadGlobalHotkeyShortcutID(key: String, default defaultValue: String) -> String {
         normalizedGlobalHotkeyShortcutID(
-            defaults.string(forKey: Keys.aiGlobalHotkeyShortcutID) ?? Preferences.defaults.aiGlobalHotkeyShortcutID
+            defaults.string(forKey: key) ?? defaultValue
         )
     }
 
     private func normalizedGlobalHotkeyShortcutID(_ shortcutID: String) -> String {
         GlobalHotkeyShortcut(rawValue: shortcutID)?.rawValue ?? Preferences.defaults.aiGlobalHotkeyShortcutID
+    }
+
+    private func loadVoiceCleanupMode() -> Preferences.VoiceCleanupMode {
+        Preferences.VoiceCleanupMode(rawValue: defaults.string(forKey: Keys.voiceCleanupMode) ?? "") ??
+            Preferences.defaults.voiceCleanupMode
+    }
+
+    private func loadVoicePersonalTerms() -> [String] {
+        Self.normalizedPersonalTerms(defaults.stringArray(forKey: Keys.voicePersonalTerms) ?? [])
+    }
+
+    static func normalizedPersonalTerms(_ terms: [String]) -> [String] {
+        var seen = Set<String>()
+        return terms.compactMap { rawTerm in
+            let term = rawTerm.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !term.isEmpty else { return nil }
+
+            let folded = term.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            guard !seen.contains(folded) else { return nil }
+            seen.insert(folded)
+            return term
+        }
     }
 
     private func integer(forKey key: String, default defaultValue: Int) -> Int {

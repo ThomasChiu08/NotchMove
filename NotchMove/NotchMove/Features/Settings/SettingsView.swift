@@ -8,12 +8,14 @@
 import AppKit
 import AVFoundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum SettingsPageSection: String, CaseIterable, Identifiable {
     case language
     case startup
     case reminders
     case notchHub
+    case voiceInput
     case aiAssistant
     case schedule
     case behavior
@@ -25,6 +27,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
         .startup,
         .reminders,
         .notchHub,
+        .voiceInput,
         .behavior,
         .statistics,
         .about,
@@ -33,6 +36,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
     static let dashboardOrder: [SettingsPageSection] = [
         .reminders,
         .notchHub,
+        .voiceInput,
         .behavior,
         .statistics,
         .language,
@@ -48,6 +52,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
         case .startup: "section.startup"
         case .reminders: "section.reminders"
         case .notchHub: "section.notch_hub"
+        case .voiceInput: "section.voice_input"
         case .aiAssistant: "section.ai_assistant"
         case .schedule: "section.schedule"
         case .behavior: "section.behavior"
@@ -62,6 +67,7 @@ enum SettingsPageSection: String, CaseIterable, Identifiable {
         case .startup: "power"
         case .reminders: "bell"
         case .notchHub: "macbook.and.iphone"
+        case .voiceInput: "mic.fill"
         case .aiAssistant: "mic"
         case .schedule: "clock"
         case .behavior: "slider.horizontal.3"
@@ -119,6 +125,7 @@ struct SettingsContentView: View {
     @State private var isTestingTranscriptionProvider = false
     @State private var isTestingParserProvider = false
     @State private var setupGuideProvider: AIProviderID?
+    @State private var diagnosticsStatusMessage: String?
     @State private var localSpeechModelStore: LocalSpeechModelStore
     @State private var microphoneAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .audio)
     @State private var appleSpeechAuthorizationState: AppleSpeechAuthorizationState = .unknown
@@ -204,6 +211,8 @@ struct SettingsContentView: View {
             remindersSection
         case .notchHub:
             notchHubSection
+        case .voiceInput:
+            voiceInputSection
         case .aiAssistant:
             aiAssistantSection
         case .schedule:
@@ -313,6 +322,15 @@ struct SettingsContentView: View {
                 .labelsHidden()
             }
             .disabled(!preferencesStore.preferences.breakReminderEnabled)
+
+            if let reminderEngine {
+                SettingsPropertyRow("temporary_pause", captionKey: "temporary_pause_caption") {
+                    TemporaryPauseControls(
+                        reminderEngine: reminderEngine,
+                        localizedString: localizedString
+                    )
+                }
+            }
 
             SettingsPropertyRow("pomodoro_enabled", captionKey: "pomodoro_enabled_caption") {
                 Toggle(isOn: $preferencesStore.preferences.pomodoroEnabled) {
@@ -456,6 +474,179 @@ struct SettingsContentView: View {
             sectionHeader("section.notch_hub")
         } footer: {
             Text("notch_hub.footer")
+        }
+    }
+
+    // MARK: - Voice Input
+
+    private var voiceInputSection: some View {
+        Group {
+            voiceInputOverviewSection
+
+            if preferencesStore.preferences.voiceInputEnabled {
+                aiInputSection
+                voiceCleanupSection
+                aiCredentialsSection
+                voiceDiagnosticsSection
+            }
+        }
+    }
+
+    private var voiceInputOverviewSection: some View {
+        Section {
+            SettingsPropertyRow("voice.settings.enabled", captionKey: "voice.settings.enabled_caption") {
+                Toggle(isOn: voiceInputEnabledBinding) {
+                    Text("voice.settings.enabled")
+                }
+                .labelsHidden()
+            }
+
+            if preferencesStore.preferences.voiceInputEnabled {
+                SettingsPropertyRow("voice.settings.shortcut", captionKey: "voice.settings.shortcut_caption") {
+                    Picker(selection: voiceInputShortcutBinding) {
+                        ForEach(GlobalHotkeyShortcut.allCases) { shortcut in
+                            Text(LocalizedStringKey(shortcut.displayNameKey))
+                                .tag(shortcut.rawValue)
+                        }
+                    } label: {
+                        Text("voice.settings.shortcut")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 220, alignment: .leading)
+                }
+
+                globalHotkeyStatusRow
+            }
+        } header: {
+            sectionHeader("section.voice_input")
+        } footer: {
+            Text(LocalizedStringKey(voiceInputPrivacyFooterKey))
+        }
+    }
+
+    private var voiceCleanupSection: some View {
+        Section {
+            SettingsPropertyRow("voice.settings.cleanup_mode", captionKey: "voice.settings.cleanup_mode_caption") {
+                Picker(selection: $preferencesStore.preferences.voiceCleanupMode) {
+                    ForEach(Preferences.VoiceCleanupMode.allCases) { mode in
+                        Text(LocalizedStringKey(mode.titleKey))
+                            .tag(mode)
+                    }
+                } label: {
+                    Text("voice.settings.cleanup_mode")
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 300, alignment: .leading)
+            }
+
+            SettingsPropertyRow("voice.settings.personal_terms", captionKey: "voice.settings.personal_terms_caption") {
+                TextField("voice.settings.personal_terms_placeholder", text: voicePersonalTermsBinding)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 320, alignment: .leading)
+            }
+
+            if preferencesStore.preferences.voiceCleanupMode == .polished {
+                SettingsPropertyRow("voice.settings.ai_polish", captionKey: "voice.settings.ai_polish_caption") {
+                    Toggle(isOn: $aiProviderPreferences.isEnabled) {
+                        Text("voice.settings.ai_polish")
+                    }
+                    .labelsHidden()
+                }
+
+                SettingsPropertyRow("ai.settings.parser_provider") {
+                    HStack(spacing: 8) {
+                        Picker(selection: parserProviderBinding) {
+                            ForEach(AIProviderPreferences.supportedParserProviders) { provider in
+                                Text(provider.displayName).tag(provider.rawValue)
+                            }
+                        } label: {
+                            Text("ai.settings.parser_provider")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: 180, alignment: .leading)
+
+                        providerGuideButton(for: aiProviderPreferences.selectedParserProvider)
+                    }
+                }
+                .disabled(!aiProviderPreferences.isEnabled)
+
+                SettingsPropertyRow("ai.settings.parser_model") {
+                    let models = aiProviderPreferences.selectedParserProvider.definition.parserModels
+                    if models.isEmpty {
+                        TextField("ai.settings.parser_model", text: $aiProviderPreferences.parserModel)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 260, alignment: .leading)
+                    } else {
+                        Picker(selection: $aiProviderPreferences.parserModel) {
+                            ForEach(models) { model in
+                                Text(model.displayName).tag(model.id)
+                            }
+                        } label: {
+                            Text("ai.settings.parser_model")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: 220, alignment: .leading)
+                    }
+                }
+                .disabled(!aiProviderPreferences.isEnabled)
+
+                if aiProviderPreferences.selectedParserProvider == .customOpenAICompatible {
+                    SettingsPropertyRow("ai.settings.custom_base_url") {
+                        TextField("https://example.com/v1", text: $aiProviderPreferences.customParserBaseURL)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 320, alignment: .leading)
+                    }
+                    .disabled(!aiProviderPreferences.isEnabled)
+                }
+            }
+        } header: {
+            Text("voice.settings.section_cleanup")
+        }
+    }
+
+    private var voiceDiagnosticsSection: some View {
+        Section {
+            SettingsPropertyRow("ai.settings.test_transcription") {
+                HStack(spacing: 8) {
+                    Button("ai.settings.test_transcription") {
+                        testTranscriptionProvider()
+                    }
+                    .disabled(isTestingTranscriptionProvider)
+
+                    if isTestingTranscriptionProvider {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+            }
+
+            if preferencesStore.preferences.voiceCleanupMode == .polished {
+                SettingsPropertyRow("ai.settings.test_parser") {
+                    HStack(spacing: 8) {
+                        Button("ai.settings.test_parser") {
+                            testParserProvider()
+                        }
+                        .disabled(isTestingParserProvider || !aiProviderPreferences.isEnabled)
+
+                        if isTestingParserProvider {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                    }
+                }
+            }
+
+            if let apiKeyStatusMessage {
+                Text(apiKeyStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("ai.settings.section_diagnostics")
         }
     }
 
@@ -1080,6 +1271,24 @@ struct SettingsContentView: View {
                 Text(currentLanguageDisplayName)
             }
 
+            SettingsPropertyRow("diagnostics") {
+                HStack(spacing: 8) {
+                    Button("diagnostics.copy") {
+                        copyDiagnostics()
+                    }
+
+                    Button("diagnostics.save") {
+                        saveDiagnostics()
+                    }
+                }
+            }
+
+            if let diagnosticsStatusMessage {
+                Text(diagnosticsStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Text("app_description")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -1105,6 +1314,22 @@ struct SettingsContentView: View {
         }
     }
 
+    private var voiceInputPrivacyFooterKey: String {
+        switch preferencesStore.preferences.voiceCleanupMode {
+        case .raw, .clean:
+            switch aiProviderPreferences.selectedTranscriptionProvider {
+            case .appleSpeech:
+                "voice.settings.privacy_footer_apple_speech"
+            case .localWhisperKit:
+                "voice.settings.privacy_footer_local"
+            default:
+                "voice.settings.privacy_footer_cloud_transcription"
+            }
+        case .polished:
+            "voice.settings.privacy_footer_polished"
+        }
+    }
+
     private var selectedLocalSpeechModel: LocalSpeechModelID? {
         LocalSpeechModelID(rawValue: aiProviderPreferences.transcriptionModel)
     }
@@ -1114,7 +1339,7 @@ struct SettingsContentView: View {
     }
 
     private var selectedGlobalHotkeyShortcut: GlobalHotkeyShortcut {
-        GlobalHotkeyShortcut(rawValue: preferencesStore.preferences.aiGlobalHotkeyShortcutID) ?? .default
+        GlobalHotkeyShortcut(rawValue: preferencesStore.preferences.voiceInputShortcutID) ?? .default
     }
 
     private var defaultNotchHubWidgetBinding: Binding<NotchHubWidgetID> {
@@ -1483,21 +1708,46 @@ struct SettingsContentView: View {
 
     private var globalHotkeyEnabledBinding: Binding<Bool> {
         Binding(
-            get: { preferencesStore.preferences.aiGlobalHotkeyEnabled },
+            get: { preferencesStore.preferences.voiceInputEnabled },
             set: { isEnabled in
-                preferencesStore.preferences.aiGlobalHotkeyEnabled = isEnabled
+                preferencesStore.preferences.voiceInputEnabled = isEnabled
                 globalHotkeyController.update(preferences: preferencesStore.preferences)
             }
         )
     }
 
     private var globalHotkeyShortcutBinding: Binding<String> {
+        voiceInputShortcutBinding
+    }
+
+    private var voiceInputEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { preferencesStore.preferences.voiceInputEnabled },
+            set: { isEnabled in
+                preferencesStore.preferences.voiceInputEnabled = isEnabled
+                globalHotkeyController.update(preferences: preferencesStore.preferences)
+            }
+        )
+    }
+
+    private var voiceInputShortcutBinding: Binding<String> {
         Binding(
             get: { selectedGlobalHotkeyShortcut.rawValue },
             set: { shortcutID in
                 guard GlobalHotkeyShortcut(rawValue: shortcutID) != nil else { return }
-                preferencesStore.preferences.aiGlobalHotkeyShortcutID = shortcutID
+                preferencesStore.preferences.voiceInputShortcutID = shortcutID
                 globalHotkeyController.update(preferences: preferencesStore.preferences)
+            }
+        )
+    }
+
+    private var voicePersonalTermsBinding: Binding<String> {
+        Binding(
+            get: { preferencesStore.preferences.voicePersonalTerms.joined(separator: ", ") },
+            set: { value in
+                let terms = value
+                    .components(separatedBy: CharacterSet(charactersIn: ",\n"))
+                preferencesStore.preferences.voicePersonalTerms = AppSettings.normalizedPersonalTerms(terms)
             }
         )
     }
@@ -1814,6 +2064,108 @@ struct SettingsContentView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
+    }
+
+    private func makeDiagnosticsJSON() throws -> String {
+        let service = DiagnosticsReportService(
+            preferencesStore: preferencesStore,
+            aiProviderPreferences: aiProviderPreferences,
+            breakStatsStore: breakStatsStore,
+            notchHubStore: notchHubStore,
+            reminderEngine: reminderEngine,
+            pomodoroEngine: pomodoroEngine,
+            screens: availableScreens
+        )
+        return try service.makeJSONString()
+    }
+
+    private func copyDiagnostics() {
+        do {
+            let json = try makeDiagnosticsJSON()
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(json, forType: .string)
+            diagnosticsStatusMessage = localizedString("diagnostics.copied")
+        } catch {
+            diagnosticsStatusMessage = String(
+                format: localizedString("diagnostics.failed_format"),
+                error.localizedDescription
+            )
+        }
+    }
+
+    private func saveDiagnostics() {
+        do {
+            let json = try makeDiagnosticsJSON()
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.json]
+            panel.canCreateDirectories = true
+            panel.nameFieldStringValue = DiagnosticsReportService.defaultFilename()
+
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            try json.write(to: url, atomically: true, encoding: .utf8)
+            diagnosticsStatusMessage = localizedString("diagnostics.saved")
+        } catch {
+            diagnosticsStatusMessage = String(
+                format: localizedString("diagnostics.failed_format"),
+                error.localizedDescription
+            )
+        }
+    }
+}
+
+private struct TemporaryPauseControls: View {
+    let reminderEngine: ReminderEngine
+    let localizedString: (String) -> String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if reminderEngine.state.manualPause {
+                if let remaining = remainingPauseText {
+                    Text(remaining)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Button("menu.resume") {
+                    reminderEngine.send(.setManualPause(false))
+                }
+            } else {
+                Button("menu.pause_15m") {
+                    pause(minutes: 15)
+                }
+
+                Button("menu.pause_30m") {
+                    pause(minutes: 30)
+                }
+
+                Button("menu.pause_1h") {
+                    pause(minutes: 60)
+                }
+
+                Button("menu.pause_until_tomorrow") {
+                    reminderEngine.send(.setTimedManualPause(until: Self.tomorrowMorning()))
+                }
+            }
+        }
+    }
+
+    private var remainingPauseText: String? {
+        guard let untilDate = reminderEngine.state.manualPauseUntilDate else {
+            return localizedString("temporary_pause_indefinite")
+        }
+
+        let seconds = max(Int(ceil(untilDate.timeIntervalSince(.now))), 0)
+        let minutes = max(Int(ceil(Double(seconds) / 60)), 1)
+        return String(format: localizedString("temporary_pause_remaining_format"), minutes)
+    }
+
+    private func pause(minutes: Int) {
+        reminderEngine.send(.setTimedManualPause(until: Date().addingTimeInterval(TimeInterval(minutes * 60))))
+    }
+
+    private static func tomorrowMorning(from date: Date = .now, calendar: Calendar = .current) -> Date {
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: date) ?? date.addingTimeInterval(24 * 60 * 60)
+        return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) ?? tomorrow
     }
 }
 

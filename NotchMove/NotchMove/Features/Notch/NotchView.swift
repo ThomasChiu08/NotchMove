@@ -517,6 +517,7 @@ struct NotchView: View {
         case .inserted(let outcome):
             VoiceResultContentView(
                 outcome: outcome,
+                cleanedText: voiceInputSession.lastCleanedText,
                 topInset: overlayMetrics.topInset
             ) {
                 voiceInputSession.undoLastInsertion()
@@ -758,6 +759,7 @@ private struct VoiceProcessingContentView: View {
 
 private struct VoiceResultContentView: View {
     let outcome: TextInsertionOutcome
+    let cleanedText: String
     let topInset: CGFloat
     let onUndo: () -> Void
     let onDismiss: () -> Void
@@ -779,6 +781,15 @@ private struct VoiceResultContentView: View {
                     .foregroundStyle(.white.opacity(0.62))
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
+
+                if !cleanedText.isEmpty {
+                    Text(cleanedText)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.54))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .minimumScaleFactor(0.62)
+                }
             }
 
             Spacer(minLength: 6)
@@ -1814,6 +1825,7 @@ private struct PreviewSoundPlayer: SoundPlaying {
         reminderEngine: engine,
         voiceInputSession: VoiceInputSessionController(
             preferences: AIProviderPreferences(defaults: settings.defaults),
+            preferencesStore: PreferencesStore(settings: settings),
             languageManager: LanguageManager(preferencesStore: preferencesStore)
         ),
         notchHubStore: NotchHubStore(

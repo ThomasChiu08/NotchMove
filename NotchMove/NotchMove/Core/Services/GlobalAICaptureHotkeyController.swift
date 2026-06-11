@@ -52,12 +52,12 @@ final class GlobalAICaptureHotkeyController {
     func update(preferences: Preferences) {
         unregisterHotkey()
 
-        guard preferences.aiGlobalHotkeyEnabled else {
+        guard preferences.voiceInputEnabled else {
             registrationState = .disabled
             return
         }
 
-        let shortcut = GlobalHotkeyShortcut(rawValue: preferences.aiGlobalHotkeyShortcutID) ?? .default
+        let shortcut = GlobalHotkeyShortcut(rawValue: preferences.voiceInputShortcutID) ?? .default
 
         guard installEventHandlerIfNeeded(for: shortcut) else {
             return

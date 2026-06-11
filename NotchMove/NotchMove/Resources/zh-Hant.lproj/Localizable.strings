@@ -7,6 +7,7 @@
 "section.language" = "語言";
 "section.startup" = "啟動";
 "section.ai_assistant" = "AI 助手";
+"section.voice_input" = "語音輸入";
 
 /* ─── Reminders ─── */
 "sedentary_reminders" = "久坐提醒";
@@ -25,6 +26,10 @@
 "pomodoro_focus_duration" = "番茄專注";
 "pomodoro_break_duration" = "番茄休息";
 "pomodoro_settings_caption" = "用於選單列裡的番茄專注模式。";
+"temporary_pause" = "臨時暫停";
+"temporary_pause_caption" = "短暫暫停站立提醒，不關閉整個提醒系統。";
+"temporary_pause_indefinite" = "已暫停，直到手動恢復";
+"temporary_pause_remaining_format" = "約暫停 %d 分鐘";
 
 /* ─── Schedule ─── */
 "work_hours_only" = "僅在工作時間提醒";
@@ -122,6 +127,10 @@
 "menu.breaks_format" = "今日 %d 次 · 本週 %d 次";
 "menu.one_break_format" = "今日 1 次 · 本週 %d 次";
 "menu.pause" = "暫停提醒";
+"menu.pause_15m" = "暫停 15 分鐘";
+"menu.pause_30m" = "暫停 30 分鐘";
+"menu.pause_1h" = "暫停 1 小時";
+"menu.pause_until_tomorrow" = "暫停到明天";
 "menu.resume" = "恢復提醒";
 "menu.remind_now" = "立即提醒";
 "menu.pomodoro_start" = "開始番茄鐘";
@@ -144,6 +153,14 @@
 
 /* ─── Settings Window ─── */
 "settings.title" = "NotchMove 設定";
+
+/* ─── Diagnostics ─── */
+"diagnostics" = "診斷";
+"diagnostics.copy" = "複製診斷";
+"diagnostics.save" = "儲存…";
+"diagnostics.copied" = "診斷資訊已複製到剪貼簿。";
+"diagnostics.saved" = "診斷資訊已儲存。";
+"diagnostics.failed_format" = "無法建立診斷資訊：%@";
 
 /* ─── Dashboard ─── */
 "dashboard.unified.title" = "NotchMove 控制台";
@@ -248,6 +265,27 @@
 "ai.settings.global_hotkey_status_registered_format" = "已註冊：%@";
 "ai.settings.global_hotkey_status_failed_format" = "%@ 無法註冊：%@";
 "ai.settings.global_hotkey_retry" = "重試";
+
+/* ─── Voice Input ─── */
+"voice.settings.enabled" = "啟用語音輸入";
+"voice.settings.enabled_caption" = "預設關閉。按住快捷鍵或使用選單項目，向目前 App 輸入聽寫內容。";
+"voice.settings.shortcut" = "快捷鍵";
+"voice.settings.shortcut_caption" = "按住錄音；放開後轉寫、清理並插入。";
+"voice.settings.section_cleanup" = "文字清理";
+"voice.settings.cleanup_mode" = "清理模式";
+"voice.settings.cleanup_mode_caption" = "Raw 保留原始轉寫，Clean 在本機去除口頭語，Polished 可使用已設定的 AI 服務潤飾。";
+"voice.settings.cleanup_raw" = "Raw";
+"voice.settings.cleanup_clean" = "Clean";
+"voice.settings.cleanup_polished" = "Polished";
+"voice.settings.personal_terms" = "個人詞典";
+"voice.settings.personal_terms_caption" = "用逗號分隔需要保留的人名、品牌、程式碼詞或專案術語。";
+"voice.settings.personal_terms_placeholder" = "Thomas, NotchMove, SwiftData";
+"voice.settings.ai_polish" = "AI 潤飾";
+"voice.settings.ai_polish_caption" = "使用所選解析服務改寫短語音輸入。NotchMove 不儲存原始音訊。";
+"voice.settings.privacy_footer_apple_speech" = "語音輸入只在主動觸發時錄音。Apple Speech 負責轉寫；NotchMove 處理後刪除臨時音訊。";
+"voice.settings.privacy_footer_local" = "語音輸入只在主動觸發時錄音。可用本機 WhisperKit 模型時，音訊處理保留在這台 Mac 上。";
+"voice.settings.privacy_footer_cloud_transcription" = "語音輸入只在主動觸發時錄音。所選雲端轉寫服務可能接收臨時音訊。";
+"voice.settings.privacy_footer_polished" = "Polished 模式可能把轉寫後的文字傳送給所選 AI 服務。NotchMove 不儲存音訊或長期聽寫歷史。";
 "ai.settings.transcription_provider" = "轉寫服務";
 "ai.settings.transcription_model" = "轉寫模型";
 "ai.settings.parser_provider" = "解析服務";
