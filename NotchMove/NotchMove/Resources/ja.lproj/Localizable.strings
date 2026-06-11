@@ -433,6 +433,8 @@
 "notch_hub.overview.next_schedule" = "次のローカル予定";
 "notch_hub.overview.no_schedule" = "今後のローカル予定はありません";
 "notch_hub.overview.quick_note" = "簡易メモ";
+"notch_hub.allow_calendar_access" = "macOS カレンダーを許可";
+"notch_hub.allow_calendar_access_caption" = "任意です。フォーカス概要はローカル予定を優先し、これを有効にした後だけカレンダーを読み取ります。";
 "notch_hub.allow_apple_events" = "メディア Apple Events を許可";
 "notch_hub.allow_apple_events_caption" = "ミュージックや Spotify の操作に必要です。macOS が自動化アクセスを求める場合があります。";
 "notch_hub.allow_file_tray" = "ファイルトレイを許可";

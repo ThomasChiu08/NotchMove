@@ -433,6 +433,8 @@
 "notch_hub.overview.next_schedule" = "下一項本機日程";
 "notch_hub.overview.no_schedule" = "暫無本機日程";
 "notch_hub.overview.quick_note" = "快速便條";
+"notch_hub.allow_calendar_access" = "允許 macOS 行事曆";
+"notch_hub.allow_calendar_access_caption" = "可選。專注概覽會優先使用本機日程，只有開啟後才讀取系統行事曆。";
 "notch_hub.allow_apple_events" = "允許媒體 Apple Events";
 "notch_hub.allow_apple_events_caption" = "控制音樂和 Spotify 時需要。macOS 可能會要求自動化權限。";
 "notch_hub.allow_file_tray" = "允許檔案托盤";

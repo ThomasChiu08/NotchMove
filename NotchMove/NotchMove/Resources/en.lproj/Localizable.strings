@@ -433,6 +433,8 @@
 "notch_hub.overview.next_schedule" = "Next local schedule";
 "notch_hub.overview.no_schedule" = "No upcoming local item";
 "notch_hub.overview.quick_note" = "Quick note";
+"notch_hub.allow_calendar_access" = "Allow macOS Calendar";
+"notch_hub.allow_calendar_access_caption" = "Optional. The Focus Overview uses local schedules first and only reads Calendar after you turn this on.";
 "notch_hub.allow_apple_events" = "Allow media Apple Events";
 "notch_hub.allow_apple_events_caption" = "Required for Music and Spotify controls. macOS may ask for automation access.";
 "notch_hub.allow_file_tray" = "Allow file tray";

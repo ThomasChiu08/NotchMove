@@ -231,8 +231,7 @@ struct NotchHubContentView: View {
 
             if !hubStore.preferences.allowAppleEvents {
                 permissionInline("notch_hub.permission.apple_events") {
-                    hubStore.preferences.allowAppleEvents = true
-                    hubStore.refreshActiveWidget()
+                    hubStore.setAppleEventsAllowed(true)
                 }
             }
 
@@ -543,7 +542,7 @@ struct NotchHubContentView: View {
     private func enable(_ permission: NotchHubPermission) {
         switch permission {
         case .appleEvents:
-            hubStore.preferences.allowAppleEvents = true
+            hubStore.setAppleEventsAllowed(true)
         case .calendar:
             hubStore.requestCalendarAccess()
         case .shortcuts:
@@ -551,7 +550,7 @@ struct NotchHubContentView: View {
         case .camera:
             hubStore.requestCameraAccess()
         case .files:
-            hubStore.preferences.allowFileTray = true
+            hubStore.setFileTrayAllowed(true)
         }
         hubStore.presentation = .widget(hubStore.selectedWidgetID)
     }

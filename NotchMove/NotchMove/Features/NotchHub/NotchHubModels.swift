@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import AVFoundation
 import Foundation
 import Observation
 
@@ -324,6 +325,16 @@ final class NotchHubStore {
         NotchHubWidgetID.allCases.filter { preferences.enabledWidgetIDs.contains($0) }
     }
 
+    var defaultWidgetOptions: [NotchHubWidgetID] {
+        enabledWidgets.filter(canUseAsDefaultWidget)
+    }
+
+    var effectiveDefaultWidgetID: NotchHubWidgetID {
+        canUseAsDefaultWidget(preferences.defaultWidgetID) ?
+            preferences.defaultWidgetID :
+            fallbackDefaultWidgetID
+    }
+
     var activeWidgetID: NotchHubWidgetID {
         switch presentation {
         case .widget(let widgetID):
@@ -339,6 +350,26 @@ final class NotchHubStore {
 
     var requiresKeyWindow: Bool {
         isExpanded
+    }
+
+    func canUseAsDefaultWidget(_ widgetID: NotchHubWidgetID) -> Bool {
+        guard preferences.enabledWidgetIDs.contains(widgetID) else { return false }
+
+        switch widgetID.requiredPermission {
+        case nil:
+            return true
+        case .appleEvents:
+            return preferences.allowAppleEvents
+        case .calendar:
+            return preferences.allowCalendarAccess
+        case .shortcuts:
+            return true
+        case .camera:
+            return preferences.allowCameraAccess &&
+                cameraPermissionProvider.authorizationStatus == .authorized
+        case .files:
+            return preferences.allowFileTray
+        }
     }
 
     func focusOverviewSnapshot(at date: Date) -> NotchHubFocusOverviewSnapshot {
@@ -406,9 +437,39 @@ final class NotchHubStore {
     }
 
     func setDefaultWidget(_ widgetID: NotchHubWidgetID) {
-        guard preferences.enabledWidgetIDs.contains(widgetID) else { return }
+        guard canUseAsDefaultWidget(widgetID) else { return }
         preferences.defaultWidgetID = widgetID
         selectedWidgetID = widgetID
+    }
+
+    func setAppleEventsAllowed(_ isAllowed: Bool) {
+        preferences.allowAppleEvents = isAllowed
+
+        if isAllowed {
+            if activeWidgetID == .media {
+                refreshActiveWidget()
+            }
+        } else {
+            mediaStatus = MediaPlaybackStatus()
+            normalizeDefaultWidgetAvailability()
+        }
+    }
+
+    func setCalendarAccessAllowed(_ isAllowed: Bool) {
+        if isAllowed {
+            requestCalendarAccess()
+        } else {
+            preferences.allowCalendarAccess = false
+            Task { await refreshCalendarItems() }
+        }
+    }
+
+    func setFileTrayAllowed(_ isAllowed: Bool) {
+        preferences.allowFileTray = isAllowed
+
+        if !isAllowed {
+            normalizeDefaultWidgetAvailability()
+        }
     }
 
     func refreshActiveWidget() {
@@ -583,6 +644,26 @@ final class NotchHubStore {
         preferences = normalized(preferences)
         if !preferences.enabledWidgetIDs.contains(selectedWidgetID) {
             selectedWidgetID = preferences.defaultWidgetID
+        }
+    }
+
+    private var fallbackDefaultWidgetID: NotchHubWidgetID {
+        defaultWidgetOptions.first ?? .live
+    }
+
+    private func normalizeDefaultWidgetAvailability() {
+        guard !canUseAsDefaultWidget(preferences.defaultWidgetID) else { return }
+
+        let fallback = fallbackDefaultWidgetID
+        preferences.defaultWidgetID = fallback
+
+        if !canUseAsDefaultWidget(selectedWidgetID) {
+            selectedWidgetID = fallback
+        }
+
+        if isExpanded && !canUseAsDefaultWidget(activeWidgetID) {
+            presentation = .widget(fallback)
+            refreshActiveWidget()
         }
     }
 

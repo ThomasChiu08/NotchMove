@@ -1598,6 +1598,32 @@ struct NotchHubTests {
         #expect(store.preferences.defaultWidgetID == .live)
     }
 
+    @Test func defaultWidgetOptionsRequireSensitivePermissions() {
+        let defaults = makeEphemeralDefaults()
+        let store = makeNotchHubStore(defaults: defaults)
+
+        store.setWidget(.media, enabled: true)
+        store.setWidget(.tray, enabled: true)
+
+        #expect(store.defaultWidgetOptions == [.live, .calendar, .notes])
+
+        store.setDefaultWidget(.media)
+        #expect(store.preferences.defaultWidgetID == .live)
+
+        store.setAppleEventsAllowed(true)
+        #expect(store.defaultWidgetOptions == [.live, .media, .calendar, .notes])
+
+        store.setDefaultWidget(.media)
+        #expect(store.preferences.defaultWidgetID == .media)
+
+        store.setAppleEventsAllowed(false)
+        #expect(store.preferences.defaultWidgetID == .live)
+        #expect(store.mediaStatus == MediaPlaybackStatus())
+
+        store.setFileTrayAllowed(true)
+        #expect(store.defaultWidgetOptions == [.live, .calendar, .notes, .tray])
+    }
+
     @Test func liveWidgetRemainsRequiredFallbackAfterPreferenceMutation() {
         let defaults = makeEphemeralDefaults()
         let store = makeNotchHubStore(defaults: defaults)
@@ -1702,8 +1728,8 @@ struct NotchHubTests {
 
         store.setHubEnabled(true)
         store.setWidget(.media, enabled: true)
-        store.setDefaultWidget(.media)
         store.open()
+        store.selectWidget(.media)
         await flushAsyncWork()
 
         #expect(store.presentation == .widget(.media))
@@ -1713,8 +1739,7 @@ struct NotchHubTests {
         await store.refreshMediaStatus()
         #expect(mediaProvider.currentStatusCallCount == 0)
 
-        store.preferences.allowAppleEvents = true
-        store.refreshActiveWidget()
+        store.setAppleEventsAllowed(true)
         await flushAsyncWork()
 
         #expect(mediaProvider.currentStatusCallCount == 1)
@@ -1756,6 +1781,23 @@ struct NotchHubTests {
 
         #expect(calendarProvider.externalItemsCallCount == 1)
         #expect(store.upcomingCalendarItems.map(\.title) == ["Standup", "External focus"])
+    }
+
+    @Test func calendarAccessSettingRequestsAccessExplicitlyAndCanTurnOff() async {
+        let defaults = makeEphemeralDefaults()
+        let calendarProvider = MockCalendarProvider()
+        let store = makeNotchHubStore(defaults: defaults, calendarProvider: calendarProvider)
+
+        store.setCalendarAccessAllowed(true)
+        await flushAsyncWork()
+
+        #expect(calendarProvider.didRequestAccess)
+        #expect(store.preferences.allowCalendarAccess)
+
+        store.setCalendarAccessAllowed(false)
+        await flushAsyncWork()
+
+        #expect(!store.preferences.allowCalendarAccess)
     }
 
     @Test func disablingHubCollapsesExpandedPresentation() {
@@ -2681,6 +2723,7 @@ private func promotePendingReminder(in context: ReminderTestContext) async {
     await flushAsyncWork()
 }
 
+@MainActor
 private func promoteHoverPreview(in context: ReminderTestContext) async {
     context.engine.send(.hoverPreviewFitReady)
     await flushAsyncWork()
@@ -2778,7 +2821,7 @@ private final class MockMediaProvider: MediaControlProviding {
 
     func currentStatus() async -> MediaPlaybackStatus {
         currentStatusCallCount += 1
-        status
+        return status
     }
 
     func perform(_ command: MediaControlCommand) async -> NotchHubActionResult {
@@ -2801,7 +2844,7 @@ private final class MockCalendarProvider: CalendarEventProviding {
 
     func upcomingExternalItems(limit: Int) async -> [NotchHubCalendarItem] {
         externalItemsCallCount += 1
-        Array(externalItems.prefix(limit))
+        return Array(externalItems.prefix(limit))
     }
 
     func localScheduleItems(from items: [DailyScheduleItem]) -> [NotchHubCalendarItem] {

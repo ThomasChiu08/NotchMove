@@ -433,6 +433,8 @@
 "notch_hub.overview.next_schedule" = "下一项本地日程";
 "notch_hub.overview.no_schedule" = "暂无本地日程";
 "notch_hub.overview.quick_note" = "快速便签";
+"notch_hub.allow_calendar_access" = "允许 macOS 日历";
+"notch_hub.allow_calendar_access_caption" = "可选。专注概览会优先使用本地日程，只有开启后才读取系统日历。";
 "notch_hub.allow_apple_events" = "允许媒体 Apple Events";
 "notch_hub.allow_apple_events_caption" = "控制音乐和 Spotify 时需要。macOS 可能会请求自动化权限。";
 "notch_hub.allow_file_tray" = "允许文件托盘";

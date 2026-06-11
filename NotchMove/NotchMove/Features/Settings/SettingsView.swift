@@ -394,7 +394,7 @@ struct SettingsContentView: View {
 
             SettingsPropertyRow("notch_hub.default_widget") {
                 Picker(selection: defaultNotchHubWidgetBinding) {
-                    ForEach(notchHubStore.enabledWidgets) { widgetID in
+                    ForEach(notchHubStore.defaultWidgetOptions) { widgetID in
                         Label {
                             Text(LocalizedStringKey(widgetID.titleKey))
                         } icon: {
@@ -417,6 +417,14 @@ struct SettingsContentView: View {
                 notchHubWidgetToggleRow(widgetID)
             }
 
+            SettingsPropertyRow("notch_hub.allow_calendar_access", captionKey: "notch_hub.allow_calendar_access_caption") {
+                Toggle(isOn: notchHubCalendarAccessBinding) {
+                    Text("notch_hub.allow_calendar_access")
+                }
+                .labelsHidden()
+            }
+            .disabled(notchHubPermissionToggleDisabled(for: .calendar))
+
             notchHubGroupHeader("notch_hub.group.optional")
 
             ForEach(NotchHubWidgetID.widgets(in: .optional)) { widgetID in
@@ -424,12 +432,12 @@ struct SettingsContentView: View {
             }
 
             SettingsPropertyRow("notch_hub.allow_apple_events", captionKey: "notch_hub.allow_apple_events_caption") {
-                Toggle(isOn: $notchHubStore.preferences.allowAppleEvents) {
+                Toggle(isOn: notchHubAppleEventsBinding) {
                     Text("notch_hub.allow_apple_events")
                 }
                 .labelsHidden()
             }
-            .disabled(!notchHubStore.preferences.isEnabled)
+            .disabled(notchHubPermissionToggleDisabled(for: .media))
 
             notchHubGroupHeader("notch_hub.group.advanced")
 
@@ -438,12 +446,12 @@ struct SettingsContentView: View {
             }
 
             SettingsPropertyRow("notch_hub.allow_file_tray", captionKey: "notch_hub.allow_file_tray_caption") {
-                Toggle(isOn: $notchHubStore.preferences.allowFileTray) {
+                Toggle(isOn: notchHubFileTrayBinding) {
                     Text("notch_hub.allow_file_tray")
                 }
                 .labelsHidden()
             }
-            .disabled(!notchHubStore.preferences.isEnabled)
+            .disabled(notchHubPermissionToggleDisabled(for: .tray))
         } header: {
             sectionHeader("section.notch_hub")
         } footer: {
@@ -1111,7 +1119,7 @@ struct SettingsContentView: View {
 
     private var defaultNotchHubWidgetBinding: Binding<NotchHubWidgetID> {
         Binding(
-            get: { notchHubStore.preferences.defaultWidgetID },
+            get: { notchHubStore.effectiveDefaultWidgetID },
             set: { notchHubStore.setDefaultWidget($0) }
         )
     }
@@ -1128,6 +1136,43 @@ struct SettingsContentView: View {
             get: { notchHubStore.preferences.enabledWidgetIDs.contains(widgetID) },
             set: { notchHubStore.setWidget(widgetID, enabled: $0) }
         )
+    }
+
+    private var notchHubAppleEventsBinding: Binding<Bool> {
+        Binding(
+            get: { notchHubStore.preferences.allowAppleEvents },
+            set: { notchHubStore.setAppleEventsAllowed($0) }
+        )
+    }
+
+    private var notchHubCalendarAccessBinding: Binding<Bool> {
+        Binding(
+            get: { notchHubStore.preferences.allowCalendarAccess },
+            set: { notchHubStore.setCalendarAccessAllowed($0) }
+        )
+    }
+
+    private var notchHubFileTrayBinding: Binding<Bool> {
+        Binding(
+            get: { notchHubStore.preferences.allowFileTray },
+            set: { notchHubStore.setFileTrayAllowed($0) }
+        )
+    }
+
+    private func notchHubPermissionToggleDisabled(for widgetID: NotchHubWidgetID) -> Bool {
+        guard notchHubStore.preferences.isEnabled else { return true }
+        guard !notchHubStore.preferences.enabledWidgetIDs.contains(widgetID) else { return false }
+
+        switch widgetID {
+        case .media:
+            return !notchHubStore.preferences.allowAppleEvents
+        case .calendar:
+            return !notchHubStore.preferences.allowCalendarAccess
+        case .tray:
+            return !notchHubStore.preferences.allowFileTray
+        case .live, .shortcuts, .notes, .mirror:
+            return true
+        }
     }
 
     private func notchHubGroupHeader(_ titleKey: String) -> some View {
