@@ -41,6 +41,22 @@ No ready code item is currently selected.
 
 ## Done
 
+### L009 - Add loop safety and localization drift guards
+
+- Category: `verification`, `permissions`, `localization`, `packaging`
+- Source: Agent teams loop hardening pass
+- Status: done
+- Evidence:
+  - `script/check_localization_keys.py` validates key and placeholder parity
+    across supported localizations.
+  - `script/check_source_privacy.sh` validates source entitlements, privacy
+    usage strings, Hardened Runtime settings, and blocks Gatekeeper
+    quarantine-bypass distribution guidance and hard-coded cleartext HTTP URLs.
+  - `script/verify_release_privacy.sh` now checks all retained sensitive
+    entitlements and usage strings, not only microphone/network basics.
+  - Custom OpenAI-compatible provider URLs reject cleartext remote HTTP while
+    still allowing loopback HTTP for local development.
+
 ### L001 - Establish loop baseline verification
 
 - Category: `verification`

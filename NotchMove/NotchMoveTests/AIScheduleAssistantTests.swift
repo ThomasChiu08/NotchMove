@@ -880,6 +880,45 @@ struct AIProviderSupportTests {
             message: "Use the provider root Base URL, not the /chat/completions endpoint."
         ))
     }
+
+    @Test func captureReadinessRejectsCleartextRemoteCustomParserBaseURL() throws {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveReadinessCleartextRemote-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        preferences.isEnabled = true
+        preferences.selectTranscriptionProvider(.dashScope)
+        preferences.selectParserProvider(.customOpenAICompatible)
+        preferences.customParserBaseURL = "http://example.com/v1"
+        preferences.parserModel = "custom-model"
+        try preferences.saveAPIKey("dashscope-test-key", for: .dashScope)
+        try preferences.saveAPIKey("custom-test-key", for: .customOpenAICompatible)
+
+        let readiness = AIProviderFactory.parserReadiness(preferences: preferences)
+
+        #expect(readiness.error == .providerResponseInvalid(
+            provider: "Custom OpenAI-Compatible",
+            message: "Custom provider base URL is invalid."
+        ))
+    }
+
+    @Test func captureReadinessAllowsLoopbackCleartextCustomParserBaseURL() throws {
+        let preferences = AIProviderPreferences(
+            defaults: UserDefaults(suiteName: "NotchMoveReadinessLoopbackHTTP-\(UUID().uuidString)")!,
+            apiKeyStore: InMemoryAPIKeyStore()
+        )
+        preferences.isEnabled = true
+        preferences.selectTranscriptionProvider(.dashScope)
+        preferences.selectParserProvider(.customOpenAICompatible)
+        preferences.customParserBaseURL = "http://127.0.0.1:11434/v1"
+        preferences.parserModel = "custom-model"
+        try preferences.saveAPIKey("dashscope-test-key", for: .dashScope)
+        try preferences.saveAPIKey("custom-test-key", for: .customOpenAICompatible)
+
+        let readiness = AIProviderFactory.parserReadiness(preferences: preferences)
+
+        #expect(readiness.error == nil)
+    }
 }
 
 @MainActor

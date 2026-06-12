@@ -19,6 +19,12 @@ plutil -lint \
   NotchMove/NotchMove/Resources/zh-Hant.lproj/Localizable.strings \
   NotchMove/NotchMove/Resources/ja.lproj/Localizable.strings
 
+echo "== localization parity =="
+python3 script/check_localization_keys.py
+
+echo "== source privacy and distribution safety =="
+script/check_source_privacy.sh
+
 echo "== xcodebuild test =="
 xcodebuild \
   -project NotchMove/NotchMove.xcodeproj \
@@ -26,4 +32,3 @@ xcodebuild \
   -destination 'platform=macOS' \
   -derivedDataPath "$DERIVED_DATA_PATH" \
   test
-

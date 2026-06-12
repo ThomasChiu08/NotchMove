@@ -42,6 +42,10 @@ if [[ "$bundle_id" != "$EXPECTED_BUNDLE_ID" ]]; then
   fail "unexpected bundle id: ${bundle_id:-<missing>} (expected $EXPECTED_BUNDLE_ID)"
 fi
 
+require_info_value "NSAppleEventsUsageDescription"
+require_info_value "NSCameraUsageDescription"
+require_info_value "NSCalendarsFullAccessUsageDescription"
+require_info_value "NSCalendarsUsageDescription"
 require_info_value "NSMicrophoneUsageDescription"
 require_info_value "NSSpeechRecognitionUsageDescription"
 
@@ -97,8 +101,31 @@ require_entitlement_true() {
   fi
 }
 
+require_entitlement_absent() {
+  local key="$1"
+  local value
+  value="$(entitlement_value "$key")"
+  if [[ -n "$value" ]]; then
+    fail "unexpected broad entitlement: $key"
+  fi
+}
+
 require_entitlement_true "com.apple.security.app-sandbox"
+require_entitlement_true "com.apple.security.automation.apple-events"
+require_entitlement_true "com.apple.security.device.camera"
 require_entitlement_true "com.apple.security.device.microphone"
+require_entitlement_true "com.apple.security.files.user-selected.read-write"
 require_entitlement_true "com.apple.security.network.client"
+require_entitlement_true "com.apple.security.personal-information.calendars"
+
+require_entitlement_absent "com.apple.security.files.all"
+require_entitlement_absent "com.apple.security.files.downloads.read-only"
+require_entitlement_absent "com.apple.security.files.downloads.read-write"
+require_entitlement_absent "com.apple.security.files.desktop.read-only"
+require_entitlement_absent "com.apple.security.files.desktop.read-write"
+require_entitlement_absent "com.apple.security.files.documents.read-only"
+require_entitlement_absent "com.apple.security.files.documents.read-write"
+require_entitlement_absent "com.apple.security.files.home-relative-path.read-only"
+require_entitlement_absent "com.apple.security.files.home-relative-path.read-write"
 
 printf 'privacy verification passed: %s\n' "$APP_PATH"

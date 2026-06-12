@@ -11,13 +11,7 @@
 3. 从 `Applications` 打开 NotchMove。建议首次打开时右键点击 `NotchMove.app`，选择“打开”，再在弹窗中确认。
 4. 启动后在菜单栏找到走路图标，点击图标即可看到 NotchMove 菜单。
 
-如果 macOS 提示无法验证开发者，进入“系统设置 > 隐私与安全性”，在页面底部点击“仍要打开”。如果仍提示文件已损坏，只在确认 DMG 来源可信时打开“终端”运行：
-
-```bash
-xattr -dr com.apple.quarantine /Applications/NotchMove.app
-```
-
-然后重新打开 NotchMove。
+如果 macOS 提示无法验证开发者，进入“系统设置 > 隐私与安全性”，在页面底部点击“仍要打开”。如果提示文件已损坏或来源不可信，请删除这个 DMG 和已复制的 App，重新从可信渠道获取新包；不要使用终端命令绕过 Gatekeeper。
 
 ## 更新旧测试版
 

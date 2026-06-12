@@ -58,6 +58,10 @@ This runs:
 
 - `git diff --check`
 - `plutil -lint` on project, entitlements, and localization files
+- localization key and placeholder parity across English, Simplified Chinese,
+  Traditional Chinese, and Japanese
+- source-level privacy, entitlement, Hardened Runtime, and distribution safety
+  checks, including a block on Gatekeeper quarantine-bypass instructions
 - `xcodebuild test` for the NotchMove scheme
 
 If Swift package state is stale, refresh dependencies first:
@@ -76,4 +80,3 @@ xcodebuild -resolvePackageDependencies \
   signed local run.
 - `parked`: useful, but not part of the current reminder-first loop.
 - `done`: verified or confirmed already implemented.
-

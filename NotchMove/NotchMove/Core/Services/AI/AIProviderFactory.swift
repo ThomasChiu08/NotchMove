@@ -379,8 +379,9 @@ enum AIProviderFactory {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         let components = URLComponents(string: trimmedValue)
         guard let scheme = components?.scheme?.lowercased(),
-              ["http", "https"].contains(scheme),
-              components?.host?.isEmpty == false,
+              let host = components?.host,
+              !host.isEmpty,
+              isAllowedOpenAICompatibleScheme(scheme, host: host),
               let baseURL = components?.url
         else {
             throw AIScheduleAssistantError.providerResponseInvalid(
@@ -399,8 +400,9 @@ enum AIProviderFactory {
     ) throws {
         guard let components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
               let scheme = components.scheme?.lowercased(),
-              ["http", "https"].contains(scheme),
-              components.host?.isEmpty == false
+              let host = components.host,
+              !host.isEmpty,
+              isAllowedOpenAICompatibleScheme(scheme, host: host)
         else {
             throw AIScheduleAssistantError.providerResponseInvalid(
                 provider: provider.displayName,
@@ -417,6 +419,19 @@ enum AIProviderFactory {
                 message: "Use the provider root Base URL, not the /chat/completions endpoint."
             )
         }
+    }
+
+    private static func isAllowedOpenAICompatibleScheme(_ scheme: String, host: String) -> Bool {
+        if scheme == "https" {
+            return true
+        }
+
+        return scheme == "http" && isLoopbackHost(host)
+    }
+
+    private static func isLoopbackHost(_ host: String) -> Bool {
+        let normalizedHost = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
+        return normalizedHost == "localhost" || normalizedHost == "127.0.0.1" || normalizedHost == "::1"
     }
 
     @MainActor
