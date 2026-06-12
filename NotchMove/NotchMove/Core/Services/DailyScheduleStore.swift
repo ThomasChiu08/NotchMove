@@ -93,6 +93,12 @@ final class DailyScheduleStore {
     func markReminded(_ id: DailyScheduleItem.ID, at date: Date? = nil) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         items[index].lastRemindedDate = date ?? dateProvider()
+        items[index].snoozedUntilDate = nil
+    }
+
+    func snooze(_ id: DailyScheduleItem.ID, until date: Date) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        items[index].snoozedUntilDate = date
     }
 
     func clearToday(referenceDate: Date? = nil) {

@@ -7,6 +7,7 @@
 
 import XCTest
 
+@available(*, unavailable, message: "Accessory-app UI tests require a dedicated harness and are excluded from the default test path.")
 final class NotchMoveUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {

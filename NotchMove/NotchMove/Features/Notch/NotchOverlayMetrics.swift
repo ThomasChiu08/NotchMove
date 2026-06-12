@@ -8,12 +8,73 @@
 import CoreGraphics
 import Observation
 
+struct OverlayContentFitRequest: Equatable {
+    let size: CGSize
+
+    init(size: CGSize, displayScale: CGFloat = 2) {
+        self.size = CGSize(
+            width: Self.roundedUpToPixel(max(size.width, 1), displayScale: displayScale),
+            height: Self.roundedUpToPixel(max(size.height, 1), displayScale: displayScale)
+        )
+    }
+
+    func isApproximatelyEqual(to other: OverlayContentFitRequest, tolerance: CGFloat = 1) -> Bool {
+        abs(size.width - other.size.width) < tolerance &&
+            abs(size.height - other.size.height) < tolerance
+    }
+
+    private static func roundedUpToPixel(_ value: CGFloat, displayScale: CGFloat) -> CGFloat {
+        let safeScale = max(displayScale, 1)
+        return ceil(value * safeScale) / safeScale
+    }
+}
+
 @MainActor
 @Observable
 final class NotchOverlayMetrics {
     var topInset: CGFloat
+    var tuckedSize: CGSize
+    var canvasSize: CGSize
+    private(set) var contentFitRequest: OverlayContentFitRequest?
+    private(set) var cachedContentFitRequest: OverlayContentFitRequest?
+    private(set) var frozenHoverPreviewSize: CGSize?
 
-    init(topInset: CGFloat) {
+    init(
+        topInset: CGFloat,
+        tuckedSize: CGSize = CGSize(width: 208, height: 38),
+        canvasSize: CGSize = CGSize(width: 208, height: 38)
+    ) {
         self.topInset = topInset
+        self.tuckedSize = tuckedSize
+        self.canvasSize = canvasSize
+    }
+
+    func requestContentFit(size: CGSize, displayScale: CGFloat) {
+        let request = OverlayContentFitRequest(size: size, displayScale: displayScale)
+        if let contentFitRequest,
+           let cachedContentFitRequest,
+           cachedContentFitRequest.isApproximatelyEqual(to: request),
+           contentFitRequest.isApproximatelyEqual(to: request) {
+            return
+        }
+
+        contentFitRequest = request
+        cachedContentFitRequest = request
+    }
+
+    func freezeHoverPreviewSize(_ size: CGSize, displayScale: CGFloat = 2) {
+        let request = OverlayContentFitRequest(size: size, displayScale: displayScale)
+        guard frozenHoverPreviewSize != request.size else { return }
+        frozenHoverPreviewSize = request.size
+    }
+
+    func clearContentFitRequest() {
+        guard contentFitRequest != nil else { return }
+        contentFitRequest = nil
+    }
+
+    func clearFrozenHoverPreviewSize() {
+        guard frozenHoverPreviewSize != nil else { return }
+        frozenHoverPreviewSize = nil
     }
 }

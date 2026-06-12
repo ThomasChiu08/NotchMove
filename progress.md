@@ -1,0 +1,57 @@
+# Daily Schedule Reminder Progress
+
+## 2026-04-30
+
+- Researched open-source references for macOS schedule and meeting reminders.
+- Confirmed NotchMove already has local daily schedule models, import parsing, dashboard UI, and a polling reminder engine.
+- Started execution plan focused on imported schedule visibility and notch-based reminders.
+- Added project planning files.
+- Added schedule reminder snooze state to `DailyScheduleItem` and `DailyScheduleStore`.
+- Routed daily schedule reminders through the notch overlay via `DailyScheduleNotchPresenter`.
+- Added schedule-specific notch UI with Done and Later actions.
+- Added manual schedule item creation from the dashboard.
+- Added menu bar next-schedule status and dashboard reminder status labels.
+- Updated daily schedule tests for completion, snooze, and stale reminder windows.
+- Ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
+- Began AI voice schedule assistant Phase 1 from `docs/plans/2026-04-30-ai-voice-schedule-design.md`.
+- Added provider-agnostic AI schedule models, transcription/parser protocols, Keychain-backed OpenAI API key storage, temporary audio recording, OpenAI transcription, and OpenAI Responses structured-output parsing.
+- Added AI Assistant settings, menu bar `AI Add Schedule...`, Today/Schedule `Speak` actions, and a review sheet that lets users edit/select drafts before writing to `DailyScheduleStore`.
+- Added sandbox microphone and outgoing network entitlements plus `NSMicrophoneUsageDescription`.
+- Added AI assistant unit tests for draft conversion, schema decoding, service order, temporary audio cleanup, empty transcript handling, past-date warnings, response extraction, and API key redaction.
+- Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
+
+## 2026-05-01
+
+- Analyzed the existing AI assistant implementation and confirmed the current path is already provider-agnostic and draft-confirmed.
+- Researched GitHub references: Pindrop, AudioWhisper, AssisChat, and argmaxinc/argmax-oss-swift.
+- Ran `xcodebuild -project NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test` from `NotchMove/`; result: passed.
+- Saved AI research notes to `docs/plans/2026-05-01-ai-schedule-assistant-research.md`.
+- Saved staged implementation plan to `docs/plans/2026-05-01-ai-schedule-assistant-implementation-plan.md`.
+- Completed AI schedule assistant implementation Phase 1: pre-recording readiness validation, localized capture errors, provider/privacy status in review, stricter selected-draft title validation, non-today warnings, and additional AI assistant regression tests.
+- Ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
+- Completed AI schedule assistant implementation Phase 2: added local WhisperKit transcription through `argmaxinc/argmax-oss-swift`, local speech model download/verify/delete management, Settings model controls, local STT privacy copy, missing-model capture errors, and local provider regression tests.
+- Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
+- Completed AI schedule assistant implementation Phase 3: added structured transcription/parser readiness diagnostics, Settings flow status, selected-provider setup guide buttons, custom Base URL shape validation, and multi-secret provider error redaction.
+- Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
+- Completed AI schedule assistant implementation Phase 4: added opt-in Carbon global shortcut registration, Settings shortcut/status controls, dashboard capture toggle routing, permission onboarding copy, and shortcut preference regression tests.
+- Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed.
+- Completed AI schedule assistant implementation Phase 5 automated QA: added English, Simplified Chinese, Traditional Chinese, and Japanese parser fixture tests; confirmed existing Phase 5 regression coverage for credentials, Base URL validation, invalid parser JSON, date warnings, draft conversion, and temporary audio cleanup.
+- Re-ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' test`; result: passed. Live microphone/provider manual QA remains to run on a configured machine.
+
+## 2026-05-15
+
+- Executed `docs/plans/2026-05-01-ai-input-full-flow-optimization-plan.md`.
+- Confirmed Apple Speech transcription provider support, generated `NSSpeechRecognitionUsageDescription`, Speech Recognition permission handling, Settings readiness diagnostics, and split AI Settings sections are present.
+- Added the full voice input path on top of the AI input flow: menu bar start/stop, global shortcut press/release handling, notch overlay recording/processing/result/error states, cleanup, insertion, undo, Accessibility recovery, and clipboard fallback.
+- Updated Info.plist privacy descriptions so microphone and Apple Speech copy covers both AI schedule capture and voice input.
+- Ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -destination 'platform=macOS' -derivedDataPath /private/tmp/NotchMove-DerivedData test`; result: passed.
+- Fixed `script/verify_release_privacy.sh` for current `codesign --entitlements` output and verified the Release app privacy metadata/entitlements.
+- Ran `xcodebuild -project NotchMove/NotchMove.xcodeproj -scheme NotchMove -configuration Release -destination 'platform=macOS' -derivedDataPath /private/tmp/NotchMove-Release-DerivedData build`; result: passed.
+
+## 2026-05-22
+
+- Synced planning documentation to the current implementation state without changing Swift code.
+- Replaced the stale product roadmap with a current status/roadmap that no longer lists launch at login, Snooze/Skip, schedule Done/Snooze, packaging scripts, signing/privacy verification, notarization documentation, or expanded localization as missing work.
+- Archived `task_plan.md` as the completed daily schedule reminder execution plan instead of the active product plan.
+- Updated UI and AI design plans with completed/partial/pending status notes and cross-references to later implementation work.
+- Confirmed the remaining active TODOs are temporary pause, first-run onboarding, general diagnostics export, minimal UI smoke test, daily goal and 7-day trend, Feedback/Report Issue, and live microphone/provider/manual release QA.

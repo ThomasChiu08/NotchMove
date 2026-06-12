@@ -10,15 +10,50 @@ import SwiftUI
 
 @MainActor
 final class DashboardWindowController: NSObject, NSWindowDelegate {
+    static let aiCaptureRequestedNotification = Notification.Name("DashboardWindowControllerAICaptureRequested")
+    static let aiCaptureGlobalToggleRequestedNotification = Notification.Name(
+        "DashboardWindowControllerAICaptureGlobalToggleRequested"
+    )
+
     private var window: NSWindow?
     private var hostingView: NSHostingView<AnyView>?
     private let languageManager: LanguageManager
+    private let reminderEngine: ReminderEngine
+    private let pomodoroEngine: PomodoroEngine
+    private let aiAssistantService: AIScheduleAssistantService
     private let scheduleStore: DailyScheduleStore
+    private let preferencesStore: PreferencesStore
+    private let aiProviderPreferences: AIProviderPreferences
+    private let breakStatsStore: BreakStatsStore
+    private let loginItemManager: any LoginItemManaging
+    private let notchHubStore: NotchHubStore
+    private let globalHotkeyController: GlobalAICaptureHotkeyController
     private nonisolated(unsafe) var languageObserver: NSObjectProtocol?
 
-    init(languageManager: LanguageManager, scheduleStore: DailyScheduleStore) {
+    init(
+        languageManager: LanguageManager,
+        reminderEngine: ReminderEngine,
+        pomodoroEngine: PomodoroEngine,
+        aiAssistantService: AIScheduleAssistantService,
+        scheduleStore: DailyScheduleStore,
+        preferencesStore: PreferencesStore,
+        aiProviderPreferences: AIProviderPreferences,
+        breakStatsStore: BreakStatsStore,
+        loginItemManager: any LoginItemManaging,
+        notchHubStore: NotchHubStore,
+        globalHotkeyController: GlobalAICaptureHotkeyController
+    ) {
         self.languageManager = languageManager
+        self.reminderEngine = reminderEngine
+        self.pomodoroEngine = pomodoroEngine
+        self.aiAssistantService = aiAssistantService
         self.scheduleStore = scheduleStore
+        self.preferencesStore = preferencesStore
+        self.aiProviderPreferences = aiProviderPreferences
+        self.breakStatsStore = breakStatsStore
+        self.loginItemManager = loginItemManager
+        self.notchHubStore = notchHubStore
+        self.globalHotkeyController = globalHotkeyController
         super.init()
 
         languageObserver = NotificationCenter.default.addObserver(
@@ -44,6 +79,28 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
         }
     }
 
+    func openSettings(section: SettingsPageSection = .reminders) {
+        DispatchQueue.main.async { [weak self] in
+            UserDefaults.standard.set(
+                UnifiedDashboardPage.settings(section).id,
+                forKey: UnifiedDashboardSelectionStorage.selectedPageKey
+            )
+            self?.presentWindow()
+        }
+    }
+
+    func openAICapture() {
+        DispatchQueue.main.async { [weak self] in
+            self?.presentWindow()
+        }
+    }
+
+    func toggleAICaptureFromGlobalHotkey() {
+        DispatchQueue.main.async { [weak self] in
+            self?.presentWindow()
+        }
+    }
+
     private func presentWindow() {
         if let existing = window {
             existing.makeKeyAndOrderFront(nil)
@@ -53,14 +110,14 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
 
         let hostingView = NSHostingView(rootView: makeDashboardRootView())
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 760, height: 520),
+            contentRect: NSRect(x: 0, y: 0, width: 920, height: 620),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
-        newWindow.title = languageManager.localizedString("dashboard.title")
+        newWindow.title = languageManager.localizedString("dashboard.unified.title")
         newWindow.contentView = hostingView
-        newWindow.contentMinSize = NSSize(width: 680, height: 460)
+        newWindow.contentMinSize = NSSize(width: 860, height: 560)
         newWindow.isReleasedWhenClosed = false
         newWindow.delegate = self
         newWindow.level = .normal
@@ -75,9 +132,18 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
 
     private func makeDashboardRootView() -> AnyView {
         AnyView(
-            DailyScheduleDashboardView(
+            UnifiedDashboardView(
                 languageManager: languageManager,
-                scheduleStore: scheduleStore
+                loginItemManager: loginItemManager,
+                reminderEngine: reminderEngine,
+                pomodoroEngine: pomodoroEngine,
+                aiAssistantService: aiAssistantService,
+                scheduleStore: scheduleStore,
+                preferencesStore: preferencesStore,
+                aiProviderPreferences: aiProviderPreferences,
+                breakStatsStore: breakStatsStore,
+                notchHubStore: notchHubStore,
+                globalHotkeyController: globalHotkeyController
             )
             .environment(\.locale, languageManager.locale)
         )
@@ -85,7 +151,7 @@ final class DashboardWindowController: NSObject, NSWindowDelegate {
 
     private func refreshWindowContent() {
         guard let window, let hostingView else { return }
-        window.title = languageManager.localizedString("dashboard.title")
+        window.title = languageManager.localizedString("dashboard.unified.title")
         hostingView.rootView = makeDashboardRootView()
     }
 

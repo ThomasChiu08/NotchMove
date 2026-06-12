@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**NotchMove** is a macOS utility app (targeting macOS 26.2+) built with SwiftUI + SwiftData. The project is at its initial stage — currently just the Xcode default template.
+**NotchMove** is a native macOS accessory utility (targeting macOS 26.2+) built with SwiftUI + AppKit. It runs from the menu bar, monitors active computer usage, and presents a notch-shaped reminder overlay on notch Macs with a centered fallback on other displays.
 
 ## Build & Test Commands
 
@@ -31,29 +31,27 @@ xcodebuild -project NotchMove/NotchMove.xcodeproj \
 
 ## Architecture
 
-MVVM with SwiftData for persistence. Default structure to follow when adding features:
+Current architecture is intentionally lightweight:
 
 ```
 NotchMove/NotchMove/
 ├── App/
-│   └── NotchMoveApp.swift      # @main, ModelContainer setup
+│   └── AppDelegate.swift             # runtime composition root
 ├── Features/
-│   └── <Feature>/
-│       ├── <Feature>View.swift
-│       ├── <Feature>ViewModel.swift
-│       └── <Feature>Service.swift   # if needed
+│   ├── MenuBar/                      # NSStatusItem and menu actions
+│   ├── Notch/                        # overlay view, view model, and window control
+│   └── Settings/                     # SwiftUI settings window
 ├── Core/
-│   ├── Models/                 # @Model SwiftData types
-│   ├── Services/
-│   └── Extensions/
-└── Resources/
+│   ├── Services/                     # settings, schedule policy, activity/scheduler logic
+│   └── Extensions/                   # NSScreen notch helpers
+└── Resources/                        # localized strings
 ```
 
-Currently all code lives flat in `NotchMove/NotchMove/`. Migrate to this structure as features are added.
+Persistence is currently `UserDefaults`-based through `AppSettings`; there is no SwiftData model layer yet.
 
 ## Key Conventions
 
-- **SwiftData models**: Use `@Model` macro, defined in `Core/Models/`. The existing `Item.swift` is a placeholder — delete when building real models.
+- **Persistence**: Keep persisted app preferences in `AppSettings`. Add SwiftData only if the app starts storing durable history or richer user-managed records.
 - **ViewModel**: Use `@Observable` (not `ObservableObject`) — macOS 26.2 supports it fully.
 - **macOS-specific**: This is macOS only (no iOS target). Use `NSStatusBar` / `NSStatusItem` APIs for notch/menu bar functionality when implementing the core feature.
-- **Testing**: `NotchMoveTests` (XCTest) for unit tests, `NotchMoveUITests` for UI tests.
+- **Testing**: Keep the default test path focused on `NotchMoveTests` until the accessory-app UI tests have a dedicated harness.

@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D0A1B2C3D4E5F6012345678B /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = D0A1B2C3D4E5F6012345678A /* WhisperKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		DB848D5E2F906A3300DF8471 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0A1B2C3D4E5F6012345678B /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,7 @@
 			);
 			name = NotchMove;
 			packageProductDependencies = (
+				D0A1B2C3D4E5F6012345678A /* WhisperKit */,
 			);
 			productName = NotchMove;
 			productReference = DB848D4E2F906A3100DF8471 /* NotchMove.app */;
@@ -198,6 +204,9 @@
 			);
 			mainGroup = DB848D452F906A3100DF8471;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D0A1B2C3D4E5F60123456789 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DB848D4F2F906A3100DF8471 /* Products */;
 			projectDirPath = "";
@@ -326,7 +335,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -384,7 +393,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -409,6 +418,12 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "NotchMove uses Apple Events only when you enable Notch Hub media controls for supported media apps.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "NotchMove uses the camera only when you open the Notch Hub mirror preview.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "NotchMove reads calendar events only when you enable the Notch Hub calendar widget.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "NotchMove reads calendar events only when you enable the Notch Hub calendar widget.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "NotchMove records audio only when you start AI schedule capture or voice input.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "NotchMove uses Apple Speech only when you choose Apple Speech for AI transcription or voice input.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -432,7 +447,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = NotchMove/NotchMove.entitlements;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PFZC7ULP8P;
@@ -443,6 +459,12 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "NotchMove uses Apple Events only when you enable Notch Hub media controls for supported media apps.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "NotchMove uses the camera only when you open the Notch Hub mirror preview.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "NotchMove reads calendar events only when you enable the Notch Hub calendar widget.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "NotchMove reads calendar events only when you enable the Notch Hub calendar widget.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "NotchMove records audio only when you start AI schedule capture or voice input.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "NotchMove uses Apple Speech only when you choose Apple Speech for AI transcription or voice input.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -450,6 +472,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.thomaschiu.developer.NotchMove;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -468,7 +491,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PFZC7ULP8P;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.thomaschiu.developer.NotchMoveTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -489,7 +512,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PFZC7ULP8P;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.thomaschiu.developer.NotchMoveTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -580,6 +603,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D0A1B2C3D4E5F60123456789 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/argmax-oss-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.18.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D0A1B2C3D4E5F6012345678A /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D0A1B2C3D4E5F60123456789 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */;
+			productName = WhisperKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DB848D462F906A3100DF8471 /* Project object */;
 }

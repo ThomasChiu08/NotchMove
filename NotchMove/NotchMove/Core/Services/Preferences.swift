@@ -9,6 +9,22 @@ import CoreGraphics
 import Foundation
 
 struct Preferences: Equatable {
+    enum VoiceCleanupMode: String, CaseIterable, Identifiable {
+        case raw
+        case clean
+        case polished
+
+        var id: String { rawValue }
+
+        var titleKey: String {
+            switch self {
+            case .raw: "voice.settings.cleanup_raw"
+            case .clean: "voice.settings.cleanup_clean"
+            case .polished: "voice.settings.cleanup_polished"
+            }
+        }
+    }
+
     enum OverlayDisplayMode: Equatable, Hashable {
         case automatic
         case display(CGDirectDisplayID)
@@ -29,7 +45,12 @@ struct Preferences: Equatable {
 
     var soundEnabled: Bool
     var launchAtLoginEnabled: Bool
+    var hasSeenLaunchAtLoginPrompt: Bool
+    var breakReminderEnabled: Bool
+    var pomodoroEnabled: Bool
     var reminderIntervalMinutes: Int
+    var pomodoroFocusMinutes: Int
+    var pomodoroBreakMinutes: Int
     var sitAwareEnabled: Bool
     var schedule: Schedule
     var notchExpansionEnabled: Bool
@@ -38,11 +59,22 @@ struct Preferences: Equatable {
     var autoDismissSeconds: Int
     var appLanguage: String
     var overlayDisplayMode: OverlayDisplayMode
+    var voiceInputEnabled: Bool
+    var voiceInputShortcutID: String
+    var voiceCleanupMode: VoiceCleanupMode
+    var voicePersonalTerms: [String]
+    var aiGlobalHotkeyEnabled: Bool
+    var aiGlobalHotkeyShortcutID: String
 
     static let defaults = Preferences(
         soundEnabled: true,
-        launchAtLoginEnabled: true,
+        launchAtLoginEnabled: false,
+        hasSeenLaunchAtLoginPrompt: false,
+        breakReminderEnabled: true,
+        pomodoroEnabled: true,
         reminderIntervalMinutes: 30,
+        pomodoroFocusMinutes: 25,
+        pomodoroBreakMinutes: 5,
         sitAwareEnabled: true,
         schedule: Schedule(
             isEnabled: false,
@@ -57,6 +89,12 @@ struct Preferences: Equatable {
         autoDismissEnabled: true,
         autoDismissSeconds: 60,
         appLanguage: "en",
-        overlayDisplayMode: .automatic
+        overlayDisplayMode: .automatic,
+        voiceInputEnabled: false,
+        voiceInputShortcutID: GlobalHotkeyShortcut.default.rawValue,
+        voiceCleanupMode: .clean,
+        voicePersonalTerms: [],
+        aiGlobalHotkeyEnabled: false,
+        aiGlobalHotkeyShortcutID: GlobalHotkeyShortcut.default.rawValue
     )
 }

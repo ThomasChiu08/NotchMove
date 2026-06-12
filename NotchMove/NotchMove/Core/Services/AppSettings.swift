@@ -12,7 +12,12 @@ final class AppSettings {
     enum Keys {
         static let soundEnabled = "soundEnabled"
         static let launchAtLoginEnabled = "launchAtLoginEnabled"
+        static let hasSeenLaunchAtLoginPrompt = "hasSeenLaunchAtLoginPrompt"
+        static let breakReminderEnabled = "breakReminderEnabled"
+        static let pomodoroEnabled = "pomodoroEnabled"
         static let reminderIntervalMinutes = "reminderIntervalMinutes"
+        static let pomodoroFocusMinutes = "pomodoroFocusMinutes"
+        static let pomodoroBreakMinutes = "pomodoroBreakMinutes"
         static let sitAwareEnabled = "sitAwareEnabled"
         static let scheduleEnabled = "scheduleEnabled"
         static let scheduleStartHour = "scheduleStartHour"
@@ -27,6 +32,12 @@ final class AppSettings {
         static let appLanguage = "appLanguage"
         static let overlayDisplayMode = "overlayDisplayMode"
         static let overlayDisplayID = "overlayDisplayID"
+        static let voiceInputEnabled = "voiceInputEnabled"
+        static let voiceInputShortcutID = "voiceInputShortcutID"
+        static let voiceCleanupMode = "voiceCleanupMode"
+        static let voicePersonalTerms = "voicePersonalTerms"
+        static let aiGlobalHotkeyEnabled = "aiGlobalHotkeyEnabled"
+        static let aiGlobalHotkeyShortcutID = "aiGlobalHotkeyShortcutID"
     }
 
     private enum OverlayDisplayModeValue {
@@ -44,7 +55,12 @@ final class AppSettings {
         defaults.register(defaults: [
             Keys.soundEnabled: Preferences.defaults.soundEnabled,
             Keys.launchAtLoginEnabled: Preferences.defaults.launchAtLoginEnabled,
+            Keys.hasSeenLaunchAtLoginPrompt: Preferences.defaults.hasSeenLaunchAtLoginPrompt,
+            Keys.breakReminderEnabled: Preferences.defaults.breakReminderEnabled,
+            Keys.pomodoroEnabled: Preferences.defaults.pomodoroEnabled,
             Keys.reminderIntervalMinutes: Preferences.defaults.reminderIntervalMinutes,
+            Keys.pomodoroFocusMinutes: Preferences.defaults.pomodoroFocusMinutes,
+            Keys.pomodoroBreakMinutes: Preferences.defaults.pomodoroBreakMinutes,
             Keys.sitAwareEnabled: Preferences.defaults.sitAwareEnabled,
             Keys.scheduleEnabled: Preferences.defaults.schedule.isEnabled,
             Keys.scheduleStartHour: Preferences.defaults.schedule.startHour,
@@ -58,6 +74,12 @@ final class AppSettings {
             Keys.autoDismissSeconds: Preferences.defaults.autoDismissSeconds,
             Keys.appLanguage: Preferences.defaults.appLanguage,
             Keys.overlayDisplayMode: OverlayDisplayModeValue.automatic,
+            Keys.voiceInputEnabled: Preferences.defaults.voiceInputEnabled,
+            Keys.voiceInputShortcutID: Preferences.defaults.voiceInputShortcutID,
+            Keys.voiceCleanupMode: Preferences.defaults.voiceCleanupMode.rawValue,
+            Keys.voicePersonalTerms: Preferences.defaults.voicePersonalTerms,
+            Keys.aiGlobalHotkeyEnabled: Preferences.defaults.aiGlobalHotkeyEnabled,
+            Keys.aiGlobalHotkeyShortcutID: Preferences.defaults.aiGlobalHotkeyShortcutID,
         ])
     }
 
@@ -68,9 +90,29 @@ final class AppSettings {
                 forKey: Keys.launchAtLoginEnabled,
                 default: Preferences.defaults.launchAtLoginEnabled
             ),
+            hasSeenLaunchAtLoginPrompt: bool(
+                forKey: Keys.hasSeenLaunchAtLoginPrompt,
+                default: Preferences.defaults.hasSeenLaunchAtLoginPrompt
+            ),
+            breakReminderEnabled: bool(
+                forKey: Keys.breakReminderEnabled,
+                default: Preferences.defaults.breakReminderEnabled
+            ),
+            pomodoroEnabled: bool(
+                forKey: Keys.pomodoroEnabled,
+                default: Preferences.defaults.pomodoroEnabled
+            ),
             reminderIntervalMinutes: integer(
                 forKey: Keys.reminderIntervalMinutes,
                 default: Preferences.defaults.reminderIntervalMinutes
+            ),
+            pomodoroFocusMinutes: integer(
+                forKey: Keys.pomodoroFocusMinutes,
+                default: Preferences.defaults.pomodoroFocusMinutes
+            ),
+            pomodoroBreakMinutes: integer(
+                forKey: Keys.pomodoroBreakMinutes,
+                default: Preferences.defaults.pomodoroBreakMinutes
             ),
             sitAwareEnabled: bool(forKey: Keys.sitAwareEnabled, default: Preferences.defaults.sitAwareEnabled),
             schedule: Preferences.Schedule(
@@ -98,14 +140,37 @@ final class AppSettings {
                 default: Preferences.defaults.autoDismissSeconds
             ),
             appLanguage: defaults.string(forKey: Keys.appLanguage) ?? Preferences.defaults.appLanguage,
-            overlayDisplayMode: loadOverlayDisplayMode()
+            overlayDisplayMode: loadOverlayDisplayMode(),
+            voiceInputEnabled: bool(
+                forKey: Keys.voiceInputEnabled,
+                default: Preferences.defaults.voiceInputEnabled
+            ),
+            voiceInputShortcutID: loadGlobalHotkeyShortcutID(
+                key: Keys.voiceInputShortcutID,
+                default: Preferences.defaults.voiceInputShortcutID
+            ),
+            voiceCleanupMode: loadVoiceCleanupMode(),
+            voicePersonalTerms: loadVoicePersonalTerms(),
+            aiGlobalHotkeyEnabled: bool(
+                forKey: Keys.aiGlobalHotkeyEnabled,
+                default: Preferences.defaults.aiGlobalHotkeyEnabled
+            ),
+            aiGlobalHotkeyShortcutID: loadGlobalHotkeyShortcutID(
+                key: Keys.aiGlobalHotkeyShortcutID,
+                default: Preferences.defaults.aiGlobalHotkeyShortcutID
+            )
         )
     }
 
     func save(_ preferences: Preferences) {
         defaults.set(preferences.soundEnabled, forKey: Keys.soundEnabled)
         defaults.set(preferences.launchAtLoginEnabled, forKey: Keys.launchAtLoginEnabled)
+        defaults.set(preferences.hasSeenLaunchAtLoginPrompt, forKey: Keys.hasSeenLaunchAtLoginPrompt)
+        defaults.set(preferences.breakReminderEnabled, forKey: Keys.breakReminderEnabled)
+        defaults.set(preferences.pomodoroEnabled, forKey: Keys.pomodoroEnabled)
         defaults.set(preferences.reminderIntervalMinutes, forKey: Keys.reminderIntervalMinutes)
+        defaults.set(preferences.pomodoroFocusMinutes, forKey: Keys.pomodoroFocusMinutes)
+        defaults.set(preferences.pomodoroBreakMinutes, forKey: Keys.pomodoroBreakMinutes)
         defaults.set(preferences.sitAwareEnabled, forKey: Keys.sitAwareEnabled)
         defaults.set(preferences.schedule.isEnabled, forKey: Keys.scheduleEnabled)
         defaults.set(preferences.schedule.startHour, forKey: Keys.scheduleStartHour)
@@ -119,6 +184,12 @@ final class AppSettings {
         defaults.set(preferences.autoDismissSeconds, forKey: Keys.autoDismissSeconds)
         defaults.set(preferences.appLanguage, forKey: Keys.appLanguage)
         save(preferences.overlayDisplayMode)
+        defaults.set(preferences.voiceInputEnabled, forKey: Keys.voiceInputEnabled)
+        defaults.set(normalizedGlobalHotkeyShortcutID(preferences.voiceInputShortcutID), forKey: Keys.voiceInputShortcutID)
+        defaults.set(preferences.voiceCleanupMode.rawValue, forKey: Keys.voiceCleanupMode)
+        defaults.set(Self.normalizedPersonalTerms(preferences.voicePersonalTerms), forKey: Keys.voicePersonalTerms)
+        defaults.set(preferences.aiGlobalHotkeyEnabled, forKey: Keys.aiGlobalHotkeyEnabled)
+        defaults.set(normalizedGlobalHotkeyShortcutID(preferences.aiGlobalHotkeyShortcutID), forKey: Keys.aiGlobalHotkeyShortcutID)
     }
 
     private func loadOverlayDisplayMode() -> Preferences.OverlayDisplayMode {
@@ -140,6 +211,38 @@ final class AppSettings {
         case .display(let displayID):
             defaults.set(OverlayDisplayModeValue.display, forKey: Keys.overlayDisplayMode)
             defaults.set(Int(displayID), forKey: Keys.overlayDisplayID)
+        }
+    }
+
+    private func loadGlobalHotkeyShortcutID(key: String, default defaultValue: String) -> String {
+        normalizedGlobalHotkeyShortcutID(
+            defaults.string(forKey: key) ?? defaultValue
+        )
+    }
+
+    private func normalizedGlobalHotkeyShortcutID(_ shortcutID: String) -> String {
+        GlobalHotkeyShortcut(rawValue: shortcutID)?.rawValue ?? Preferences.defaults.aiGlobalHotkeyShortcutID
+    }
+
+    private func loadVoiceCleanupMode() -> Preferences.VoiceCleanupMode {
+        Preferences.VoiceCleanupMode(rawValue: defaults.string(forKey: Keys.voiceCleanupMode) ?? "") ??
+            Preferences.defaults.voiceCleanupMode
+    }
+
+    private func loadVoicePersonalTerms() -> [String] {
+        Self.normalizedPersonalTerms(defaults.stringArray(forKey: Keys.voicePersonalTerms) ?? [])
+    }
+
+    static func normalizedPersonalTerms(_ terms: [String]) -> [String] {
+        var seen = Set<String>()
+        return terms.compactMap { rawTerm in
+            let term = rawTerm.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !term.isEmpty else { return nil }
+
+            let folded = term.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            guard !seen.contains(folded) else { return nil }
+            seen.insert(folded)
+            return term
         }
     }
 

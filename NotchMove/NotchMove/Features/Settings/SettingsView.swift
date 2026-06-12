@@ -6,42 +6,230 @@
 //
 
 import AppKit
+import AVFoundation
 import SwiftUI
+import UniformTypeIdentifiers
+
+enum SettingsPageSection: String, CaseIterable, Identifiable {
+    case language
+    case startup
+    case reminders
+    case notchHub
+    case voiceInput
+    case aiAssistant
+    case schedule
+    case behavior
+    case statistics
+    case about
+
+    static let fullSettingsOrder: [SettingsPageSection] = [
+        .language,
+        .startup,
+        .reminders,
+        .notchHub,
+        .voiceInput,
+        .behavior,
+        .statistics,
+        .about,
+    ]
+
+    static let dashboardOrder: [SettingsPageSection] = [
+        .reminders,
+        .notchHub,
+        .voiceInput,
+        .behavior,
+        .statistics,
+        .language,
+        .startup,
+        .about,
+    ]
+
+    var id: String { rawValue }
+
+    var titleKey: String {
+        switch self {
+        case .language: "section.language"
+        case .startup: "section.startup"
+        case .reminders: "section.reminders"
+        case .notchHub: "section.notch_hub"
+        case .voiceInput: "section.voice_input"
+        case .aiAssistant: "section.ai_assistant"
+        case .schedule: "section.schedule"
+        case .behavior: "section.behavior"
+        case .statistics: "section.statistics"
+        case .about: "section.about"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .language: "globe"
+        case .startup: "power"
+        case .reminders: "bell"
+        case .notchHub: "macbook.and.iphone"
+        case .voiceInput: "mic.fill"
+        case .aiAssistant: "mic"
+        case .schedule: "clock"
+        case .behavior: "slider.horizontal.3"
+        case .statistics: "chart.bar"
+        case .about: "info.circle"
+        }
+    }
+}
 
 struct SettingsView: View {
     let languageManager: LanguageManager
     let loginItemManager: any LoginItemManaging
+    let preferencesStore: PreferencesStore
+    let aiProviderPreferences: AIProviderPreferences
+    let breakStatsStore: BreakStatsStore
+    let notchHubStore: NotchHubStore
+    let globalHotkeyController: GlobalAICaptureHotkeyController
+
+    var body: some View {
+        SettingsContentView(
+            languageManager: languageManager,
+            loginItemManager: loginItemManager,
+            preferencesStore: preferencesStore,
+            aiProviderPreferences: aiProviderPreferences,
+            breakStatsStore: breakStatsStore,
+            notchHubStore: notchHubStore,
+            globalHotkeyController: globalHotkeyController,
+            sections: SettingsPageSection.fullSettingsOrder,
+            showsSectionHeaders: true
+        )
+        .frame(minWidth: 420, minHeight: 520)
+    }
+}
+
+struct SettingsContentView: View {
+    let languageManager: LanguageManager
+    let loginItemManager: any LoginItemManaging
+    let reminderEngine: ReminderEngine?
+    let pomodoroEngine: PomodoroEngine?
     @Bindable var preferencesStore: PreferencesStore
+    @Bindable var aiProviderPreferences: AIProviderPreferences
     @Bindable var breakStatsStore: BreakStatsStore
+    @Bindable var notchHubStore: NotchHubStore
+    @Bindable var globalHotkeyController: GlobalAICaptureHotkeyController
+    let sections: [SettingsPageSection]
+    let showsSectionHeaders: Bool
 
     @State private var showingResetConfirmation = false
+    @State private var showingRestoreConfirmation = false
     @State private var availableScreens: [ScreenDescriptor] = []
     @State private var loginItemStatus: LoginItemStatus = .notRegistered
     @State private var launchAtLoginErrorMessage: String?
+    @State private var credentials: [String: String] = [:]
+    @State private var apiKeyStatusMessage: String?
+    @State private var isTestingTranscriptionProvider = false
+    @State private var isTestingParserProvider = false
+    @State private var setupGuideProvider: AIProviderID?
+    @State private var diagnosticsStatusMessage: String?
+    @State private var localSpeechModelStore: LocalSpeechModelStore
+    @State private var microphoneAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+    @State private var appleSpeechAuthorizationState: AppleSpeechAuthorizationState = .unknown
+    @State private var accessibilityTrusted = AccessibilityPermissionService.isTrusted
 
     private let screenProvider = MainScreenProvider()
     private static let intervalOptions = [15, 20, 25, 30, 45, 60]
+    private static let pomodoroFocusOptions = [15, 20, 25, 30, 45, 60]
+    private static let pomodoroBreakOptions = [3, 5, 10, 15, 20]
     private static let dismissOptions = [30, 45, 60, 90, 120]
+
+    init(
+        languageManager: LanguageManager,
+        loginItemManager: any LoginItemManaging,
+        reminderEngine: ReminderEngine? = nil,
+        pomodoroEngine: PomodoroEngine? = nil,
+        preferencesStore: PreferencesStore,
+        aiProviderPreferences: AIProviderPreferences,
+        breakStatsStore: BreakStatsStore,
+        notchHubStore: NotchHubStore,
+        globalHotkeyController: GlobalAICaptureHotkeyController,
+        sections: [SettingsPageSection] = SettingsPageSection.fullSettingsOrder,
+        showsSectionHeaders: Bool = true
+    ) {
+        self.languageManager = languageManager
+        self.loginItemManager = loginItemManager
+        self.reminderEngine = reminderEngine
+        self.pomodoroEngine = pomodoroEngine
+        self.preferencesStore = preferencesStore
+        self.aiProviderPreferences = aiProviderPreferences
+        self.breakStatsStore = breakStatsStore
+        self.notchHubStore = notchHubStore
+        self.globalHotkeyController = globalHotkeyController
+        self.sections = sections
+        self.showsSectionHeaders = showsSectionHeaders
+        self._localSpeechModelStore = State(initialValue: LocalSpeechModelStore(defaults: aiProviderPreferences.defaults))
+    }
 
     var body: some View {
         Form {
-            languageSection
-            startupSection
-            remindersSection
-            scheduleSection
-            behaviorSection
-            statisticsSection
-            aboutSection
+            ForEach(sections) { section in
+                settingsSection(section)
+            }
         }
         .formStyle(.grouped)
-        .frame(minWidth: 420, minHeight: 520)
+        .controlSize(.small)
         .onAppear {
             breakStatsStore.refresh()
             refreshAvailableScreens()
             refreshLoginItemStatus()
+            loadAPIKeys()
+            refreshLocalModelState()
+            refreshSystemPermissionState()
+        }
+        .onChange(of: aiProviderPreferences.transcriptionProviderID) {
+            refreshLocalModelState()
+            refreshSystemPermissionState()
+        }
+        .onChange(of: aiProviderPreferences.transcriptionModel) {
+            refreshLocalModelState()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             refreshAvailableScreens()
+        }
+        .sheet(item: $setupGuideProvider) { provider in
+            AIProviderSetupGuideSheet(
+                provider: provider,
+                guide: provider.definition.setupGuide,
+                languageManager: languageManager
+            )
+            .environment(\.locale, languageManager.locale)
+        }
+    }
+
+    @ViewBuilder
+    private func settingsSection(_ section: SettingsPageSection) -> some View {
+        switch section {
+        case .language:
+            languageSection
+        case .startup:
+            startupSection
+        case .reminders:
+            remindersSection
+        case .notchHub:
+            notchHubSection
+        case .voiceInput:
+            voiceInputSection
+        case .aiAssistant:
+            aiAssistantSection
+        case .schedule:
+            scheduleSection
+        case .behavior:
+            behaviorSection
+        case .statistics:
+            statisticsSection
+        case .about:
+            aboutSection
+        }
+    }
+
+    @ViewBuilder
+    private func sectionHeader(_ key: String) -> some View {
+        if showsSectionHeaders {
+            Text(LocalizedStringKey(key))
         }
     }
 
@@ -49,21 +237,23 @@ struct SettingsView: View {
 
     private var languageSection: some View {
         Section {
-            Picker(selection: Binding(
-                get: { preferencesStore.preferences.appLanguage },
-                set: { preferencesStore.preferences.appLanguage = $0 }
-            )) {
-                ForEach(LanguageManager.supportedLanguages) { lang in
-                    Text(lang.displayName).tag(lang.code)
+            SettingsPropertyRow("current_language", captionKey: "language_description") {
+                Picker(selection: Binding(
+                    get: { preferencesStore.preferences.appLanguage },
+                    set: { preferencesStore.preferences.appLanguage = $0 }
+                )) {
+                    ForEach(LanguageManager.supportedLanguages) { lang in
+                        Text(lang.displayName).tag(lang.code)
+                    }
+                } label: {
+                    Text("current_language")
                 }
-            } label: {
-                Text("current_language")
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 220, alignment: .leading)
             }
-            .pickerStyle(.menu)
         } header: {
-            Text("section.language")
-        } footer: {
-            Text("language_description")
+            sectionHeader("section.language")
         }
     }
 
@@ -71,11 +261,14 @@ struct SettingsView: View {
 
     private var startupSection: some View {
         Section {
-            Toggle(isOn: launchAtLoginBinding) {
-                Text("launch_at_login")
+            SettingsPropertyRow("launch_at_login") {
+                Toggle(isOn: launchAtLoginBinding) {
+                    Text("launch_at_login")
+                }
+                .labelsHidden()
             }
         } header: {
-            Text("section.startup")
+            sectionHeader("section.startup")
         } footer: {
             startupFooter
         }
@@ -88,6 +281,9 @@ struct SettingsView: View {
                 .foregroundStyle(.red)
         } else if loginItemStatus == .requiresApproval {
             Text("launch_at_login_requires_approval")
+        } else if !preferencesStore.preferences.hasSeenLaunchAtLoginPrompt &&
+                    !preferencesStore.preferences.launchAtLoginEnabled {
+            Text("launch_at_login_opt_in_footer")
         } else {
             Text("launch_at_login_footer")
         }
@@ -97,26 +293,773 @@ struct SettingsView: View {
 
     private var remindersSection: some View {
         Section {
-            Picker(selection: $preferencesStore.preferences.reminderIntervalMinutes) {
-                ForEach(Self.intervalOptions, id: \.self) { minutes in
-                    Text(String(format: localizedString("minutes_format"), minutes))
-                        .tag(minutes)
+            SettingsPropertyRow("sedentary_reminders", captionKey: "sedentary_reminders_caption") {
+                Toggle(isOn: $preferencesStore.preferences.breakReminderEnabled) {
+                    Text("sedentary_reminders")
                 }
-            } label: {
-                Text("remind_every")
+                .labelsHidden()
             }
 
-            Toggle(isOn: $preferencesStore.preferences.sitAwareEnabled) {
-                Text("sit_aware_mode")
+            SettingsPropertyRow("remind_every", captionKey: sitAwareCaptionKey) {
+                Picker(selection: $preferencesStore.preferences.reminderIntervalMinutes) {
+                    ForEach(Self.intervalOptions, id: \.self) { minutes in
+                        Text(String(format: localizedString("minutes_format"), minutes))
+                            .tag(minutes)
+                    }
+                } label: {
+                    Text("remind_every")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 140, alignment: .leading)
+            }
+            .disabled(!preferencesStore.preferences.breakReminderEnabled)
+
+            SettingsPropertyRow("sit_aware_mode") {
+                Toggle(isOn: $preferencesStore.preferences.sitAwareEnabled) {
+                    Text("sit_aware_mode")
+                }
+                .labelsHidden()
+            }
+            .disabled(!preferencesStore.preferences.breakReminderEnabled)
+
+            if let reminderEngine {
+                SettingsPropertyRow("temporary_pause", captionKey: "temporary_pause_caption") {
+                    TemporaryPauseControls(
+                        reminderEngine: reminderEngine,
+                        localizedString: localizedString
+                    )
+                }
+            }
+
+            SettingsPropertyRow("pomodoro_enabled", captionKey: "pomodoro_enabled_caption") {
+                Toggle(isOn: $preferencesStore.preferences.pomodoroEnabled) {
+                    Text("pomodoro_enabled")
+                }
+                .labelsHidden()
+            }
+
+            if let reminderEngine, let pomodoroEngine {
+                SettingsPropertyRow("pomodoro_session", captionKey: "pomodoro_session_caption") {
+                    PomodoroSessionControls(
+                        reminderEngine: reminderEngine,
+                        pomodoroEngine: pomodoroEngine,
+                        preferencesStore: preferencesStore,
+                        localizedString: localizedString
+                    )
+                }
+            }
+
+            SettingsPropertyRow("pomodoro_focus_duration", captionKey: "pomodoro_settings_caption") {
+                Picker(selection: $preferencesStore.preferences.pomodoroFocusMinutes) {
+                    ForEach(Self.pomodoroFocusOptions, id: \.self) { minutes in
+                        Text(String(format: localizedString("minutes_format"), minutes))
+                            .tag(minutes)
+                    }
+                } label: {
+                    Text("pomodoro_focus_duration")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 140, alignment: .leading)
+            }
+            .disabled(!preferencesStore.preferences.pomodoroEnabled)
+
+            SettingsPropertyRow("pomodoro_break_duration") {
+                Picker(selection: $preferencesStore.preferences.pomodoroBreakMinutes) {
+                    ForEach(Self.pomodoroBreakOptions, id: \.self) { minutes in
+                        Text(String(format: localizedString("minutes_format"), minutes))
+                            .tag(minutes)
+                    }
+                } label: {
+                    Text("pomodoro_break_duration")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 140, alignment: .leading)
+            }
+            .disabled(!preferencesStore.preferences.pomodoroEnabled)
+        } header: {
+            sectionHeader("section.reminders")
+        }
+    }
+
+    // MARK: - Notch Hub
+
+    private var notchHubSection: some View {
+        Section {
+            SettingsPropertyRow("notch_hub.enabled", captionKey: "notch_hub.enabled_caption") {
+                Toggle(isOn: notchHubEnabledBinding) {
+                    Text("notch_hub.enabled")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("notch_hub.trigger") {
+                Picker(selection: $notchHubStore.preferences.triggerGesture) {
+                    ForEach(NotchHubTriggerGesture.allCases) { gesture in
+                        Text(LocalizedStringKey(gesture.titleKey))
+                            .tag(gesture)
+                    }
+                } label: {
+                    Text("notch_hub.trigger")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 180, alignment: .leading)
+            }
+            .disabled(!notchHubStore.preferences.isEnabled)
+
+            SettingsPropertyRow("notch_hub.default_widget") {
+                Picker(selection: defaultNotchHubWidgetBinding) {
+                    ForEach(notchHubStore.defaultWidgetOptions) { widgetID in
+                        Label {
+                            Text(LocalizedStringKey(widgetID.titleKey))
+                        } icon: {
+                            Image(systemName: widgetID.systemImage)
+                        }
+                        .tag(widgetID)
+                    }
+                } label: {
+                    Text("notch_hub.default_widget")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 200, alignment: .leading)
+            }
+            .disabled(!notchHubStore.preferences.isEnabled)
+
+            notchHubGroupHeader("notch_hub.group.core")
+
+            ForEach(NotchHubWidgetID.widgets(in: .core)) { widgetID in
+                notchHubWidgetToggleRow(widgetID)
+            }
+
+            SettingsPropertyRow("notch_hub.allow_calendar_access", captionKey: "notch_hub.allow_calendar_access_caption") {
+                Toggle(isOn: notchHubCalendarAccessBinding) {
+                    Text("notch_hub.allow_calendar_access")
+                }
+                .labelsHidden()
+            }
+            .disabled(notchHubPermissionToggleDisabled(for: .calendar))
+
+            notchHubGroupHeader("notch_hub.group.optional")
+
+            ForEach(NotchHubWidgetID.widgets(in: .optional)) { widgetID in
+                notchHubWidgetToggleRow(widgetID)
+            }
+
+            SettingsPropertyRow("notch_hub.allow_apple_events", captionKey: "notch_hub.allow_apple_events_caption") {
+                Toggle(isOn: notchHubAppleEventsBinding) {
+                    Text("notch_hub.allow_apple_events")
+                }
+                .labelsHidden()
+            }
+            .disabled(notchHubPermissionToggleDisabled(for: .media))
+
+            notchHubGroupHeader("notch_hub.group.advanced")
+
+            ForEach(NotchHubWidgetID.widgets(in: .advanced)) { widgetID in
+                notchHubWidgetToggleRow(widgetID)
+            }
+
+            SettingsPropertyRow("notch_hub.allow_file_tray", captionKey: "notch_hub.allow_file_tray_caption") {
+                Toggle(isOn: notchHubFileTrayBinding) {
+                    Text("notch_hub.allow_file_tray")
+                }
+                .labelsHidden()
+            }
+            .disabled(notchHubPermissionToggleDisabled(for: .tray))
+        } header: {
+            sectionHeader("section.notch_hub")
+        } footer: {
+            Text("notch_hub.footer")
+        }
+    }
+
+    // MARK: - Voice Input
+
+    private var voiceInputSection: some View {
+        Group {
+            voiceInputOverviewSection
+
+            if preferencesStore.preferences.voiceInputEnabled {
+                aiInputSection
+                voiceCleanupSection
+                aiCredentialsSection
+                voiceDiagnosticsSection
+            }
+        }
+    }
+
+    private var voiceInputOverviewSection: some View {
+        Section {
+            SettingsPropertyRow("voice.settings.enabled", captionKey: "voice.settings.enabled_caption") {
+                Toggle(isOn: voiceInputEnabledBinding) {
+                    Text("voice.settings.enabled")
+                }
+                .labelsHidden()
+            }
+
+            if preferencesStore.preferences.voiceInputEnabled {
+                SettingsPropertyRow("voice.settings.shortcut", captionKey: "voice.settings.shortcut_caption") {
+                    Picker(selection: voiceInputShortcutBinding) {
+                        ForEach(GlobalHotkeyShortcut.allCases) { shortcut in
+                            Text(LocalizedStringKey(shortcut.displayNameKey))
+                                .tag(shortcut.rawValue)
+                        }
+                    } label: {
+                        Text("voice.settings.shortcut")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 220, alignment: .leading)
+                }
+
+                globalHotkeyStatusRow
             }
         } header: {
-            Text("section.reminders")
+            sectionHeader("section.voice_input")
         } footer: {
-            if preferencesStore.preferences.sitAwareEnabled {
-                Text("sit_aware_footer_on")
-            } else {
-                Text("sit_aware_footer_off")
+            Text(LocalizedStringKey(voiceInputPrivacyFooterKey))
+        }
+    }
+
+    private var voiceCleanupSection: some View {
+        Section {
+            SettingsPropertyRow("voice.settings.cleanup_mode", captionKey: "voice.settings.cleanup_mode_caption") {
+                Picker(selection: $preferencesStore.preferences.voiceCleanupMode) {
+                    ForEach(Preferences.VoiceCleanupMode.allCases) { mode in
+                        Text(LocalizedStringKey(mode.titleKey))
+                            .tag(mode)
+                    }
+                } label: {
+                    Text("voice.settings.cleanup_mode")
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 300, alignment: .leading)
             }
+
+            SettingsPropertyRow("voice.settings.personal_terms", captionKey: "voice.settings.personal_terms_caption") {
+                TextField("voice.settings.personal_terms_placeholder", text: voicePersonalTermsBinding)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 320, alignment: .leading)
+            }
+
+            if preferencesStore.preferences.voiceCleanupMode == .polished {
+                SettingsPropertyRow("voice.settings.ai_polish", captionKey: "voice.settings.ai_polish_caption") {
+                    Toggle(isOn: $aiProviderPreferences.isEnabled) {
+                        Text("voice.settings.ai_polish")
+                    }
+                    .labelsHidden()
+                }
+
+                SettingsPropertyRow("ai.settings.parser_provider") {
+                    HStack(spacing: 8) {
+                        Picker(selection: parserProviderBinding) {
+                            ForEach(AIProviderPreferences.supportedParserProviders) { provider in
+                                Text(provider.displayName).tag(provider.rawValue)
+                            }
+                        } label: {
+                            Text("ai.settings.parser_provider")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: 180, alignment: .leading)
+
+                        providerGuideButton(for: aiProviderPreferences.selectedParserProvider)
+                    }
+                }
+                .disabled(!aiProviderPreferences.isEnabled)
+
+                SettingsPropertyRow("ai.settings.parser_model") {
+                    let models = aiProviderPreferences.selectedParserProvider.definition.parserModels
+                    if models.isEmpty {
+                        TextField("ai.settings.parser_model", text: $aiProviderPreferences.parserModel)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 260, alignment: .leading)
+                    } else {
+                        Picker(selection: $aiProviderPreferences.parserModel) {
+                            ForEach(models) { model in
+                                Text(model.displayName).tag(model.id)
+                            }
+                        } label: {
+                            Text("ai.settings.parser_model")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: 220, alignment: .leading)
+                    }
+                }
+                .disabled(!aiProviderPreferences.isEnabled)
+
+                if aiProviderPreferences.selectedParserProvider == .customOpenAICompatible {
+                    SettingsPropertyRow("ai.settings.custom_base_url") {
+                        TextField("https://example.com/v1", text: $aiProviderPreferences.customParserBaseURL)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 320, alignment: .leading)
+                    }
+                    .disabled(!aiProviderPreferences.isEnabled)
+                }
+            }
+        } header: {
+            Text("voice.settings.section_cleanup")
+        }
+    }
+
+    private var voiceDiagnosticsSection: some View {
+        Section {
+            SettingsPropertyRow("ai.settings.test_transcription") {
+                HStack(spacing: 8) {
+                    Button("ai.settings.test_transcription") {
+                        testTranscriptionProvider()
+                    }
+                    .disabled(isTestingTranscriptionProvider)
+
+                    if isTestingTranscriptionProvider {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+            }
+
+            if preferencesStore.preferences.voiceCleanupMode == .polished {
+                SettingsPropertyRow("ai.settings.test_parser") {
+                    HStack(spacing: 8) {
+                        Button("ai.settings.test_parser") {
+                            testParserProvider()
+                        }
+                        .disabled(isTestingParserProvider || !aiProviderPreferences.isEnabled)
+
+                        if isTestingParserProvider {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                    }
+                }
+            }
+
+            if let apiKeyStatusMessage {
+                Text(apiKeyStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("ai.settings.section_diagnostics")
+        }
+    }
+
+    // MARK: - AI Assistant
+
+    private var aiAssistantSection: some View {
+        Group {
+            aiAssistantOverviewSection
+            aiInputSection
+            aiParserSection
+            aiCredentialsSection
+            aiDiagnosticsSection
+        }
+    }
+
+    private var aiAssistantOverviewSection: some View {
+        Section {
+            SettingsPropertyRow("ai.settings.enabled") {
+                Toggle(isOn: $aiProviderPreferences.isEnabled) {
+                    Text("ai.settings.enabled")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("ai.settings.global_hotkey", captionKey: "ai.settings.global_hotkey_caption") {
+                Toggle(isOn: globalHotkeyEnabledBinding) {
+                    Text("ai.settings.global_hotkey")
+                }
+                .labelsHidden()
+            }
+
+            if preferencesStore.preferences.aiGlobalHotkeyEnabled {
+                SettingsPropertyRow("ai.settings.global_hotkey_shortcut") {
+                    Picker(selection: globalHotkeyShortcutBinding) {
+                        ForEach(GlobalHotkeyShortcut.allCases) { shortcut in
+                            Text(LocalizedStringKey(shortcut.displayNameKey))
+                                .tag(shortcut.rawValue)
+                        }
+                    } label: {
+                        Text("ai.settings.global_hotkey_shortcut")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 220, alignment: .leading)
+                }
+
+                globalHotkeyStatusRow
+            }
+
+            aiFlowStatusRow
+        } header: {
+            sectionHeader("section.ai_assistant")
+        } footer: {
+            Text(LocalizedStringKey(aiSettingsPrivacyFooterKey))
+        }
+    }
+
+    private var aiInputSection: some View {
+        Section {
+            microphonePermissionRow
+            accessibilityPermissionRow
+
+            SettingsPropertyRow("ai.settings.transcription_provider") {
+                HStack(spacing: 8) {
+                    Picker(selection: transcriptionProviderBinding) {
+                        ForEach(AIProviderPreferences.supportedTranscriptionProviders) { provider in
+                            Text(provider.displayName).tag(provider.rawValue)
+                        }
+                    } label: {
+                        Text("ai.settings.transcription_provider")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 180, alignment: .leading)
+
+                    providerGuideButton(for: aiProviderPreferences.selectedTranscriptionProvider)
+                }
+            }
+
+            SettingsPropertyRow("ai.settings.transcription_model") {
+                let models = aiProviderPreferences.selectedTranscriptionProvider.definition.transcriptionModels
+                if models.isEmpty {
+                    TextField("ai.settings.transcription_model", text: $aiProviderPreferences.transcriptionModel)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 220, alignment: .leading)
+                } else {
+                    Picker(selection: $aiProviderPreferences.transcriptionModel) {
+                        ForEach(models) { model in
+                            Text(model.displayName).tag(model.id)
+                        }
+                    } label: {
+                        Text("ai.settings.transcription_model")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 220, alignment: .leading)
+                }
+            }
+
+            if aiProviderPreferences.selectedTranscriptionProvider == .appleSpeech {
+                appleSpeechPermissionRow
+            }
+
+            if aiProviderPreferences.selectedTranscriptionProvider == .localWhisperKit {
+                localModelControls
+            }
+        } header: {
+            Text("ai.settings.section_input")
+        }
+    }
+
+    private var aiParserSection: some View {
+        Section {
+            SettingsPropertyRow("ai.settings.parser_provider") {
+                HStack(spacing: 8) {
+                    Picker(selection: parserProviderBinding) {
+                        ForEach(AIProviderPreferences.supportedParserProviders) { provider in
+                            Text(provider.displayName).tag(provider.rawValue)
+                        }
+                    } label: {
+                        Text("ai.settings.parser_provider")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 180, alignment: .leading)
+
+                    providerGuideButton(for: aiProviderPreferences.selectedParserProvider)
+                }
+            }
+
+            SettingsPropertyRow("ai.settings.parser_model") {
+                let models = aiProviderPreferences.selectedParserProvider.definition.parserModels
+                if models.isEmpty {
+                    TextField("ai.settings.parser_model", text: $aiProviderPreferences.parserModel)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 260, alignment: .leading)
+                } else {
+                    Picker(selection: $aiProviderPreferences.parserModel) {
+                        ForEach(models) { model in
+                            Text(model.displayName).tag(model.id)
+                        }
+                    } label: {
+                        Text("ai.settings.parser_model")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 220, alignment: .leading)
+                }
+            }
+
+            if aiProviderPreferences.selectedParserProvider == .customOpenAICompatible {
+                SettingsPropertyRow("ai.settings.custom_base_url") {
+                    TextField("https://example.com/v1", text: $aiProviderPreferences.customParserBaseURL)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 320, alignment: .leading)
+                }
+            }
+        } header: {
+            Text("ai.settings.section_parser")
+        }
+    }
+
+    private var aiDiagnosticsSection: some View {
+        Section {
+            SettingsPropertyRow("ai.settings.default_lead") {
+                Stepper(value: $aiProviderPreferences.defaultReminderLeadMinutes, in: 0...120, step: 5) {
+                    Text(String(
+                        format: localizedString("dashboard.field.lead_minutes_format"),
+                        aiProviderPreferences.defaultReminderLeadMinutes
+                    ))
+                }
+            }
+
+            SettingsPropertyRow("ai.settings.test_transcription") {
+                HStack(spacing: 8) {
+                    Button("ai.settings.test_transcription") {
+                        testTranscriptionProvider()
+                    }
+                    .disabled(isTestingTranscriptionProvider)
+
+                    if isTestingTranscriptionProvider {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+            }
+
+            SettingsPropertyRow("ai.settings.test_parser") {
+                HStack(spacing: 8) {
+                    Button("ai.settings.test_parser") {
+                        testParserProvider()
+                    }
+                    .disabled(isTestingParserProvider)
+
+                    if isTestingParserProvider {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+            }
+
+            if let apiKeyStatusMessage {
+                Text(apiKeyStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("ai.settings.section_diagnostics")
+        }
+    }
+
+    @ViewBuilder
+    private var aiCredentialsSection: some View {
+        if !aiProviderPreferences.credentialRequestsForCurrentFlow.isEmpty {
+            Section {
+                ForEach(aiProviderPreferences.credentialRequestsForCurrentFlow) { request in
+                    credentialRow(for: request)
+                }
+            } header: {
+                Text("ai.settings.section_credentials")
+            }
+        }
+    }
+
+    private var microphonePermissionRow: some View {
+        SettingsPropertyRow("ai.settings.microphone_permission", captionKey: microphonePermissionCaptionKey) {
+            HStack(spacing: 8) {
+                permissionLabel(
+                    microphonePermissionStatusText,
+                    color: microphonePermissionStatusColor,
+                    isReady: microphoneAuthorizationStatus == .authorized
+                )
+
+                if microphoneAuthorizationStatus == .notDetermined {
+                    Button("ai.settings.request_permission") {
+                        requestMicrophonePermission()
+                    }
+                }
+
+                if microphoneAuthorizationStatus == .denied || microphoneAuthorizationStatus == .restricted {
+                    Button("ai.settings.open_macos_settings") {
+                        SystemPrivacySettings.openMicrophone()
+                    }
+                }
+            }
+            .font(.caption)
+        }
+    }
+
+    private var appleSpeechPermissionRow: some View {
+        SettingsPropertyRow("ai.settings.apple_speech_permission", captionKey: appleSpeechPermissionCaptionKey) {
+            HStack(spacing: 8) {
+                permissionLabel(
+                    appleSpeechPermissionStatusText,
+                    color: appleSpeechPermissionStatusColor,
+                    isReady: appleSpeechAuthorizationState == .authorized
+                )
+
+                if appleSpeechAuthorizationState == .notDetermined {
+                    Button("ai.settings.request_permission") {
+                        requestAppleSpeechPermission()
+                    }
+                }
+
+                if appleSpeechAuthorizationState == .denied || appleSpeechAuthorizationState == .restricted {
+                    Button("ai.settings.open_macos_settings") {
+                        SystemPrivacySettings.openSpeechRecognition()
+                    }
+                }
+            }
+            .font(.caption)
+        }
+    }
+
+    private var accessibilityPermissionRow: some View {
+        SettingsPropertyRow("ai.settings.accessibility_permission", captionKey: accessibilityPermissionCaptionKey) {
+            HStack(spacing: 8) {
+                permissionLabel(
+                    accessibilityPermissionStatusText,
+                    color: accessibilityTrusted ? .green : .orange,
+                    isReady: accessibilityTrusted
+                )
+
+                if !accessibilityTrusted {
+                    Button("ai.settings.request_permission") {
+                        requestAccessibilityPermission()
+                    }
+
+                    Button("ai.settings.open_macos_settings") {
+                        SystemPrivacySettings.openAccessibility()
+                    }
+                }
+            }
+            .font(.caption)
+        }
+    }
+
+    private func permissionLabel(_ title: String, color: Color, isReady: Bool) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: isReady ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+        }
+        .foregroundStyle(color)
+    }
+    private var localModelControls: some View {
+        SettingsPropertyRow("ai.settings.local_model") {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(localModelStatusText)
+                        .foregroundStyle(localModelStatusColor)
+
+                    if isLocalModelBusy {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    Button("ai.settings.local_model_download") {
+                        downloadLocalModel()
+                    }
+                    .disabled(isLocalModelBusy || selectedLocalSpeechModel == nil)
+
+                    Button("ai.settings.local_model_verify") {
+                        verifyLocalModel()
+                    }
+                    .disabled(isLocalModelBusy || selectedLocalSpeechModel == nil)
+
+                    Button(role: .destructive) {
+                        deleteLocalModel()
+                    } label: {
+                        Text("ai.settings.local_model_delete")
+                    }
+                    .disabled(!canDeleteLocalModel)
+                }
+
+                if let selectedLocalSpeechModel {
+                    Text(String(
+                        format: localizedString("ai.settings.local_model_disk_usage_format"),
+                        selectedLocalSpeechModel.approximateDiskUsage
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    private var aiFlowStatusRow: some View {
+        SettingsPropertyRow("ai.settings.flow_status") {
+            VStack(alignment: .leading, spacing: 6) {
+                if !flowReadiness.isEnabled {
+                    Label {
+                        Text("ai.settings.flow_disabled")
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                    }
+                    .foregroundStyle(.orange)
+                }
+
+                readinessLine(
+                    "ai.settings.flow_transcription",
+                    result: flowReadiness.transcription
+                )
+                readinessLine(
+                    "ai.settings.flow_parser",
+                    result: flowReadiness.parser
+                )
+            }
+            .font(.caption)
+        }
+    }
+
+    private var globalHotkeyStatusRow: some View {
+        SettingsPropertyRow("ai.settings.global_hotkey_status") {
+            HStack(spacing: 8) {
+                Label {
+                    Text(globalHotkeyStatusText)
+                        .fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: globalHotkeyStatusSystemImage)
+                }
+                .foregroundStyle(globalHotkeyStatusColor)
+
+                if case .failed = globalHotkeyController.registrationState {
+                    Button("ai.settings.global_hotkey_retry") {
+                        globalHotkeyController.retry(preferences: preferencesStore.preferences)
+                    }
+                }
+            }
+            .font(.caption)
+        }
+    }
+
+    private func readinessLine(
+        _ titleKey: String,
+        result: AIProviderReadinessResult
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: result.isReady ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(result.isReady ? .green : .orange)
+
+            Text(LocalizedStringKey(titleKey))
+                .fontWeight(.medium)
+
+            Text(result.provider.displayName)
+                .foregroundStyle(.secondary)
+
+            Text("·")
+                .foregroundStyle(.tertiary)
+
+            Text(readinessStatusText(for: result))
+                .foregroundStyle(result.isReady ? .secondary : .primary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -124,30 +1067,54 @@ struct SettingsView: View {
 
     private var scheduleSection: some View {
         Section {
+            workHoursRows
+        } header: {
+            sectionHeader("section.schedule")
+        } footer: {
+            scheduleFooter
+        }
+    }
+
+    @ViewBuilder
+    private var workHoursRows: some View {
+        SettingsPropertyRow("work_hours_only") {
             Toggle(isOn: $preferencesStore.preferences.schedule.isEnabled) {
                 Text("work_hours_only")
             }
+            .labelsHidden()
+        }
 
-            if preferencesStore.preferences.schedule.isEnabled {
+        if preferencesStore.preferences.schedule.isEnabled {
+            SettingsPropertyRow("schedule_from") {
                 DatePicker(selection: startTimeBinding, displayedComponents: .hourAndMinute) {
                     Text("schedule_from")
                 }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("schedule_to") {
                 DatePicker(selection: endTimeBinding, displayedComponents: .hourAndMinute) {
                     Text("schedule_to")
                 }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("weekdays_only") {
                 Toggle(isOn: $preferencesStore.preferences.schedule.weekdaysOnly) {
                     Text("weekdays_only")
                 }
+                .labelsHidden()
             }
-        } header: {
-            Text("section.schedule")
-        } footer: {
-            if preferencesStore.preferences.schedule.isEnabled && !isValidTimeRange {
-                Text("schedule_invalid")
-                    .foregroundStyle(.red)
-            } else if preferencesStore.preferences.schedule.isEnabled {
-                Text("schedule_footer")
-            }
+        }
+    }
+
+    @ViewBuilder
+    private var scheduleFooter: some View {
+        if preferencesStore.preferences.schedule.isEnabled && !isValidTimeRange {
+            Text("schedule_invalid")
+                .foregroundStyle(.red)
+        } else if preferencesStore.preferences.schedule.isEnabled {
+            Text("schedule_footer")
         }
     }
 
@@ -155,51 +1122,81 @@ struct SettingsView: View {
 
     private var behaviorSection: some View {
         Section {
-            Picker(selection: $preferencesStore.preferences.overlayDisplayMode) {
-                Text("display_automatic")
-                    .tag(Preferences.OverlayDisplayMode.automatic)
+            workHoursRows
 
-                ForEach(availableScreens, id: \.displayID) { screen in
-                    Text(displayName(for: screen))
-                        .tag(Preferences.OverlayDisplayMode.display(screen.displayID))
-                }
+            SettingsPropertyRow("overlay_display") {
+                Picker(selection: $preferencesStore.preferences.overlayDisplayMode) {
+                    Text("display_automatic")
+                        .tag(Preferences.OverlayDisplayMode.automatic)
 
-                if let selectedUnavailableDisplayID {
-                    Text(String(format: localizedString("display_unavailable_format"), Int(selectedUnavailableDisplayID)))
-                        .tag(Preferences.OverlayDisplayMode.display(selectedUnavailableDisplayID))
-                }
-            } label: {
-                Text("overlay_display")
-            }
-            .pickerStyle(.menu)
+                    ForEach(availableScreens, id: \.displayID) { screen in
+                        Text(displayName(for: screen))
+                            .tag(Preferences.OverlayDisplayMode.display(screen.displayID))
+                    }
 
-            Toggle(isOn: $preferencesStore.preferences.notchExpansionEnabled) {
-                Text("expand_notch")
-            }
-            Toggle(isOn: $preferencesStore.preferences.hoverPreviewEnabled) {
-                Text("show_hover_preview")
-            }
-            Toggle(isOn: $preferencesStore.preferences.soundEnabled) {
-                Text("play_sound")
-            }
-
-            Toggle(isOn: $preferencesStore.preferences.autoDismissEnabled) {
-                Text("auto_dismiss")
-            }
-            if preferencesStore.preferences.autoDismissEnabled {
-                Picker(selection: $preferencesStore.preferences.autoDismissSeconds) {
-                    ForEach(Self.dismissOptions, id: \.self) { seconds in
-                        Text(String(format: localizedString("seconds_format"), seconds))
-                            .tag(seconds)
+                    if let selectedUnavailableDisplayID {
+                        Text(String(format: localizedString("display_unavailable_format"), Int(selectedUnavailableDisplayID)))
+                            .tag(Preferences.OverlayDisplayMode.display(selectedUnavailableDisplayID))
                     }
                 } label: {
-                    Text("dismiss_after")
+                    Text("overlay_display")
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+            }
+
+            SettingsPropertyRow("expand_notch") {
+                Toggle(isOn: $preferencesStore.preferences.notchExpansionEnabled) {
+                    Text("expand_notch")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("show_hover_preview") {
+                Toggle(isOn: $preferencesStore.preferences.hoverPreviewEnabled) {
+                    Text("show_hover_preview")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("play_sound") {
+                Toggle(isOn: $preferencesStore.preferences.soundEnabled) {
+                    Text("play_sound")
+                }
+                .labelsHidden()
+            }
+
+            SettingsPropertyRow("auto_dismiss") {
+                Toggle(isOn: $preferencesStore.preferences.autoDismissEnabled) {
+                    Text("auto_dismiss")
+                }
+                .labelsHidden()
+            }
+
+            if preferencesStore.preferences.autoDismissEnabled {
+                SettingsPropertyRow("dismiss_after") {
+                    Picker(selection: $preferencesStore.preferences.autoDismissSeconds) {
+                        ForEach(Self.dismissOptions, id: \.self) { seconds in
+                            Text(String(format: localizedString("seconds_format"), seconds))
+                                .tag(seconds)
+                        }
+                    } label: {
+                        Text("dismiss_after")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 140, alignment: .leading)
                 }
             }
         } header: {
-            Text("section.behavior")
+            sectionHeader("section.behavior")
         } footer: {
-            Text("behavior_footer")
+            if preferencesStore.preferences.schedule.isEnabled && !isValidTimeRange {
+                Text("schedule_invalid")
+                    .foregroundStyle(.red)
+            } else {
+                Text("behavior_footer")
+            }
         }
     }
 
@@ -207,16 +1204,14 @@ struct SettingsView: View {
 
     private var statisticsSection: some View {
         Section {
-            LabeledContent {
+            SettingsPropertyRow("breaks_today") {
                 Text("\(breakStatsStore.todayBreaks)")
-            } label: {
-                Text("breaks_today")
+                    .monospacedDigit()
             }
 
-            LabeledContent {
+            SettingsPropertyRow("breaks_this_week") {
                 Text("\(breakStatsStore.weekBreaks)")
-            } label: {
-                Text("breaks_this_week")
+                    .monospacedDigit()
             }
 
             HStack {
@@ -241,13 +1236,26 @@ struct SettingsView: View {
                 Spacer()
 
                 Button {
-                    restoreDefaults()
+                    showingRestoreConfirmation = true
                 } label: {
                     Text("restore_defaults")
                 }
+                .confirmationDialog(
+                    Text("restore_confirm"),
+                    isPresented: $showingRestoreConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button(role: .destructive) { restoreDefaults() } label: {
+                        Text("restore_action")
+                    }
+                    Button(role: .cancel) {} label: {
+                        Text("cancel")
+                    }
+                }
             }
+            .padding(.top, 4)
         } header: {
-            Text("section.statistics")
+            sectionHeader("section.statistics")
         }
     }
 
@@ -255,27 +1263,419 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section {
-            LabeledContent {
+            SettingsPropertyRow("version") {
                 Text(appVersion)
-            } label: {
-                Text("version")
             }
 
-            LabeledContent {
+            SettingsPropertyRow("current_language") {
                 Text(currentLanguageDisplayName)
-            } label: {
-                Text("current_language")
+            }
+
+            SettingsPropertyRow("diagnostics") {
+                HStack(spacing: 8) {
+                    Button("diagnostics.copy") {
+                        copyDiagnostics()
+                    }
+
+                    Button("diagnostics.save") {
+                        saveDiagnostics()
+                    }
+                }
+            }
+
+            if let diagnosticsStatusMessage {
+                Text(diagnosticsStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Text("app_description")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         } header: {
-            Text("section.about")
+            sectionHeader("section.about")
         }
     }
 
     // MARK: - Helpers
+
+    private var sitAwareCaptionKey: String {
+        preferencesStore.preferences.sitAwareEnabled ? "sit_aware_footer_on" : "sit_aware_footer_off"
+    }
+
+    private var aiSettingsPrivacyFooterKey: String {
+        switch aiProviderPreferences.selectedTranscriptionProvider {
+        case .appleSpeech:
+            "ai.settings.privacy_footer_apple_speech"
+        case .localWhisperKit:
+            "ai.settings.privacy_footer_local_transcription"
+        default:
+            "ai.settings.privacy_footer"
+        }
+    }
+
+    private var voiceInputPrivacyFooterKey: String {
+        switch preferencesStore.preferences.voiceCleanupMode {
+        case .raw, .clean:
+            switch aiProviderPreferences.selectedTranscriptionProvider {
+            case .appleSpeech:
+                "voice.settings.privacy_footer_apple_speech"
+            case .localWhisperKit:
+                "voice.settings.privacy_footer_local"
+            default:
+                "voice.settings.privacy_footer_cloud_transcription"
+            }
+        case .polished:
+            "voice.settings.privacy_footer_polished"
+        }
+    }
+
+    private var selectedLocalSpeechModel: LocalSpeechModelID? {
+        LocalSpeechModelID(rawValue: aiProviderPreferences.transcriptionModel)
+    }
+
+    private var flowReadiness: AICaptureReadinessResult {
+        AIProviderFactory.captureReadiness(preferences: aiProviderPreferences)
+    }
+
+    private var selectedGlobalHotkeyShortcut: GlobalHotkeyShortcut {
+        GlobalHotkeyShortcut(rawValue: preferencesStore.preferences.voiceInputShortcutID) ?? .default
+    }
+
+    private var defaultNotchHubWidgetBinding: Binding<NotchHubWidgetID> {
+        Binding(
+            get: { notchHubStore.effectiveDefaultWidgetID },
+            set: { notchHubStore.setDefaultWidget($0) }
+        )
+    }
+
+    private var notchHubEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { notchHubStore.preferences.isEnabled },
+            set: { notchHubStore.setHubEnabled($0) }
+        )
+    }
+
+    private func notchHubWidgetEnabledBinding(_ widgetID: NotchHubWidgetID) -> Binding<Bool> {
+        Binding(
+            get: { notchHubStore.preferences.enabledWidgetIDs.contains(widgetID) },
+            set: { notchHubStore.setWidget(widgetID, enabled: $0) }
+        )
+    }
+
+    private var notchHubAppleEventsBinding: Binding<Bool> {
+        Binding(
+            get: { notchHubStore.preferences.allowAppleEvents },
+            set: { notchHubStore.setAppleEventsAllowed($0) }
+        )
+    }
+
+    private var notchHubCalendarAccessBinding: Binding<Bool> {
+        Binding(
+            get: { notchHubStore.preferences.allowCalendarAccess },
+            set: { notchHubStore.setCalendarAccessAllowed($0) }
+        )
+    }
+
+    private var notchHubFileTrayBinding: Binding<Bool> {
+        Binding(
+            get: { notchHubStore.preferences.allowFileTray },
+            set: { notchHubStore.setFileTrayAllowed($0) }
+        )
+    }
+
+    private func notchHubPermissionToggleDisabled(for widgetID: NotchHubWidgetID) -> Bool {
+        guard notchHubStore.preferences.isEnabled else { return true }
+        guard !notchHubStore.preferences.enabledWidgetIDs.contains(widgetID) else { return false }
+
+        switch widgetID {
+        case .media:
+            return !notchHubStore.preferences.allowAppleEvents
+        case .calendar:
+            return !notchHubStore.preferences.allowCalendarAccess
+        case .tray:
+            return !notchHubStore.preferences.allowFileTray
+        case .live, .shortcuts, .notes, .mirror:
+            return true
+        }
+    }
+
+    private func notchHubGroupHeader(_ titleKey: String) -> some View {
+        Text(LocalizedStringKey(titleKey))
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+            .padding(.top, 8)
+    }
+
+    private func notchHubWidgetToggleRow(_ widgetID: NotchHubWidgetID) -> some View {
+        SettingsPropertyRow(widgetID.titleKey, captionKey: notchHubWidgetCaptionKey(widgetID)) {
+            Toggle(isOn: notchHubWidgetEnabledBinding(widgetID)) {
+                Text(LocalizedStringKey(widgetID.titleKey))
+            }
+            .labelsHidden()
+        }
+        .disabled(!notchHubStore.preferences.isEnabled || widgetID == .live)
+    }
+
+    private func notchHubWidgetCaptionKey(_ widgetID: NotchHubWidgetID) -> String? {
+        switch widgetID {
+        case .live:
+            "notch_hub.widget.live_caption"
+        case .media:
+            "notch_hub.widget.media_caption"
+        case .calendar:
+            "notch_hub.widget.calendar_caption"
+        case .shortcuts:
+            "notch_hub.widget.shortcuts_caption"
+        case .notes:
+            "notch_hub.widget.notes_caption"
+        case .mirror:
+            "notch_hub.widget.mirror_caption"
+        case .tray:
+            "notch_hub.widget.tray_caption"
+        }
+    }
+
+    private var microphonePermissionStatusText: String {
+        switch microphoneAuthorizationStatus {
+        case .authorized:
+            localizedString("ai.settings.permission_authorized")
+        case .notDetermined:
+            localizedString("ai.settings.permission_not_determined")
+        case .denied:
+            localizedString("ai.settings.permission_denied")
+        case .restricted:
+            localizedString("ai.settings.permission_restricted")
+        @unknown default:
+            localizedString("ai.settings.permission_unknown")
+        }
+    }
+
+    private var microphonePermissionStatusColor: Color {
+        switch microphoneAuthorizationStatus {
+        case .authorized:
+            .green
+        case .notDetermined:
+            .secondary
+        case .denied, .restricted:
+            .orange
+        @unknown default:
+            .secondary
+        }
+    }
+
+    private var microphonePermissionCaptionKey: String? {
+        switch microphoneAuthorizationStatus {
+        case .notDetermined:
+            "ai.settings.microphone_permission_caption_not_determined"
+        case .denied, .restricted:
+            "ai.settings.microphone_permission_caption_denied"
+        default:
+            nil
+        }
+    }
+
+    private var appleSpeechPermissionStatusText: String {
+        switch appleSpeechAuthorizationState {
+        case .authorized:
+            localizedString("ai.settings.permission_authorized")
+        case .notDetermined:
+            localizedString("ai.settings.permission_not_determined")
+        case .denied:
+            localizedString("ai.settings.permission_denied")
+        case .restricted:
+            localizedString("ai.settings.permission_restricted")
+        case .unknown:
+            localizedString("ai.settings.permission_unknown")
+        }
+    }
+
+    private var appleSpeechPermissionStatusColor: Color {
+        switch appleSpeechAuthorizationState {
+        case .authorized:
+            .green
+        case .notDetermined:
+            .secondary
+        case .denied, .restricted:
+            .orange
+        case .unknown:
+            .secondary
+        }
+    }
+
+    private var appleSpeechPermissionCaptionKey: String? {
+        switch appleSpeechAuthorizationState {
+        case .notDetermined:
+            "ai.settings.apple_speech_permission_caption_not_determined"
+        case .denied, .restricted:
+            "ai.settings.apple_speech_permission_caption_denied"
+        default:
+            nil
+        }
+    }
+
+    private var accessibilityPermissionStatusText: String {
+        accessibilityTrusted
+            ? localizedString("ai.settings.permission_authorized")
+            : localizedString("ai.settings.permission_not_determined")
+    }
+
+    private var accessibilityPermissionCaptionKey: String? {
+        accessibilityTrusted ? nil : "ai.settings.accessibility_permission_caption"
+    }
+
+    private var globalHotkeyStatusText: String {
+        switch globalHotkeyController.registrationState {
+        case .disabled:
+            localizedString("ai.settings.global_hotkey_status_disabled")
+        case .registered(let shortcut):
+            String(
+                format: localizedString("ai.settings.global_hotkey_status_registered_format"),
+                localizedString(shortcut.displayNameKey)
+            )
+        case .failed(let shortcut, let message):
+            String(
+                format: localizedString("ai.settings.global_hotkey_status_failed_format"),
+                localizedString(shortcut.displayNameKey),
+                message
+            )
+        }
+    }
+
+    private var globalHotkeyStatusSystemImage: String {
+        switch globalHotkeyController.registrationState {
+        case .disabled:
+            "keyboard"
+        case .registered:
+            "checkmark.circle.fill"
+        case .failed:
+            "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var globalHotkeyStatusColor: Color {
+        switch globalHotkeyController.registrationState {
+        case .disabled:
+            .secondary
+        case .registered:
+            .green
+        case .failed:
+            .orange
+        }
+    }
+
+    private var selectedLocalModelState: LocalSpeechModelState {
+        guard let selectedLocalSpeechModel else { return .notDownloaded }
+        return localSpeechModelStore.state(for: selectedLocalSpeechModel)
+    }
+
+    private var isLocalModelBusy: Bool {
+        selectedLocalModelState.isBusy
+    }
+
+    private var canDeleteLocalModel: Bool {
+        guard selectedLocalSpeechModel != nil else { return false }
+
+        switch selectedLocalModelState {
+        case .notDownloaded, .downloading, .verifying:
+            return false
+        case .ready, .failed:
+            return true
+        }
+    }
+
+    private var localModelStatusColor: Color {
+        switch selectedLocalModelState {
+        case .ready:
+            .green
+        case .failed:
+            .red
+        case .notDownloaded, .downloading, .verifying:
+            .secondary
+        }
+    }
+
+    private var localModelStatusText: String {
+        switch selectedLocalModelState {
+        case .notDownloaded:
+            return localizedString("ai.settings.local_model_status_not_downloaded")
+        case .downloading(let progress):
+            if let progress {
+                return String(
+                    format: localizedString("ai.settings.local_model_status_downloading_format"),
+                    Int(progress * 100)
+                )
+            }
+            return localizedString("ai.settings.local_model_status_downloading")
+        case .verifying:
+            return localizedString("ai.settings.local_model_status_verifying")
+        case .ready:
+            return localizedString("ai.settings.local_model_status_ready")
+        case .failed(let message):
+            return String(format: localizedString("ai.settings.local_model_status_failed_format"), message)
+        }
+    }
+
+    private func readinessStatusText(for result: AIProviderReadinessResult) -> String {
+        guard let error = result.error else {
+            return localizedString("ai.settings.flow_ready")
+        }
+
+        return String(
+            format: localizedString("ai.settings.flow_not_ready_format"),
+            localizedAssistantErrorMessage(error)
+        )
+    }
+
+    private func localizedAssistantErrorMessage(_ error: Error) -> String {
+        let redactedError = AIProviderFactory.redactedProviderError(error, preferences: aiProviderPreferences)
+        guard let assistantError = redactedError as? AIScheduleAssistantError else {
+            return redactedError.localizedDescription
+        }
+
+        switch assistantError {
+        case .disabled:
+            return localizedString("ai.error.disabled")
+        case .missingAPIKey(let provider):
+            return String(format: localizedString("ai.error.missing_api_key_format"), provider)
+        case .missingCredential(let provider, let field):
+            return String(format: localizedString("ai.error.missing_credential_format"), provider, field)
+        case .microphoneDenied:
+            return localizedString("ai.error.microphone_denied")
+        case .recordingFailed(let message):
+            return String(format: localizedString("ai.error.recording_failed_format"), message)
+        case .emptyTranscript:
+            return localizedString("ai.error.empty_transcript")
+        case .networkUnavailable:
+            return localizedString("ai.error.network_unavailable")
+        case .providerAuthenticationFailed(let provider):
+            return String(format: localizedString("ai.error.provider_auth_failed_format"), provider)
+        case .providerRequestFailed(let provider, let statusCode, let message):
+            return String(
+                format: localizedString("ai.error.provider_request_failed_format"),
+                provider,
+                statusCode,
+                message
+            )
+        case .providerResponseInvalid(let provider, let message):
+            return String(format: localizedString("ai.error.provider_invalid_response_format"), provider, message)
+        case .invalidParserJSON(let provider, let message):
+            return String(format: localizedString("ai.error.invalid_parser_json_format"), provider, message)
+        case .localModelUnavailable(let model):
+            return String(format: localizedString("ai.error.local_model_unavailable_format"), model)
+        case .speechRecognitionDenied:
+            return localizedString("ai.error.speech_recognition_denied")
+        case .speechRecognitionRestricted:
+            return localizedString("ai.error.speech_recognition_restricted")
+        case .speechRecognitionUnavailable(let locale):
+            return String(format: localizedString("ai.error.speech_recognition_unavailable_format"), locale)
+        case .speechRecognitionFailed(let message):
+            return String(format: localizedString("ai.error.speech_recognition_failed_format"), message)
+        case .keychainFailed(let message):
+            return String(format: localizedString("ai.error.keychain_failed_format"), message)
+        }
+    }
 
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(
@@ -284,14 +1684,144 @@ struct SettingsView: View {
         )
     }
 
+    private var transcriptionProviderBinding: Binding<String> {
+        Binding(
+            get: { aiProviderPreferences.selectedTranscriptionProvider.rawValue },
+            set: { providerID in
+                guard let provider = AIProviderID(rawValue: providerID) else { return }
+                aiProviderPreferences.selectTranscriptionProvider(provider)
+                loadAPIKeys()
+            }
+        )
+    }
+
+    private var parserProviderBinding: Binding<String> {
+        Binding(
+            get: { aiProviderPreferences.selectedParserProvider.rawValue },
+            set: { providerID in
+                guard let provider = AIProviderID(rawValue: providerID) else { return }
+                aiProviderPreferences.selectParserProvider(provider)
+                loadAPIKeys()
+            }
+        )
+    }
+
+    private var globalHotkeyEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { preferencesStore.preferences.voiceInputEnabled },
+            set: { isEnabled in
+                preferencesStore.preferences.voiceInputEnabled = isEnabled
+                globalHotkeyController.update(preferences: preferencesStore.preferences)
+            }
+        )
+    }
+
+    private var globalHotkeyShortcutBinding: Binding<String> {
+        voiceInputShortcutBinding
+    }
+
+    private var voiceInputEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { preferencesStore.preferences.voiceInputEnabled },
+            set: { isEnabled in
+                preferencesStore.preferences.voiceInputEnabled = isEnabled
+                globalHotkeyController.update(preferences: preferencesStore.preferences)
+            }
+        )
+    }
+
+    private var voiceInputShortcutBinding: Binding<String> {
+        Binding(
+            get: { selectedGlobalHotkeyShortcut.rawValue },
+            set: { shortcutID in
+                guard GlobalHotkeyShortcut(rawValue: shortcutID) != nil else { return }
+                preferencesStore.preferences.voiceInputShortcutID = shortcutID
+                globalHotkeyController.update(preferences: preferencesStore.preferences)
+            }
+        )
+    }
+
+    private var voicePersonalTermsBinding: Binding<String> {
+        Binding(
+            get: { preferencesStore.preferences.voicePersonalTerms.joined(separator: ", ") },
+            set: { value in
+                let terms = value
+                    .components(separatedBy: CharacterSet(charactersIn: ",\n"))
+                preferencesStore.preferences.voicePersonalTerms = AppSettings.normalizedPersonalTerms(terms)
+            }
+        )
+    }
+
+    private func credentialBinding(for request: AICredentialRequest) -> Binding<String> {
+        Binding(
+            get: { credentials[credentialStateKey(for: request), default: ""] },
+            set: { credentials[credentialStateKey(for: request)] = $0 }
+        )
+    }
+
+    private func credentialTitle(for request: AICredentialRequest) -> String {
+        String(
+            format: localizedString("ai.settings.provider_key_format"),
+            "\(request.provider.displayName) \(request.field.displayName)"
+        )
+    }
+
+    private func credentialRow(for request: AICredentialRequest) -> some View {
+        SettingsDynamicPropertyRow(
+            credentialTitle(for: request),
+            captionKey: "ai.settings.provider_key_caption"
+        ) {
+            HStack(spacing: 8) {
+                if request.field.isSecret {
+                    SecureField(credentialTitle(for: request), text: credentialBinding(for: request))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 260)
+                } else {
+                    TextField(credentialTitle(for: request), text: credentialBinding(for: request))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 260)
+                }
+
+                Button("ai.settings.save_key") {
+                    saveCredential(for: request)
+                }
+
+                Button(role: .destructive) {
+                    credentials[credentialStateKey(for: request)] = ""
+                    saveCredential(for: request)
+                } label: {
+                    Text("ai.settings.clear_key")
+                }
+                .disabled(credentials[credentialStateKey(for: request), default: ""].isEmpty)
+            }
+        }
+    }
+
+    private func providerGuideButton(for provider: AIProviderID) -> some View {
+        Button {
+            setupGuideProvider = provider
+        } label: {
+            Label("ai.settings.provider_guide", systemImage: "questionmark.circle")
+                .labelStyle(.iconOnly)
+        }
+        .buttonStyle(.borderless)
+        .help(Text("ai.settings.provider_guide_help"))
+    }
+
+    private func credentialStateKey(for request: AICredentialRequest) -> String {
+        "\(request.provider.rawValue).\(request.field.id)"
+    }
+
     private func setLaunchAtLoginEnabled(_ isEnabled: Bool) {
         launchAtLoginErrorMessage = nil
 
         do {
             try loginItemManager.setEnabled(isEnabled)
+            preferencesStore.preferences.hasSeenLaunchAtLoginPrompt = true
             preferencesStore.preferences.launchAtLoginEnabled = isEnabled
             refreshLoginItemStatus()
         } catch {
+            preferencesStore.preferences.hasSeenLaunchAtLoginPrompt = true
             refreshLoginItemStatus()
             launchAtLoginErrorMessage = String(
                 format: localizedString("launch_at_login_error_format"),
@@ -318,6 +1848,147 @@ struct SettingsView: View {
         }
 
         refreshLoginItemStatus()
+    }
+
+    private func loadAPIKeys() {
+        do {
+            for provider in AIProviderID.allCases {
+                for field in provider.definition.credentialFields {
+                    let request = AICredentialRequest(provider: provider, field: field)
+                    credentials[credentialStateKey(for: request)] = try aiProviderPreferences.credential(field.id, for: provider) ?? ""
+                }
+            }
+            apiKeyStatusMessage = nil
+        } catch {
+            apiKeyStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func saveCredential(for request: AICredentialRequest) {
+        do {
+            try aiProviderPreferences.saveCredential(
+                credentials[credentialStateKey(for: request), default: ""],
+                fieldID: request.field.id,
+                for: request.provider
+            )
+            apiKeyStatusMessage = String(
+                format: localizedString("ai.settings.key_saved_format"),
+                "\(request.provider.displayName) \(request.field.displayName)"
+            )
+        } catch {
+            apiKeyStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func refreshLocalModelState() {
+        guard aiProviderPreferences.selectedTranscriptionProvider == .localWhisperKit,
+              let selectedLocalSpeechModel
+        else {
+            return
+        }
+
+        localSpeechModelStore.refreshState(for: selectedLocalSpeechModel)
+    }
+
+    private func refreshSystemPermissionState() {
+        microphoneAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        appleSpeechAuthorizationState = AppleSpeechTranscriptionProvider.authorizationState()
+        accessibilityTrusted = AccessibilityPermissionService.isTrusted
+    }
+
+    private func requestMicrophonePermission() {
+        AVCaptureDevice.requestAccess(for: .audio) { _ in
+            Task { @MainActor in
+                refreshSystemPermissionState()
+            }
+        }
+    }
+
+    private func requestAppleSpeechPermission() {
+        Task { @MainActor in
+            appleSpeechAuthorizationState = await AppleSpeechTranscriptionProvider.requestAuthorizationState()
+        }
+    }
+
+    private func requestAccessibilityPermission() {
+        accessibilityTrusted = AccessibilityPermissionService.requestTrustPrompt()
+    }
+
+    private func downloadLocalModel() {
+        guard let selectedLocalSpeechModel else { return }
+        apiKeyStatusMessage = nil
+
+        Task {
+            await localSpeechModelStore.download(selectedLocalSpeechModel)
+        }
+    }
+
+    private func verifyLocalModel() {
+        guard let selectedLocalSpeechModel else { return }
+        localSpeechModelStore.verify(selectedLocalSpeechModel)
+    }
+
+    private func deleteLocalModel() {
+        guard let selectedLocalSpeechModel else { return }
+
+        do {
+            try localSpeechModelStore.delete(selectedLocalSpeechModel)
+            apiKeyStatusMessage = localizedString("ai.settings.local_model_deleted")
+        } catch {
+            apiKeyStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func testTranscriptionProvider() {
+        isTestingTranscriptionProvider = true
+        apiKeyStatusMessage = nil
+
+        Task { @MainActor in
+            defer {
+                isTestingTranscriptionProvider = false
+            }
+
+            let readiness = AIProviderFactory.transcriptionReadiness(preferences: aiProviderPreferences)
+            if let error = readiness.error {
+                apiKeyStatusMessage = localizedAssistantErrorMessage(error)
+            } else {
+                apiKeyStatusMessage = localizedString("ai.settings.test_transcription_succeeded")
+            }
+        }
+    }
+
+    private func testParserProvider() {
+        isTestingParserProvider = true
+        apiKeyStatusMessage = nil
+
+        Task { @MainActor in
+            defer {
+                isTestingParserProvider = false
+            }
+
+            do {
+                let readiness = AIProviderFactory.parserReadiness(preferences: aiProviderPreferences)
+                if let error = readiness.error {
+                    throw error
+                }
+
+                let parserProvider = try AIProviderFactory.makeParserProvider(preferences: aiProviderPreferences)
+                _ = try await parserProvider.parseSchedule(
+                    transcript: Transcript(text: "No schedule items.", language: "en", duration: nil),
+                    context: ScheduleParseContext(
+                        currentDate: .now,
+                        timeZone: .current,
+                        localeIdentifier: languageManager.locale.identifier,
+                        appLanguage: languageManager.selectedLanguage,
+                        defaultReminderLeadMinutes: aiProviderPreferences.defaultReminderLeadMinutes,
+                        existingScheduleItems: []
+                    )
+                )
+                apiKeyStatusMessage = localizedString("ai.settings.test_succeeded")
+            } catch {
+                apiKeyStatusMessage = localizedAssistantErrorMessage(error)
+            }
+        }
     }
 
     /// Resolves a localization key through the LanguageManager bundle for
@@ -394,6 +2065,371 @@ struct SettingsView: View {
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
     }
+
+    private func makeDiagnosticsJSON() throws -> String {
+        let service = DiagnosticsReportService(
+            preferencesStore: preferencesStore,
+            aiProviderPreferences: aiProviderPreferences,
+            breakStatsStore: breakStatsStore,
+            notchHubStore: notchHubStore,
+            reminderEngine: reminderEngine,
+            pomodoroEngine: pomodoroEngine,
+            screens: availableScreens
+        )
+        return try service.makeJSONString()
+    }
+
+    private func copyDiagnostics() {
+        do {
+            let json = try makeDiagnosticsJSON()
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(json, forType: .string)
+            diagnosticsStatusMessage = localizedString("diagnostics.copied")
+        } catch {
+            diagnosticsStatusMessage = String(
+                format: localizedString("diagnostics.failed_format"),
+                error.localizedDescription
+            )
+        }
+    }
+
+    private func saveDiagnostics() {
+        do {
+            let json = try makeDiagnosticsJSON()
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.json]
+            panel.canCreateDirectories = true
+            panel.nameFieldStringValue = DiagnosticsReportService.defaultFilename()
+
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            try json.write(to: url, atomically: true, encoding: .utf8)
+            diagnosticsStatusMessage = localizedString("diagnostics.saved")
+        } catch {
+            diagnosticsStatusMessage = String(
+                format: localizedString("diagnostics.failed_format"),
+                error.localizedDescription
+            )
+        }
+    }
+}
+
+private struct TemporaryPauseControls: View {
+    let reminderEngine: ReminderEngine
+    let localizedString: (String) -> String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if reminderEngine.state.manualPause {
+                if let remaining = remainingPauseText {
+                    Text(remaining)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Button("menu.resume") {
+                    reminderEngine.send(.setManualPause(false))
+                }
+            } else {
+                Button("menu.pause_15m") {
+                    pause(minutes: 15)
+                }
+
+                Button("menu.pause_30m") {
+                    pause(minutes: 30)
+                }
+
+                Button("menu.pause_1h") {
+                    pause(minutes: 60)
+                }
+
+                Button("menu.pause_until_tomorrow") {
+                    reminderEngine.send(.setTimedManualPause(until: Self.tomorrowMorning()))
+                }
+            }
+        }
+    }
+
+    private var remainingPauseText: String? {
+        guard let untilDate = reminderEngine.state.manualPauseUntilDate else {
+            return localizedString("temporary_pause_indefinite")
+        }
+
+        let seconds = max(Int(ceil(untilDate.timeIntervalSince(.now))), 0)
+        let minutes = max(Int(ceil(Double(seconds) / 60)), 1)
+        return String(format: localizedString("temporary_pause_remaining_format"), minutes)
+    }
+
+    private func pause(minutes: Int) {
+        reminderEngine.send(.setTimedManualPause(until: Date().addingTimeInterval(TimeInterval(minutes * 60))))
+    }
+
+    private static func tomorrowMorning(from date: Date = .now, calendar: Calendar = .current) -> Date {
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: date) ?? date.addingTimeInterval(24 * 60 * 60)
+        return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) ?? tomorrow
+    }
+}
+
+private struct PomodoroSessionControls: View {
+    let reminderEngine: ReminderEngine
+    let pomodoroEngine: PomodoroEngine
+    let preferencesStore: PreferencesStore
+    let localizedString: (String) -> String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(statusText)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(minWidth: 120, alignment: .leading)
+
+            if pomodoroEngine.isActive {
+                Button(pomodoroEngine.isPaused ? "menu.pomodoro_resume" : "menu.pomodoro_pause") {
+                    togglePause()
+                }
+
+                Button("menu.pomodoro_stop", role: .destructive) {
+                    pomodoroEngine.stop()
+                }
+            } else {
+                Button("menu.pomodoro_start") {
+                    pomodoroEngine.startFocusSession()
+                }
+                .disabled(!canStart)
+            }
+        }
+    }
+
+    private var canStart: Bool {
+        preferencesStore.preferences.pomodoroEnabled && !reminderEngine.isReminderPresenting
+    }
+
+    private var statusText: String {
+        guard preferencesStore.preferences.pomodoroEnabled else {
+            return localizedString("pomodoro_session_status_disabled")
+        }
+
+        guard pomodoroEngine.isActive else {
+            return localizedString("pomodoro_session_status_ready")
+        }
+
+        let remaining = formattedRemainingSeconds(pomodoroEngine.state.remainingSeconds)
+        if pomodoroEngine.isPaused {
+            return String(format: localizedString("menu.pomodoro_paused_format"), remaining)
+        }
+
+        switch pomodoroEngine.state.phase {
+        case .focus:
+            return String(format: localizedString("menu.pomodoro_focus_format"), remaining)
+        case .rest:
+            return String(format: localizedString("menu.pomodoro_break_format"), remaining)
+        }
+    }
+
+    private func togglePause() {
+        if pomodoroEngine.isPaused {
+            pomodoroEngine.resume()
+        } else {
+            pomodoroEngine.pause()
+        }
+    }
+
+    private func formattedRemainingSeconds(_ seconds: Int) -> String {
+        let safeSeconds = max(seconds, 0)
+        return String(format: "%02d:%02d", safeSeconds / 60, safeSeconds % 60)
+    }
+}
+
+private struct AIProviderSetupGuideSheet: View {
+    let provider: AIProviderID
+    let guide: AIProviderSetupGuide
+    let languageManager: LanguageManager
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(title)
+                            .font(.title3.weight(.semibold))
+
+                        Spacer()
+
+                        Button {
+                            dismiss()
+                        } label: {
+                            Label("ai.guide.close", systemImage: "xmark.circle.fill")
+                                .labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                        .help(Text("ai.guide.close"))
+                    }
+
+                    Text(LocalizedStringKey(guide.overviewKey))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("ai.guide.required_fields")
+                            .font(.headline)
+
+                        Text(requiredFieldsText)
+                            .font(.system(size: 13))
+                            .textSelection(.enabled)
+                    }
+
+                    if guide.documentationURL != nil || guide.consoleURL != nil {
+                        HStack(spacing: 8) {
+                            if let documentationURL = guide.documentationURL {
+                                Link(destination: documentationURL) {
+                                    Label("ai.guide.official_docs", systemImage: "book")
+                                }
+                            }
+
+                            if let consoleURL = guide.consoleURL {
+                                Link(destination: consoleURL) {
+                                    Label("ai.guide.provider_console", systemImage: "safari")
+                                }
+                            }
+                        }
+                        .controlSize(.small)
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("ai.guide.steps")
+                            .font(.headline)
+
+                        Text(LocalizedStringKey(guide.stepsKey))
+                            .font(.system(size: 13))
+                            .lineSpacing(4)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Divider()
+
+                    Label {
+                        Text("ai.guide.security_body")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "lock")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Divider()
+
+            HStack {
+                Spacer()
+
+                Button("ai.guide.close") {
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+        }
+        .frame(width: 520)
+        .frame(minHeight: 360, maxHeight: 640)
+    }
+
+    private var title: String {
+        String(
+            format: languageManager.localizedString("ai.guide.title_format"),
+            provider.displayName
+        )
+    }
+
+    private var requiredFieldsText: String {
+        guide.requiredFieldNames.joined(separator: " · ")
+    }
+}
+
+private struct SettingsPropertyRow<Content: View>: View {
+    let titleKey: String
+    let captionKey: String?
+    let content: Content
+
+    init(
+        _ titleKey: String,
+        captionKey: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.titleKey = titleKey
+        self.captionKey = captionKey
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .center, spacing: 16) {
+                Text(LocalizedStringKey(titleKey))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 168, alignment: .leading)
+
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if let captionKey {
+                Text(LocalizedStringKey(captionKey))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.leading, 184)
+            }
+        }
+        .font(.system(size: 13))
+        .padding(.vertical, 4)
+    }
+}
+
+private struct SettingsDynamicPropertyRow<Content: View>: View {
+    let title: String
+    let captionKey: String?
+    let content: Content
+
+    init(
+        _ title: String,
+        captionKey: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.captionKey = captionKey
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .center, spacing: 16) {
+                Text(title)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 168, alignment: .leading)
+
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if let captionKey {
+                Text(LocalizedStringKey(captionKey))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.leading, 184)
+            }
+        }
+        .font(.system(size: 13))
+        .padding(.vertical, 4)
+    }
 }
 
 #Preview {
@@ -406,7 +2442,13 @@ struct SettingsView: View {
         languageManager: languageManager,
         loginItemManager: LoginItemService(),
         preferencesStore: preferencesStore,
-        breakStatsStore: breakStatsStore
+        aiProviderPreferences: AIProviderPreferences(defaults: settings.defaults),
+        breakStatsStore: breakStatsStore,
+        notchHubStore: NotchHubStore(
+            defaults: settings.defaults,
+            dailyScheduleStore: DailyScheduleStore(defaults: settings.defaults)
+        ),
+        globalHotkeyController: GlobalAICaptureHotkeyController(onPress: {}, onRelease: {})
     )
         .frame(width: 420, height: 600)
 }

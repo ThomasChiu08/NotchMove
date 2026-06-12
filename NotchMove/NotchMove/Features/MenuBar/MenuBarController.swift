@@ -8,6 +8,55 @@
 import AppKit
 import OSLog
 
+enum StatusItemAppearance {
+    static let length = NSStatusItem.squareLength
+    static let fallbackTitle = "NM"
+    static let accessibilityDescription = "NotchMove — sit-stand reminder"
+
+    static func makeStatusBarImage() -> NSImage? {
+        guard let image = NSImage(
+            systemSymbolName: "figure.walk",
+            accessibilityDescription: accessibilityDescription
+        ) else {
+            return nil
+        }
+
+        image.isTemplate = true
+        return image
+    }
+
+    @MainActor
+    static func configure(_ statusItem: NSStatusItem) {
+        statusItem.length = length
+
+        guard let button = statusItem.button else { return }
+        button.toolTip = accessibilityDescription
+        button.setAccessibilityLabel(accessibilityDescription)
+
+        if let image = makeStatusBarImage() {
+            button.image = image
+            button.imagePosition = .imageOnly
+            button.imageScaling = .scaleProportionallyDown
+            button.title = ""
+            return
+        }
+
+        if let appIcon = NSApp.applicationIconImage.copy() as? NSImage,
+           appIcon.size.width > 0,
+           appIcon.size.height > 0 {
+            button.image = appIcon
+            button.imagePosition = .imageOnly
+            button.imageScaling = .scaleProportionallyDown
+            button.title = ""
+            return
+        }
+
+        button.image = nil
+        button.imagePosition = .noImage
+        button.title = fallbackTitle
+    }
+}
+
 /// Manages the persistent `NSStatusItem` in the menu bar.
 ///
 /// Always visible regardless of notch presence. On non-notch Macs the
@@ -16,40 +65,55 @@ import OSLog
 /// screens without a physical notch.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
-    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let statusItem = NSStatusBar.system.statusItem(withLength: StatusItemAppearance.length)
     private let reminderEngine: ReminderEngine
+    private let pomodoroEngine: PomodoroEngine
     private let breakStatsStore: BreakStatsStore
     private let languageManager: LanguageManager
     private let preferencesStore: PreferencesStore
+    private let notchHubStore: NotchHubStore
+    private let voiceInputSession: VoiceInputSessionController
     private let onOpenDashboard: () -> Void
-    private let onOpenSettings: () -> Void
     private let menu = NSMenu()
+    private let pauseSubmenu = NSMenu()
     private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "menu-bar")
 
     // Dynamic items refreshed in menuWillOpen(_:)
     private let statusMenuItem = NSMenuItem()
     private let breakCountMenuItem = NSMenuItem()
     private let pauseMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let pause15MenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let pause30MenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let pause60MenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let pauseUntilTomorrowMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let soundMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let remindNowMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let dashboardMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let settingsMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ",")
+    private let notchHubMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let voiceInputMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let pomodoroStartMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let pomodoroPauseMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let pomodoroStopMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let dashboardMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: ",")
     private let quitMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "q")
 
     init(
         reminderEngine: ReminderEngine,
+        pomodoroEngine: PomodoroEngine,
         breakStatsStore: BreakStatsStore,
         languageManager: LanguageManager,
         preferencesStore: PreferencesStore,
-        onOpenDashboard: @escaping () -> Void,
-        onOpenSettings: @escaping () -> Void
+        notchHubStore: NotchHubStore,
+        voiceInputSession: VoiceInputSessionController,
+        onOpenDashboard: @escaping () -> Void
     ) {
         self.reminderEngine = reminderEngine
+        self.pomodoroEngine = pomodoroEngine
         self.breakStatsStore = breakStatsStore
         self.languageManager = languageManager
         self.preferencesStore = preferencesStore
+        self.notchHubStore = notchHubStore
+        self.voiceInputSession = voiceInputSession
         self.onOpenDashboard = onOpenDashboard
-        self.onOpenSettings = onOpenSettings
         super.init()
         configureStatusButton()
         buildMenu()
@@ -58,8 +122,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // MARK: - Setup
 
     private func configureStatusButton() {
-        guard let button = statusItem.button else { return }
-        button.image = NSImage(systemSymbolName: "figure.walk", accessibilityDescription: "NotchMove — sit-stand reminder")
+        StatusItemAppearance.configure(statusItem)
         statusItem.menu = menu
         menu.delegate = self
     }
@@ -75,19 +138,42 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        // Row 3: Pause / Resume
+        // Pause / Resume
         pauseMenuItem.target = self
-        pauseMenuItem.action = #selector(togglePause)
         menu.addItem(pauseMenuItem)
+        buildPauseSubmenu()
 
-        // Row 4: Manual trigger
+        // Manual trigger
         remindNowMenuItem.target = self
         remindNowMenuItem.action = #selector(remindNow)
         menu.addItem(remindNowMenuItem)
 
+        notchHubMenuItem.target = self
+        notchHubMenuItem.action = #selector(toggleNotchHub)
+        menu.addItem(notchHubMenuItem)
+
+        voiceInputMenuItem.target = self
+        voiceInputMenuItem.action = #selector(toggleVoiceInput)
+        menu.addItem(voiceInputMenuItem)
+
         menu.addItem(.separator())
 
-        // Row 6: Sound toggle
+        // Pomodoro controls
+        pomodoroStartMenuItem.target = self
+        pomodoroStartMenuItem.action = #selector(startPomodoro)
+        menu.addItem(pomodoroStartMenuItem)
+
+        pomodoroPauseMenuItem.target = self
+        pomodoroPauseMenuItem.action = #selector(togglePomodoroPause)
+        menu.addItem(pomodoroPauseMenuItem)
+
+        pomodoroStopMenuItem.target = self
+        pomodoroStopMenuItem.action = #selector(stopPomodoro)
+        menu.addItem(pomodoroStopMenuItem)
+
+        menu.addItem(.separator())
+
+        // Sound toggle
         soundMenuItem.target = self
         soundMenuItem.action = #selector(toggleSound)
         menu.addItem(soundMenuItem)
@@ -99,16 +185,26 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         dashboardMenuItem.action = #selector(openDashboard)
         menu.addItem(dashboardMenuItem)
 
-        // Settings
-        settingsMenuItem.target = self
-        settingsMenuItem.action = #selector(openSettings)
-        menu.addItem(settingsMenuItem)
-
         menu.addItem(.separator())
 
         // Quit
         quitMenuItem.action = #selector(NSApplication.terminate(_:))
         menu.addItem(quitMenuItem)
+    }
+
+    private func buildPauseSubmenu() {
+        let items = [
+            (pause15MenuItem, #selector(pause15Minutes)),
+            (pause30MenuItem, #selector(pause30Minutes)),
+            (pause60MenuItem, #selector(pause60Minutes)),
+            (pauseUntilTomorrowMenuItem, #selector(pauseUntilTomorrow)),
+        ]
+
+        for (item, action) in items {
+            item.target = self
+            item.action = action
+            pauseSubmenu.addItem(item)
+        }
     }
 
     /// Convenience to fetch a localized string through the LanguageManager.
@@ -129,12 +225,18 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private func refreshDynamicItems() {
         breakStatsStore.refresh()
 
-        let remindersActive = !reminderEngine.state.scheduleState.blocksAutomaticReminders &&
+        let breakReminderEnabled = preferencesStore.preferences.breakReminderEnabled
+        let remindersActive = breakReminderEnabled &&
+            !reminderEngine.state.scheduleState.blocksAutomaticReminders &&
             !reminderEngine.state.manualPause &&
             !reminderEngine.isReminderPresenting
 
         // Next-reminder label
-        if remindersActive {
+        if pomodoroEngine.isActive {
+            statusMenuItem.title = pomodoroStatusTitle
+        } else if !breakReminderEnabled {
+            statusMenuItem.title = L("menu.reminders_disabled")
+        } else if remindersActive {
             let mins = reminderEngine.minutesRemaining
             if mins <= 1 {
                 statusMenuItem.title = L("menu.next_reminder_soon")
@@ -160,10 +262,30 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
 
         // Pause/Resume label
-        pauseMenuItem.title = reminderEngine.state.manualPause ? L("menu.resume") : L("menu.pause")
+        if reminderEngine.state.manualPause {
+            pauseMenuItem.title = L("menu.resume")
+            pauseMenuItem.action = #selector(resumePause)
+            pauseMenuItem.submenu = nil
+        } else {
+            pauseMenuItem.title = L("menu.pause")
+            pauseMenuItem.action = nil
+            pauseMenuItem.submenu = pauseSubmenu
+        }
+        pauseMenuItem.isEnabled = breakReminderEnabled
+        refreshPauseSubmenuItems()
 
         // Remind now
         remindNowMenuItem.title = L("menu.remind_now")
+        remindNowMenuItem.isEnabled = breakReminderEnabled && !reminderEngine.isReminderPresenting
+
+        notchHubMenuItem.title = notchHubStore.isExpanded ? L("menu.notch_hub_close") : L("menu.notch_hub_open")
+        notchHubMenuItem.isEnabled = notchHubStore.preferences.isEnabled && !reminderEngine.isReminderPresenting
+
+        voiceInputMenuItem.title = voiceInputSession.isRecording ? L("menu.voice_input_stop") : L("menu.voice_input_start")
+        voiceInputMenuItem.isHidden = !preferencesStore.preferences.voiceInputEnabled
+        voiceInputMenuItem.isEnabled = canStartVoiceInputFromMenu || voiceInputSession.isRecording
+
+        refreshPomodoroItems()
 
         // Sound toggle
         soundMenuItem.title = L("menu.sound")
@@ -171,16 +293,85 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         // Settings & Quit
         dashboardMenuItem.title = L("menu.dashboard")
-        settingsMenuItem.title = L("menu.settings")
         quitMenuItem.title = L("menu.quit")
+    }
+
+    private func refreshPauseSubmenuItems() {
+        pause15MenuItem.title = L("menu.pause_15m")
+        pause30MenuItem.title = L("menu.pause_30m")
+        pause60MenuItem.title = L("menu.pause_1h")
+        pauseUntilTomorrowMenuItem.title = L("menu.pause_until_tomorrow")
+    }
+
+    private func refreshPomodoroItems() {
+        pomodoroStartMenuItem.title = L("menu.pomodoro_start")
+        pomodoroStartMenuItem.isHidden = pomodoroEngine.isActive
+        pomodoroStartMenuItem.isEnabled = preferencesStore.preferences.pomodoroEnabled && !reminderEngine.isReminderPresenting
+
+        pomodoroPauseMenuItem.title = pomodoroEngine.isPaused ? L("menu.pomodoro_resume") : L("menu.pomodoro_pause")
+        pomodoroPauseMenuItem.isHidden = !pomodoroEngine.isActive
+        pomodoroPauseMenuItem.isEnabled = pomodoroEngine.isActive
+
+        pomodoroStopMenuItem.title = L("menu.pomodoro_stop")
+        pomodoroStopMenuItem.isHidden = !pomodoroEngine.isActive
+        pomodoroStopMenuItem.isEnabled = pomodoroEngine.isActive
+    }
+
+    private var pomodoroStatusTitle: String {
+        let remaining = formattedRemainingSeconds(pomodoroEngine.state.remainingSeconds)
+
+        if pomodoroEngine.isPaused {
+            return String(format: L("menu.pomodoro_paused_format"), remaining)
+        }
+
+        switch pomodoroEngine.state.phase {
+        case .focus:
+            return String(format: L("menu.pomodoro_focus_format"), remaining)
+        case .rest:
+            return String(format: L("menu.pomodoro_break_format"), remaining)
+        }
+    }
+
+    private func formattedRemainingSeconds(_ seconds: Int) -> String {
+        let safeSeconds = max(seconds, 0)
+        return String(format: "%02d:%02d", safeSeconds / 60, safeSeconds % 60)
+    }
+
+    private var canStartVoiceInputFromMenu: Bool {
+        preferencesStore.preferences.voiceInputEnabled &&
+            !reminderEngine.isReminderPresenting &&
+            !pomodoroEngine.isActive
     }
 
     // MARK: - Actions
 
-    @objc private func togglePause() {
-        let shouldPause = !reminderEngine.state.manualPause
-        reminderEngine.send(.setManualPause(shouldPause))
-        logger.notice("Manual pause \(shouldPause ? "enabled" : "disabled")")
+    @objc private func resumePause() {
+        reminderEngine.send(.setManualPause(false))
+        logger.notice("Manual pause disabled")
+    }
+
+    @objc private func pause15Minutes() {
+        pauseBreakReminders(minutes: 15)
+    }
+
+    @objc private func pause30Minutes() {
+        pauseBreakReminders(minutes: 30)
+    }
+
+    @objc private func pause60Minutes() {
+        pauseBreakReminders(minutes: 60)
+    }
+
+    @objc private func pauseUntilTomorrow() {
+        let nextMorning = Self.tomorrowMorning()
+        reminderEngine.send(.setTimedManualPause(until: nextMorning))
+        logger.notice("Manual pause enabled until tomorrow")
+    }
+
+    private func pauseBreakReminders(minutes: Int) {
+        let untilDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        reminderEngine.send(.setTimedManualPause(until: untilDate))
+        logger.notice("Manual pause enabled for \(minutes) minutes")
     }
 
     @objc private func remindNow() {
@@ -188,13 +379,39 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         reminderEngine.send(.manualTrigger)
     }
 
-    @objc private func openSettings() {
-        logger.notice("Opening settings window")
-        onOpenSettings()
+    @objc private func toggleNotchHub() {
+        logger.notice("Notch Hub toggled from menu bar")
+        notchHubStore.toggleHub()
+    }
+
+    @objc private func toggleVoiceInput() {
+        guard canStartVoiceInputFromMenu || voiceInputSession.isRecording else { return }
+        logger.notice("Voice input toggled from menu bar")
+        voiceInputSession.toggleFromMenu()
+    }
+
+    @objc private func startPomodoro() {
+        logger.notice("Pomodoro started from menu bar")
+        pomodoroEngine.startFocusSession()
+    }
+
+    @objc private func togglePomodoroPause() {
+        if pomodoroEngine.isPaused {
+            logger.notice("Pomodoro resumed from menu bar")
+            pomodoroEngine.resume()
+        } else {
+            logger.notice("Pomodoro paused from menu bar")
+            pomodoroEngine.pause()
+        }
+    }
+
+    @objc private func stopPomodoro() {
+        logger.notice("Pomodoro stopped from menu bar")
+        pomodoroEngine.stop()
     }
 
     @objc private func openDashboard() {
-        logger.notice("Opening daily schedule dashboard")
+        logger.notice("Opening unified dashboard")
         onOpenDashboard()
     }
 
@@ -202,5 +419,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let nextValue = !preferencesStore.preferences.soundEnabled
         preferencesStore.preferences.soundEnabled = nextValue
         logger.notice("Sound \(nextValue ? "enabled" : "disabled")")
+    }
+
+    private static func tomorrowMorning(from date: Date = .now, calendar: Calendar = .current) -> Date {
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: date) ?? date.addingTimeInterval(24 * 60 * 60)
+        return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) ?? tomorrow
     }
 }

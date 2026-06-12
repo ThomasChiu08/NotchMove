@@ -12,7 +12,14 @@ import OSLog
 
 @MainActor
 protocol DailyScheduleReminderPresenting {
-    func presentReminder(for item: DailyScheduleItem)
+    func presentReminder(for item: DailyScheduleItem, actions: DailyScheduleReminderActions)
+}
+
+@MainActor
+struct DailyScheduleReminderActions {
+    let complete: @MainActor () -> Void
+    let snooze: @MainActor (_ minutes: Int) -> Void
+    let dismiss: @MainActor () -> Void
 }
 
 @MainActor
@@ -23,7 +30,7 @@ final class DailyScheduleAlertPresenter: DailyScheduleReminderPresenting {
         self.languageManager = languageManager
     }
 
-    func presentReminder(for item: DailyScheduleItem) {
+    func presentReminder(for item: DailyScheduleItem, actions: DailyScheduleReminderActions) {
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = languageManager.localizedString("dashboard.reminder.alert_title")
@@ -33,6 +40,20 @@ final class DailyScheduleAlertPresenter: DailyScheduleReminderPresenting {
         )
         alert.addButton(withTitle: languageManager.localizedString("ok"))
         alert.runModal()
+        actions.complete()
+    }
+}
+
+@MainActor
+final class DailyScheduleNotchPresenter: DailyScheduleReminderPresenting {
+    private let reminderEngine: ReminderEngine
+
+    init(reminderEngine: ReminderEngine) {
+        self.reminderEngine = reminderEngine
+    }
+
+    func presentReminder(for item: DailyScheduleItem, actions: DailyScheduleReminderActions) {
+        reminderEngine.presentScheduleReminder(for: item, actions: actions)
     }
 }
 
@@ -51,6 +72,7 @@ final class DailyScheduleReminderEngine {
     private let logger = Logger(subsystem: "com.thomaschiu.developer.NotchMove", category: "daily-schedule")
 
     @ObservationIgnored private var tickTask: Task<Void, Never>?
+    @ObservationIgnored private var activeReminderIDs: Set<DailyScheduleItem.ID> = []
 
     init(
         scheduleStore: DailyScheduleStore,
@@ -99,19 +121,68 @@ final class DailyScheduleReminderEngine {
 
     @discardableResult
     func checkReminders(at now: Date) -> [DailyScheduleItem] {
+        guard activeReminderIDs.isEmpty else { return [] }
+
         let eligibleItems = scheduleStore.itemsForToday(referenceDate: now).filter { item in
-            guard item.isReminderEnabled, !item.hasReminded(on: now, calendar: calendar) else { return false }
-            let leadSeconds = TimeInterval(max(item.reminderLeadMinutes, 0) * 60)
-            return now >= item.startDate.addingTimeInterval(-leadSeconds)
+            isEligibleForReminder(item, at: now)
         }
 
-        for item in eligibleItems {
-            soundPlayer.playReminderSound()
-            presenter.presentReminder(for: item)
-            scheduleStore.markReminded(item.id, at: now)
-            logger.notice("Daily schedule reminder fired for \(item.title, privacy: .public)")
+        guard let item = eligibleItems.first else { return [] }
+
+        activeReminderIDs.insert(item.id)
+        soundPlayer.playSound(.scheduleReminder)
+        presenter.presentReminder(
+            for: item,
+            actions: DailyScheduleReminderActions(
+                complete: { [weak self] in
+                    self?.completeReminder(item.id)
+                },
+                snooze: { [weak self] minutes in
+                    self?.snoozeReminder(item.id, minutes: minutes)
+                },
+                dismiss: { [weak self] in
+                    self?.dismissReminder(item.id)
+                }
+            )
+        )
+        logger.notice("Daily schedule reminder fired for \(item.title, privacy: .public)")
+
+        return [item]
+    }
+
+    private func isEligibleForReminder(_ item: DailyScheduleItem, at now: Date) -> Bool {
+        guard item.isReminderEnabled,
+              !item.hasReminded(on: now, calendar: calendar),
+              !activeReminderIDs.contains(item.id)
+        else {
+            return false
         }
 
-        return eligibleItems
+        if let snoozedUntilDate = item.snoozedUntilDate, now < snoozedUntilDate {
+            return false
+        }
+
+        let leadSeconds = TimeInterval(max(item.reminderLeadMinutes, 0) * 60)
+        let reminderWindowStart = item.startDate.addingTimeInterval(-leadSeconds)
+        let reminderWindowEnd = item.endDate ?? item.startDate.addingTimeInterval(60 * 60)
+
+        return now >= reminderWindowStart && now <= reminderWindowEnd
+    }
+
+    private func completeReminder(_ id: DailyScheduleItem.ID) {
+        activeReminderIDs.remove(id)
+        scheduleStore.markReminded(id, at: clock.now)
+    }
+
+    private func snoozeReminder(_ id: DailyScheduleItem.ID, minutes: Int) {
+        activeReminderIDs.remove(id)
+        let snoozeUntil = clock.now.addingTimeInterval(TimeInterval(max(minutes, 1) * 60))
+        scheduleStore.snooze(id, until: snoozeUntil)
+        logger.notice("Daily schedule reminder snoozed for \(minutes) minutes")
+    }
+
+    private func dismissReminder(_ id: DailyScheduleItem.ID) {
+        activeReminderIDs.remove(id)
+        scheduleStore.markReminded(id, at: clock.now)
     }
 }

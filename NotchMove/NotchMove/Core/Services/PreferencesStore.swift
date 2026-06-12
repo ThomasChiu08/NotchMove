@@ -12,6 +12,8 @@ import Foundation
 final class PreferencesStore {
     static let notchLayoutDidChangeNotification = Notification.Name("PreferencesStoreNotchLayoutDidChange")
     static let reminderRuntimeDidChangeNotification = Notification.Name("PreferencesStoreReminderRuntimeDidChange")
+    static let voiceInputDidChangeNotification = Notification.Name("PreferencesStoreVoiceInputDidChange")
+    static let aiGlobalHotkeyDidChangeNotification = Notification.Name("PreferencesStoreAIGlobalHotkeyDidChange")
 
     private let settings: AppSettings
 
@@ -39,11 +41,29 @@ final class PreferencesStore {
             NotificationCenter.default.post(name: Self.notchLayoutDidChangeNotification, object: self)
         }
 
-        if oldValue.schedule != newValue.schedule ||
+        if oldValue.breakReminderEnabled != newValue.breakReminderEnabled ||
+            oldValue.pomodoroEnabled != newValue.pomodoroEnabled ||
+            oldValue.reminderIntervalMinutes != newValue.reminderIntervalMinutes ||
+            oldValue.pomodoroFocusMinutes != newValue.pomodoroFocusMinutes ||
+            oldValue.pomodoroBreakMinutes != newValue.pomodoroBreakMinutes ||
+            oldValue.sitAwareEnabled != newValue.sitAwareEnabled ||
+            oldValue.schedule != newValue.schedule ||
             oldValue.hoverPreviewEnabled != newValue.hoverPreviewEnabled ||
             oldValue.autoDismissEnabled != newValue.autoDismissEnabled ||
             oldValue.autoDismissSeconds != newValue.autoDismissSeconds {
             NotificationCenter.default.post(name: Self.reminderRuntimeDidChangeNotification, object: self)
+        }
+
+        if oldValue.aiGlobalHotkeyEnabled != newValue.aiGlobalHotkeyEnabled ||
+            oldValue.aiGlobalHotkeyShortcutID != newValue.aiGlobalHotkeyShortcutID {
+            NotificationCenter.default.post(name: Self.aiGlobalHotkeyDidChangeNotification, object: self)
+        }
+
+        if oldValue.voiceInputEnabled != newValue.voiceInputEnabled ||
+            oldValue.voiceInputShortcutID != newValue.voiceInputShortcutID ||
+            oldValue.voiceCleanupMode != newValue.voiceCleanupMode ||
+            oldValue.voicePersonalTerms != newValue.voicePersonalTerms {
+            NotificationCenter.default.post(name: Self.voiceInputDidChangeNotification, object: self)
         }
     }
 }

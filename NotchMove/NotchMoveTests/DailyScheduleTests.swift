@@ -147,6 +147,26 @@ struct DailyScheduleStoreTests {
 
         #expect(context.store.items[0].hasReminded(on: now, calendar: context.calendar))
     }
+
+    @Test func snoozeRecordsFutureReminderTime() {
+        let now = makeDailyScheduleDate(year: 2026, month: 4, day: 30, hour: 9, minute: 0)
+        let context = makeDailyScheduleStoreContext(now: now)
+        defer { context.cleanup() }
+
+        let item = context.store.add(DailyScheduleItem(
+            title: "Standup",
+            startDate: makeDailyScheduleDate(year: 2026, month: 4, day: 30, hour: 9, minute: 30)
+        ))
+        let snoozeUntil = makeDailyScheduleDate(year: 2026, month: 4, day: 30, hour: 9, minute: 10)
+
+        context.store.snooze(item.id, until: snoozeUntil)
+
+        #expect(context.store.items[0].snoozedUntilDate == snoozeUntil)
+
+        context.store.markReminded(item.id, at: now)
+
+        #expect(context.store.items[0].snoozedUntilDate == nil)
+    }
 }
 
 @MainActor
@@ -166,12 +186,14 @@ struct DailyScheduleReminderEngineTests {
 
         #expect(firedItems.map(\.id) == [item.id])
         #expect(context.soundPlayer.playCount == 1)
+        #expect(context.soundPlayer.cues == [.scheduleReminder])
         #expect(context.presenter.presentedIDs == [item.id])
         #expect(context.store.items[0].hasReminded(on: now, calendar: context.calendar))
 
         context.engine.checkReminders(at: now.addingTimeInterval(30))
 
         #expect(context.soundPlayer.playCount == 1)
+        #expect(context.soundPlayer.cues == [.scheduleReminder])
         #expect(context.presenter.presentedIDs == [item.id])
     }
 
@@ -190,6 +212,47 @@ struct DailyScheduleReminderEngineTests {
             startDate: makeDailyScheduleDate(year: 2026, month: 4, day: 30, hour: 9, minute: 49),
             reminderLeadMinutes: 0,
             isReminderEnabled: false
+        ))
+
+        let firedItems = context.engine.checkReminders(at: now)
+
+        #expect(firedItems.isEmpty)
+        #expect(context.soundPlayer.playCount == 0)
+        #expect(context.presenter.presentedIDs.isEmpty)
+    }
+
+    @Test func snoozedReminderDoesNotRepeatUntilSnoozeExpires() {
+        let now = makeDailyScheduleDate(year: 2026, month: 4, day: 30, hour: 9, minute: 50)
+        let context = makeDailyScheduleReminderContext(now: now, autoComplete: false)
+        defer { context.cleanup() }
+
+        let item = context.store.add(DailyScheduleItem(
+            title: "Design review",
+            startDate: makeDailyScheduleDate(year: 2026, month: 4, day: 30, hour: 10, minute: 0),
+            reminderLeadMinutes: 10
+        ))
+
+        context.engine.checkReminders(at: now)
+        context.presenter.lastActions?.snooze(5)
+
+        #expect(context.store.items[0].snoozedUntilDate == makeDailyScheduleDate(year: 2026, month: 4, day: 30, hour: 9, minute: 55))
+        #expect(context.engine.checkReminders(at: makeDailyScheduleDate(year: 2026, month: 4, day: 30, hour: 9, minute: 54)).isEmpty)
+
+        context.clock.now = makeDailyScheduleDate(year: 2026, month: 4, day: 30, hour: 9, minute: 55)
+        let firedItems = context.engine.checkReminders(at: context.clock.now)
+
+        #expect(firedItems.map(\.id) == [item.id])
+        #expect(context.presenter.presentedIDs == [item.id, item.id])
+    }
+
+    @Test func doesNotFireAfterReminderWindowEnds() {
+        let now = makeDailyScheduleDate(year: 2026, month: 4, day: 30, hour: 11, minute: 1)
+        let context = makeDailyScheduleReminderContext(now: now)
+        defer { context.cleanup() }
+
+        context.store.add(DailyScheduleItem(
+            title: "Old item",
+            startDate: makeDailyScheduleDate(year: 2026, month: 4, day: 30, hour: 9, minute: 0)
         ))
 
         let firedItems = context.engine.checkReminders(at: now)
@@ -217,10 +280,13 @@ private func makeDailyScheduleStoreContext(now: Date) -> DailyScheduleStoreTestC
 }
 
 @MainActor
-private func makeDailyScheduleReminderContext(now: Date) -> DailyScheduleReminderTestContext {
+private func makeDailyScheduleReminderContext(
+    now: Date,
+    autoComplete: Bool = true
+) -> DailyScheduleReminderTestContext {
     let storeContext = makeDailyScheduleStoreContext(now: now)
     let soundPlayer = DailyScheduleTestSoundPlayer()
-    let presenter = DailyScheduleTestPresenter()
+    let presenter = DailyScheduleTestPresenter(autoComplete: autoComplete)
     let clock = DailyScheduleTestClock(now: now)
     let engine = DailyScheduleReminderEngine(
         scheduleStore: storeContext.store,
@@ -288,19 +354,34 @@ private struct DailyScheduleReminderTestContext {
 
 @MainActor
 private final class DailyScheduleTestSoundPlayer: SoundPlaying {
-    private(set) var playCount = 0
+    private(set) var cues: [ReminderSoundCue] = []
 
-    func playReminderSound() {
-        playCount += 1
+    var playCount: Int {
+        cues.count
+    }
+
+    func playSound(_ cue: ReminderSoundCue) {
+        cues.append(cue)
     }
 }
 
 @MainActor
 private final class DailyScheduleTestPresenter: DailyScheduleReminderPresenting {
+    private let autoComplete: Bool
     private(set) var presentedIDs: [DailyScheduleItem.ID] = []
+    private(set) var lastActions: DailyScheduleReminderActions?
 
-    func presentReminder(for item: DailyScheduleItem) {
+    init(autoComplete: Bool = true) {
+        self.autoComplete = autoComplete
+    }
+
+    func presentReminder(for item: DailyScheduleItem, actions: DailyScheduleReminderActions) {
         presentedIDs.append(item.id)
+        lastActions = actions
+
+        if autoComplete {
+            actions.complete()
+        }
     }
 }
 

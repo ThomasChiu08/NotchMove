@@ -10,5 +10,4 @@ enum ReminderOutcome: Equatable {
     case dismissed
     case autoDismissed
     case cancelled
-    case suppressed
 }

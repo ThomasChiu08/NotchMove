@@ -1,0 +1,119 @@
+//
+//  AIScheduleAssistantError.swift
+//  NotchMove
+//
+//  Created by Codex on 4/30/26.
+//
+
+import Foundation
+
+enum AIScheduleAssistantError: Error, Equatable, LocalizedError {
+    case disabled
+    case missingAPIKey(provider: String)
+    case missingCredential(provider: String, field: String)
+    case microphoneDenied
+    case recordingFailed(String)
+    case emptyTranscript
+    case networkUnavailable
+    case providerAuthenticationFailed(provider: String)
+    case providerRequestFailed(provider: String, statusCode: Int, message: String)
+    case providerResponseInvalid(provider: String, message: String)
+    case invalidParserJSON(provider: String, message: String)
+    case localModelUnavailable(model: String)
+    case speechRecognitionDenied
+    case speechRecognitionRestricted
+    case speechRecognitionUnavailable(locale: String)
+    case speechRecognitionFailed(String)
+    case keychainFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .disabled:
+            return "AI Assistant is disabled."
+        case .missingAPIKey(let provider):
+            return "\(provider) API key is missing."
+        case .missingCredential(let provider, let field):
+            return "\(provider) \(field) is missing."
+        case .microphoneDenied:
+            return "Microphone access is denied."
+        case .recordingFailed(let message):
+            return "Recording failed: \(message)"
+        case .emptyTranscript:
+            return "The transcript was empty."
+        case .networkUnavailable:
+            return "Network unavailable."
+        case .providerAuthenticationFailed(let provider):
+            return "\(provider) rejected the API key."
+        case .providerRequestFailed(let provider, let statusCode, let message):
+            return "\(provider) request failed (\(statusCode)): \(message)"
+        case .providerResponseInvalid(let provider, let message):
+            return "\(provider) returned an invalid response: \(message)"
+        case .invalidParserJSON(let provider, let message):
+            return "\(provider) returned invalid schedule JSON: \(message)"
+        case .localModelUnavailable(let model):
+            return "Local WhisperKit model \(model) is not downloaded."
+        case .speechRecognitionDenied:
+            return "Speech recognition access is denied."
+        case .speechRecognitionRestricted:
+            return "Speech recognition is restricted on this Mac."
+        case .speechRecognitionUnavailable(let locale):
+            return "Apple Speech recognition is unavailable for \(locale)."
+        case .speechRecognitionFailed(let message):
+            return "Apple Speech recognition failed: \(message)"
+        case .keychainFailed(let message):
+            return "Keychain failed: \(message)"
+        }
+    }
+
+    static func redactedProviderMessage(_ message: String, apiKey: String?) -> String {
+        guard let apiKey, !apiKey.isEmpty else { return message }
+        return message.replacingOccurrences(of: apiKey, with: "[redacted]")
+    }
+
+    static func redactedProviderMessage(_ message: String, secrets: [String]) -> String {
+        secrets.reduce(message) { redacted, secret in
+            let trimmedSecret = secret.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedSecret.isEmpty else { return redacted }
+            return redacted.replacingOccurrences(of: trimmedSecret, with: "[redacted]")
+        }
+    }
+
+    static func redactedProviderError(_ error: Error, secrets: [String]) -> Error {
+        guard let assistantError = error as? AIScheduleAssistantError else {
+            return error
+        }
+
+        switch assistantError {
+        case .providerRequestFailed(let provider, let statusCode, let message):
+            return AIScheduleAssistantError.providerRequestFailed(
+                provider: provider,
+                statusCode: statusCode,
+                message: redactedProviderMessage(message, secrets: secrets)
+            )
+        case .providerResponseInvalid(let provider, let message):
+            return AIScheduleAssistantError.providerResponseInvalid(
+                provider: provider,
+                message: redactedProviderMessage(message, secrets: secrets)
+            )
+        case .invalidParserJSON(let provider, let message):
+            return AIScheduleAssistantError.invalidParserJSON(
+                provider: provider,
+                message: redactedProviderMessage(message, secrets: secrets)
+            )
+        case .recordingFailed(let message):
+            return AIScheduleAssistantError.recordingFailed(
+                redactedProviderMessage(message, secrets: secrets)
+            )
+        case .keychainFailed(let message):
+            return AIScheduleAssistantError.keychainFailed(
+                redactedProviderMessage(message, secrets: secrets)
+            )
+        case .speechRecognitionFailed(let message):
+            return AIScheduleAssistantError.speechRecognitionFailed(
+                redactedProviderMessage(message, secrets: secrets)
+            )
+        default:
+            return assistantError
+        }
+    }
+}

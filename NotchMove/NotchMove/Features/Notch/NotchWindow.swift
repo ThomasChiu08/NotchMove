@@ -8,6 +8,8 @@
 import AppKit
 
 final class NotchWindow: NSPanel {
+    var allowsKeyInteraction = false
+
     init() {
         super.init(
             contentRect: .zero,
@@ -32,6 +34,6 @@ final class NotchWindow: NSPanel {
         ]
     }
 
-    override var canBecomeKey: Bool { false }
+    override var canBecomeKey: Bool { allowsKeyInteraction }
     override var canBecomeMain: Bool { false }
 }
